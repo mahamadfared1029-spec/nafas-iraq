@@ -45,16 +45,16 @@ export const BeforeAfterShowcase: React.FC = () => {
   if (!activeReport) return null;
 
   return (
-    <section className="py-16 bg-white border-b border-nafas-midnight/10">
+    <section className="py-16 bg-nafas-ivory border-b border-nafas-reed/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-nafas-misty/40 border border-nafas-reed/30 text-nafas-blue text-xs font-bold">
+            <ShieldCheck className="w-4 h-4 text-nafas-blue" />
             <span>توثيق حقيقي خاضع للتدقيق الميداني</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black font-arabic text-nafas-midnight">
+          <h2 className="text-3xl sm:text-4xl font-black font-arabic text-nafas-silt">
             {t.beforeAfterTitle}
           </h2>
           <p className="text-base text-nafas-neutral-slate font-arabic">
@@ -74,8 +74,8 @@ export const BeforeAfterShowcase: React.FC = () => {
                 }}
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold font-arabic transition-all ${
                   selectedReportIndex === idx
-                    ? 'bg-nafas-midnight text-nafas-limestone shadow'
-                    : 'bg-nafas-limestone text-nafas-neutral-slate hover:bg-nafas-mist/40'
+                    ? 'bg-nafas-silt text-nafas-limestone shadow'
+                    : 'bg-nafas-sand text-nafas-neutral-slate hover:bg-nafas-misty/40'
                 }`}
               >
                 {rep.neighborhood} ({rep.trackingNumber})
@@ -85,7 +85,7 @@ export const BeforeAfterShowcase: React.FC = () => {
         )}
 
         {/* Interactive Comparison Component */}
-        <div className="bg-nafas-limestone rounded-3xl p-6 sm:p-8 border border-nafas-midnight/10 shadow-lg">
+        <div className="bg-nafas-sand rounded-3xl p-6 sm:p-8 border border-nafas-reed/10 shadow-lg">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             
             {/* Visual Comparison Area */}
@@ -104,7 +104,7 @@ export const BeforeAfterShowcase: React.FC = () => {
                 onMouseLeave={() => setIsDragging(false)}
                 onMouseMove={handleMouseMove}
                 onTouchMove={handleTouchMove}
-                className="relative aspect-[16/10] sm:aspect-[16/9] w-full rounded-2xl overflow-hidden select-none cursor-ew-resize border border-nafas-midnight/10 shadow-inner focus:outline-none focus:ring-4 focus:ring-nafas-clay/30"
+                className="relative aspect-[16/10] sm:aspect-[16/9] w-full rounded-2xl overflow-hidden select-none cursor-ew-resize border border-nafas-reed/10 shadow-inner focus:outline-none focus:ring-4 focus:ring-nafas-blue/30"
               >
                 {/* After Image (Full width background) */}
                 <img
@@ -128,20 +128,20 @@ export const BeforeAfterShowcase: React.FC = () => {
 
                 {/* Draggable Divider Handle */}
                 <div
-                  className="absolute top-0 bottom-0 w-1 bg-white shadow-2xl cursor-ew-resize z-20 flex items-center justify-center"
+                  className="absolute top-0 bottom-0 w-1 bg-nafas-ivory shadow-2xl cursor-ew-resize z-20 flex items-center justify-center"
                   style={{ left: `${sliderPosition}%` }}
                 >
-                  <div className="w-9 h-9 -ml-4 rounded-full bg-nafas-clay text-white shadow-xl flex items-center justify-center border-2 border-white hover:scale-110 transition-transform">
+                  <div className="w-9 h-9 -ml-4 rounded-full bg-nafas-blue text-white shadow-xl flex items-center justify-center border-2 border-white hover:scale-110 transition-transform">
                     <ArrowRightLeft className="w-4 h-4" />
                   </div>
                 </div>
 
                 {/* Overlay Floating Badges */}
-                <div className="absolute top-4 right-4 z-10 bg-nafas-midnight/80 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-lg font-bold font-arabic shadow">
+                <div className="absolute top-4 right-4 z-10 bg-nafas-silt/80 backdrop-blur-md text-nafas-ivory text-xs px-3 py-1.5 rounded-lg font-bold font-arabic shadow">
                   {t.originalCondition}
                 </div>
-                <div className="absolute top-4 left-4 z-10 bg-emerald-900/80 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-lg font-bold font-arabic shadow flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <div className="absolute top-4 left-4 z-10 bg-nafas-blue/90 backdrop-blur-md text-nafas-ivory text-xs px-3 py-1.5 rounded-lg font-bold font-arabic shadow flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-nafas-misty" />
                   <span>{t.verifiedRemediation}</span>
                 </div>
 
@@ -155,33 +155,33 @@ export const BeforeAfterShowcase: React.FC = () => {
             {/* Case Details Narrative */}
             <div className="lg:col-span-4 space-y-5 text-right font-arabic">
               <div className="space-y-1">
-                <span className="text-xs font-mono font-bold text-nafas-clay bg-nafas-clay/10 px-2.5 py-1 rounded-md">
+                <span className="text-xs font-mono font-bold text-nafas-blue bg-nafas-blue/10 px-2.5 py-1 rounded-md">
                   {activeReport.trackingNumber}
                 </span>
-                <h3 className="text-xl font-black text-nafas-midnight mt-2 leading-snug">
+                <h3 className="text-xl font-black text-nafas-silt mt-2 leading-snug">
                   {activeReport.title}
                 </h3>
               </div>
 
               <div className="space-y-3 text-xs text-nafas-neutral-slate">
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-nafas-clay shrink-0" />
+                  <MapPin className="w-4 h-4 text-nafas-blue shrink-0" />
                   <span>{activeReport.neighborhood}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-nafas-dawn shrink-0" />
+                  <Calendar className="w-4 h-4 text-nafas-silt/70y shrink-0" />
                   <span>تاريخ اكتمال المعالجة: {new Date(activeReport.updatedAt).toLocaleDateString('ar-IQ')}</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Users className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <Users className="w-4 h-4 text-nafas-blue shrink-0 mt-0.5" />
                   <span>الجهة المنفذة: {activeReport.assignedEntity}</span>
                 </div>
               </div>
 
               {/* Verified Impact Notes */}
-              <div className="p-4 rounded-xl bg-white border border-nafas-midnight/10 space-y-1.5">
-                <div className="text-xs font-bold text-nafas-midnight flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-nafas-clay" />
+              <div className="p-4 rounded-xl bg-nafas-ivory border border-nafas-reed/10 space-y-1.5">
+                <div className="text-xs font-bold text-nafas-silt flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-nafas-blue" />
                   <span>الأثر الميداني الموثق</span>
                 </div>
                 <p className="text-xs text-nafas-neutral-slate/90 leading-relaxed">
@@ -190,7 +190,7 @@ export const BeforeAfterShowcase: React.FC = () => {
               </div>
 
               {/* Verification Audit Hash */}
-              <div className="text-[11px] text-nafas-neutral-slate/60 font-mono border-t border-nafas-midnight/10 pt-3">
+              <div className="text-[11px] text-nafas-neutral-slate/60 font-mono border-t border-nafas-reed/10 pt-3">
                 اعتماد المنصة: تم تدقيق الصور ومطابقتها جغرافياً بنجاح.
               </div>
 

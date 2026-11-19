@@ -110,27 +110,27 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-midnight/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-silt/70 backdrop-blur-sm flex items-center justify-center p-4">
       <div 
-        className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-nafas-midnight/15 overflow-hidden animate-in fade-in zoom-in-95 text-right font-arabic"
+        className="relative bg-nafas-ivory w-full max-w-2xl rounded-3xl shadow-2xl border border-nafas-reed/15 overflow-hidden animate-in fade-in zoom-in-95 text-right font-arabic"
         role="dialog"
         aria-modal="true"
       >
         {/* Modal Top Header */}
-        <div className="bg-nafas-limestone px-6 py-4 border-b border-nafas-midnight/10 flex items-center justify-between">
+        <div className="bg-nafas-sand px-6 py-4 border-b border-nafas-reed/10 flex items-center justify-between">
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-nafas-mist/50 text-nafas-midnight transition-colors"
+            className="p-1.5 rounded-full hover:bg-nafas-misty/50 text-nafas-silt transition-colors"
             aria-label="إغلاق"
           >
             <X className="w-5 h-5" />
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="font-black text-nafas-midnight text-lg">
+            <span className="font-black text-nafas-silt text-lg">
               {step === 3 ? 'تم تأكيد البلاغ بنجاح' : 'تسجيل بلاغ بيئي ميداني'}
             </span>
-            <AlertTriangle className="w-5 h-5 text-nafas-clay" />
+            <AlertTriangle className="w-5 h-5 text-nafas-blue" />
           </div>
         </div>
 
@@ -139,12 +139,12 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
           {step === 3 ? (
             /* Step 3: Success Screen */
             <div className="space-y-6 text-center py-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              <div className="w-16 h-16 mx-auto rounded-full bg-nafas-misty text-nafas-blue flex items-center justify-center">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-2xl font-black text-nafas-midnight">
+                <h3 className="text-2xl font-black text-nafas-silt">
                   {t.submitSuccessTitle}
                 </h3>
                 <p className="text-sm text-nafas-neutral-slate max-w-md mx-auto">
@@ -153,16 +153,16 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
               </div>
 
               {/* Tracking Code Box */}
-              <div className="bg-nafas-limestone border-2 border-dashed border-nafas-clay/50 rounded-2xl p-5 max-w-sm mx-auto space-y-2">
+              <div className="bg-nafas-sand border-2 border-dashed border-nafas-blue/50 rounded-2xl p-5 max-w-sm mx-auto space-y-2">
                 <span className="text-xs text-nafas-neutral-slate font-bold block">
                   رقم التتبع الميداني الخاص بك:
                 </span>
-                <div className="text-2xl font-mono font-black text-nafas-clay tracking-wider">
+                <div className="text-2xl font-mono font-black text-nafas-blue tracking-wider">
                   {submittedTracking}
                 </div>
                 <button
                   onClick={copyTrackingToClipboard}
-                  className="px-3 py-1.5 rounded-lg bg-nafas-midnight text-white text-xs font-bold flex items-center gap-1.5 mx-auto hover:bg-nafas-midnight/90 transition-colors"
+                  className="px-3 py-1.5 rounded-lg bg-nafas-silt text-nafas-ivory text-xs font-bold flex items-center gap-1.5 mx-auto hover:bg-nafas-silt/90 transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span>{copiedCode ? 'تم النسخ!' : 'نسخ رقم التتبع'}</span>
@@ -178,7 +178,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
 
               <button
                 onClick={onClose}
-                className="w-full max-w-xs py-3 rounded-xl bg-nafas-clay-dark hover:bg-nafas-clay text-white font-bold text-sm shadow transition-colors"
+                className="w-full max-w-xs py-3 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-nafas-ivory font-bold text-sm shadow transition-colors"
               >
                 العودة إلى الخريطة التفاعلية
               </button>
@@ -189,7 +189,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
               
               {/* Category Picker */}
               <div>
-                <label className="block text-xs font-bold text-nafas-midnight mb-2">
+                <label className="block text-xs font-bold text-nafas-silt mb-2">
                   1. نوع المشكلة البيئية المرصودة:
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -200,8 +200,8 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                       onClick={() => handleCategoryChange(catKey as PollutionCategory)}
                       className={`p-2.5 rounded-xl text-xs font-bold text-right border transition-all flex flex-col justify-between ${
                         category === catKey
-                          ? 'border-nafas-clay bg-nafas-clay/10 text-nafas-midnight ring-2 ring-nafas-clay/20'
-                          : 'border-gray-200 hover:border-nafas-midnight/30 text-nafas-neutral-slate'
+                          ? 'border-nafas-blue bg-nafas-blue/10 text-nafas-silt ring-2 ring-nafas-blue/20'
+                          : 'border-nafas-reed/30 hover:border-nafas-reed/30 text-nafas-neutral-slate'
                       }`}
                     >
                       <span>{info.labelAr}</span>
@@ -229,13 +229,13 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
               {/* Governorate and Neighborhood */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-nafas-midnight mb-1">
+                  <label className="block text-xs font-bold text-nafas-silt mb-1">
                     2. المحافظة:
                   </label>
                   <select
                     value={governorateId}
                     onChange={(e) => setGovernorateId(e.target.value)}
-                    className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2.5 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+                    className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2.5 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
                   >
                     {IRAQ_GOVERNORATES.map(gov => (
                       <option key={gov.id} value={gov.id}>{gov.nameAr}</option>
@@ -244,7 +244,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-nafas-midnight mb-1">
+                  <label className="block text-xs font-bold text-nafas-silt mb-1">
                     الحي / الشارع أو المعلم القريب:
                   </label>
                   <input
@@ -253,7 +253,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                     value={neighborhood}
                     onChange={(e) => setNeighborhood(e.target.value)}
                     placeholder="مثال: الكرادة / شارع المسبح"
-                    className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2.5 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+                    className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2.5 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
                   />
                 </div>
               </div>
@@ -261,7 +261,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
               {/* Title & Description */}
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-bold text-nafas-midnight mb-1">
+                  <label className="block text-xs font-bold text-nafas-silt mb-1">
                     عنوان مختصر للمشكلة:
                   </label>
                   <input
@@ -270,12 +270,12 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="مثال: تراكم مخلفات بلاستيكية تعيق مجرى النهر"
-                    className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2.5 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+                    className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2.5 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-nafas-midnight mb-1">
+                  <label className="block text-xs font-bold text-nafas-silt mb-1">
                     تفاصيل إضافية ووصف المشكلة:
                   </label>
                   <textarea
@@ -283,21 +283,21 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                     value={description}
                     onChange={handleDescriptionChange}
                     placeholder="صف حجم التراكم، المخاطر المترتبة، وإذا كان هناك حرق أو روائح منبعثة..."
-                    className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+                    className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
                   />
                 </div>
               </div>
 
               {/* Photo Upload Area */}
               <div>
-                <label className="block text-xs font-bold text-nafas-midnight mb-1">
+                <label className="block text-xs font-bold text-nafas-silt mb-1">
                   صورة ميدانية توثيقية (أقل من 5 ميغابايت):
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-2xl p-4 text-center bg-nafas-limestone/50 flex flex-col items-center justify-center gap-2">
+                <div className="border-2 border-dashed border-nafas-reed/40 rounded-2xl p-4 text-center bg-nafas-sand/50 flex flex-col items-center justify-center gap-2">
                   <img
                     src={imagePreview}
                     alt="معاينة الصورة"
-                    className="w-32 h-20 object-cover rounded-xl border border-gray-200 shadow-sm"
+                    className="w-32 h-20 object-cover rounded-xl border border-nafas-reed/30 shadow-sm"
                   />
                   <span className="text-[11px] text-nafas-neutral-slate">
                     تم تضمين صورة نموذجية أولية للمعاينة (الحد الأقصى 5MB - JPG/PNG/WebP)
@@ -306,7 +306,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
               </div>
 
               {/* Privacy and Anonymous Toggle */}
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+              <div className="p-3 bg-gray-50 rounded-xl border border-nafas-reed/30 flex items-center justify-between">
                 <span className="text-xs text-nafas-neutral-slate font-arabic">
                   {t.anonymousSubmit}
                 </span>
@@ -314,14 +314,14 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                   type="checkbox"
                   checked={isAnonymous}
                   onChange={(e) => setIsAnonymous(e.target.checked)}
-                  className="w-4 h-4 text-nafas-clay rounded border-gray-300 focus:ring-nafas-clay"
+                  className="w-4 h-4 text-nafas-blue rounded border-nafas-reed/40 focus:ring-nafas-blue"
                 />
               </div>
 
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-2xl bg-nafas-clay-dark hover:bg-nafas-clay text-white font-bold text-sm shadow-md hover:shadow-lg transition-all"
+                className="w-full py-3.5 rounded-2xl bg-nafas-blue hover:bg-nafas-blue text-nafas-ivory font-bold text-sm shadow-md hover:shadow-lg transition-all"
               >
                 تأكيد وإرسال البلاغ الميداني
               </button>

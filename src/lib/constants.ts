@@ -665,7 +665,7 @@ export const CATEGORY_INFO: Record<string, { labelAr: string; labelKu: string; l
     labelKu: 'فڕێدانی هەڕەمەکی',
     labelEn: 'Illegal Dumping',
     icon: 'AlertTriangle',
-    color: '#C66F50',
+    color: '#28566E',
     isHazardTrigger: false,
   },
   burning: {
@@ -697,7 +697,7 @@ export const CATEGORY_INFO: Record<string, { labelAr: string; labelKu: string; l
     labelKu: 'زیانگەیاندن بە ژینگە و دار',
     labelEn: 'Flora & Tree Damage',
     icon: 'Trees',
-    color: '#0D9488',
+    color: '#28566E',
     isHazardTrigger: false,
   },
   other: {

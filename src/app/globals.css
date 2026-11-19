@@ -6,18 +6,26 @@
 @tailwind utilities;
 
 :root {
-  --color-midnight: #222238;
-  --color-clay: #C66F50;
-  --color-clay-dark: #A65339;
-  --color-dawn: #AAB7F0;
-  --color-mist: #D6E2E6;
-  --color-limestone: #F7F1E7;
-  --color-neutral-slate: #47465F;
+  --color-sand: #F4EFE5;
+  --color-ivory: #FFFCF5;
+  --color-silt: #302D29;
+  --color-blue: #28566E;
+  --color-blue-dark: #1d4154;
+  --color-misty: #D8E8ED;
+  --color-reed: #C8B68D;
+  
+  /* Compatibility aliases for Mesopotamian Nature palette */
+  --color-limestone: #F4EFE5;
+  --color-midnight: #302D29;
+  --color-clay: #28566E;
+  --color-clay-dark: #1d4154;
+  --color-dawn: #D8E8ED;
+  --color-mist: #C8B68D;
 }
 
 body {
-  background-color: var(--color-limestone);
-  color: var(--color-midnight);
+  background-color: var(--color-sand);
+  color: var(--color-silt);
   font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
@@ -31,16 +39,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #F7F1E7;
+  background: #F4EFE5;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D6E2E6;
+  background: #C8B68D;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #C66F50;
+  background: #28566E;
 }
 
 /* Leaflet Container Styling */
@@ -54,7 +62,7 @@ body {
 
 /* Smooth Focus Ring */
 *:focus-visible {
-  outline: 2px solid #C66F50;
+  outline: 2px solid #28566E;
   outline-offset: 2px;
 }
 

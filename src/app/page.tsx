@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import NafasIntroOverlay from '@/components/intro/NafasIntroOverlay';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Hero } from '@/components/home/Hero';
@@ -45,8 +46,11 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-nafas-limestone text-nafas-midnight">
+    <div className="min-h-screen flex flex-col bg-nafas-sand text-nafas-silt">
       
+      {/* 0. Authentic Mesopotamian Opening Scene (Intro Entry) */}
+      <NafasIntroOverlay />
+
       {/* Top Header */}
       <Header
         activeTab={activeTab}

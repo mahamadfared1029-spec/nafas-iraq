@@ -19,29 +19,29 @@ export const CertificateModal: React.FC<CertModalProps> = ({ certificate, onClos
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-midnight/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-silt/80 backdrop-blur-md flex items-center justify-center p-4">
       <div 
-        className="relative bg-white w-full max-w-3xl rounded-3xl shadow-2xl border-4 border-nafas-clay/40 overflow-hidden animate-in fade-in zoom-in-95 text-center font-arabic"
+        className="relative bg-nafas-ivory w-full max-w-3xl rounded-3xl shadow-2xl border-4 border-nafas-blue/40 overflow-hidden animate-in fade-in zoom-in-95 text-center font-arabic"
         role="dialog"
         aria-modal="true"
       >
         {/* Top Control Bar (Hidden on print) */}
-        <div className="bg-nafas-midnight text-nafas-limestone px-6 py-3 flex items-center justify-between print:hidden">
+        <div className="bg-nafas-silt text-nafas-limestone px-6 py-3 flex items-center justify-between print:hidden">
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-white/10 text-white transition-colors"
+            className="p-1 rounded-full hover:bg-nafas-ivory/10 text-white transition-colors"
             aria-label="إغلاق"
           >
             <X className="w-5 h-5" />
           </button>
           
-          <span className="text-xs font-bold text-nafas-dawn">
+          <span className="text-xs font-bold text-nafas-silt/70y">
             معاينة الشهادة الرقمية المعتمدة
           </span>
 
           <button
             onClick={handlePrint}
-            className="px-3 py-1.5 rounded-lg bg-nafas-clay hover:bg-nafas-clay-dark text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow"
+            className="px-3 py-1.5 rounded-lg bg-nafas-blue hover:bg-nafas-blue text-nafas-ivory text-xs font-bold flex items-center gap-1.5 transition-colors shadow"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>طباعة / حفظ PDF</span>
@@ -49,23 +49,23 @@ export const CertificateModal: React.FC<CertModalProps> = ({ certificate, onClos
         </div>
 
         {/* Certificate Inner Canvas */}
-        <div className="p-8 sm:p-12 bg-gradient-to-b from-[#F7F1E7] via-white to-[#F7F1E7] relative">
+        <div className="p-8 sm:p-12 bg-gradient-to-b from-[#F4EFE5] via-white to-[#F4EFE5] relative">
           
           {/* Ornate Mesopotamian Border */}
-          <div className="absolute inset-4 border-2 border-[#C66F50]/40 rounded-2xl pointer-events-none" />
-          <div className="absolute inset-6 border border-[#222238]/15 rounded-xl pointer-events-none" />
+          <div className="absolute inset-4 border-2 border-[#28566E]/40 rounded-2xl pointer-events-none" />
+          <div className="absolute inset-6 border border-[#302D29]/15 rounded-xl pointer-events-none" />
 
           {/* Mesopotamian Seal Header */}
           <div className="space-y-3 relative z-10">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-nafas-clay/10 border-2 border-nafas-clay text-nafas-clay shadow-md mb-2">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-nafas-blue/10 border-2 border-nafas-blue text-nafas-blue shadow-md mb-2">
               <Award className="w-8 h-8" />
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs font-bold tracking-widest uppercase text-nafas-clay font-latin">
+              <span className="text-xs font-bold tracking-widest uppercase text-nafas-blue font-latin">
                 REPUBLIC OF IRAQ • CIVIC ENVIRONMENTAL RESTORATION
               </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-nafas-midnight">
+              <h2 className="text-2xl sm:text-3xl font-black text-nafas-silt">
                 شهادة خدمة بيئية ومشاركة مجتمعية
               </h2>
               <p className="text-xs text-nafas-neutral-slate font-medium">
@@ -80,50 +80,50 @@ export const CertificateModal: React.FC<CertModalProps> = ({ certificate, onClos
               تُمنح هذه الشهادة المعتمدة تقديراً وتكريماً للمتطوع/ـة:
             </p>
 
-            <div className="text-2xl sm:text-3xl font-black text-nafas-midnight py-2 border-b-2 border-nafas-clay/30 inline-block px-8">
+            <div className="text-2xl sm:text-3xl font-black text-nafas-silt py-2 border-b-2 border-nafas-blue/30 inline-block px-8">
               {certificate.participantName}
             </div>
 
             <p className="text-sm text-nafas-neutral-slate leading-relaxed pt-2">
               لمشاركتهـ/ـا الفاعلة والميدانية الموثقة في:
               <br />
-              <strong className="text-base text-nafas-midnight font-bold">
+              <strong className="text-base text-nafas-silt font-bold">
                 «{certificate.campaignTitle}»
               </strong>
               <br />
               بمحافظة {certificate.governorate}، مساهماً/ـةً في حماية البيئة العراقية بإجمالي:
             </p>
 
-            <div className="inline-flex items-center gap-2 bg-nafas-midnight text-white px-5 py-2 rounded-xl text-sm font-bold shadow">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <div className="inline-flex items-center gap-2 bg-nafas-silt text-white px-5 py-2 rounded-xl text-sm font-bold shadow">
+              <CheckCircle2 className="w-4 h-4 text-nafas-misty" />
               <span>{certificate.hoursAwarded} ساعات تطوعية ميدانية موثّقة</span>
             </div>
           </div>
 
           {/* Signatures & QR Code Section */}
-          <div className="pt-8 border-t border-nafas-midnight/10 grid grid-cols-1 sm:grid-cols-3 gap-6 items-center text-xs text-nafas-neutral-slate relative z-10">
+          <div className="pt-8 border-t border-nafas-reed/10 grid grid-cols-1 sm:grid-cols-3 gap-6 items-center text-xs text-nafas-neutral-slate relative z-10">
             
             {/* Signature 1 */}
             <div className="space-y-1 text-center sm:text-right">
               <span className="text-[11px] text-gray-500 block">توقيع منسق الحملة:</span>
-              <div className="font-bold text-nafas-midnight text-sm">
+              <div className="font-bold text-nafas-silt text-sm">
                 {certificate.organizerSignature}
               </div>
-              <span className="text-[10px] text-nafas-clay font-mono block">منسق بيئي معتمد</span>
+              <span className="text-[10px] text-nafas-blue font-mono block">منسق بيئي معتمد</span>
             </div>
 
             {/* Central Official Digital Seal */}
             <div className="flex flex-col items-center justify-center space-y-1">
-              <div className="w-16 h-16 rounded-full border-2 border-dashed border-nafas-clay flex items-center justify-center bg-nafas-limestone text-nafas-clay shadow-inner">
+              <div className="w-16 h-16 rounded-full border-2 border-dashed border-nafas-blue flex items-center justify-center bg-nafas-sand text-nafas-blue shadow-inner">
                 <ShieldCheck className="w-8 h-8" />
               </div>
-              <span className="text-[10px] font-bold text-nafas-midnight">الختم الرقمي المعتمد</span>
+              <span className="text-[10px] font-bold text-nafas-silt">الختم الرقمي المعتمد</span>
             </div>
 
             {/* QR Code & Verification Reference */}
             <div className="space-y-1 text-center sm:text-left flex flex-col items-center sm:items-end">
               {/* Simulated QR Code SVG */}
-              <div className="w-16 h-16 bg-white p-1 rounded-lg border border-gray-300 shadow-sm flex items-center justify-center">
+              <div className="w-16 h-16 bg-nafas-ivory p-1 rounded-lg border border-nafas-reed/40 shadow-sm flex items-center justify-center">
                 <svg viewBox="0 0 40 40" className="w-full h-full fill-nafas-midnight">
                   <rect x="2" y="2" width="10" height="10" />
                   <rect x="4" y="4" width="6" height="6" fill="white" />
@@ -137,7 +137,7 @@ export const CertificateModal: React.FC<CertModalProps> = ({ certificate, onClos
                   <rect x="28" y="28" width="8" height="8" />
                 </svg>
               </div>
-              <span className="text-[10px] font-mono font-bold text-nafas-clay">
+              <span className="text-[10px] font-mono font-bold text-nafas-blue">
                 {certificate.verificationCode}
               </span>
               <span className="text-[9px] text-gray-500">امسح للتحقق الفوري</span>
@@ -146,7 +146,7 @@ export const CertificateModal: React.FC<CertModalProps> = ({ certificate, onClos
           </div>
 
           {/* Bottom Security Hash */}
-          <div className="mt-8 pt-4 border-t border-gray-200 text-[10px] text-gray-400 font-mono flex items-center justify-between">
+          <div className="mt-8 pt-4 border-t border-nafas-reed/30 text-[10px] text-gray-400 font-mono flex items-center justify-between">
             <span>التوثيق: {certificate.digitalSealHash}</span>
             <span>تاريخ الإصدار: {certificate.issueDate}</span>
           </div>

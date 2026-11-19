@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar-IQ" dir="rtl" className="scroll-smooth">
-      <body className="min-h-screen flex flex-col bg-nafas-limestone text-nafas-midnight">
+      <body className="min-h-screen flex flex-col bg-nafas-sand text-nafas-silt">
         <NafasProvider>
           {children}
         </NafasProvider>

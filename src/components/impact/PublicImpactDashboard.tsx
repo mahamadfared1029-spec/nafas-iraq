@@ -28,17 +28,17 @@ export const PublicImpactDashboard: React.FC = () => {
   const underReviewCount = reports.filter(r => r.status === 'under_review' || r.status === 'submitted').length;
 
   return (
-    <section className="py-16 bg-nafas-limestone border-b border-nafas-midnight/10 font-arabic text-right">
+    <section className="py-16 bg-nafas-sand border-b border-nafas-reed/10 font-arabic text-right">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-nafas-midnight/10 pb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-nafas-reed/10 pb-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-nafas-clay/10 text-nafas-clay-dark text-xs font-bold mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-nafas-blue/10 text-nafas-blue text-xs font-bold mb-2">
               <ShieldCheck className="w-4 h-4" />
               <span>ميثاق الشفافية والبيانات الميدانية الحقيقية</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-black text-nafas-midnight">
+            <h2 className="text-3xl sm:text-4xl font-black text-nafas-silt">
               {t.publicImpactTitle}
             </h2>
             <p className="text-sm text-nafas-neutral-slate mt-1 max-w-2xl">
@@ -48,18 +48,18 @@ export const PublicImpactDashboard: React.FC = () => {
 
           <button
             onClick={() => setShowMethodology(!showMethodology)}
-            className="px-4 py-2 rounded-xl bg-white border border-nafas-midnight/20 hover:border-nafas-midnight text-nafas-midnight text-xs font-bold flex items-center gap-2 shadow-sm transition-colors self-start md:self-auto"
+            className="px-4 py-2 rounded-xl bg-nafas-ivory border border-nafas-reed/20 hover:border-nafas-reed text-nafas-silt text-xs font-bold flex items-center gap-2 shadow-sm transition-colors self-start md:self-auto"
           >
-            <HelpCircle className="w-4 h-4 text-nafas-clay" />
+            <HelpCircle className="w-4 h-4 text-nafas-blue" />
             <span>منهجية احتساب الأرقام والتدقيق</span>
           </button>
         </div>
 
         {/* Methodology Box (Toggleable) */}
         {showMethodology && (
-          <div className="bg-white p-6 rounded-3xl border-2 border-nafas-clay/30 shadow-md space-y-3 animate-in fade-in">
-            <h3 className="text-base font-black text-nafas-midnight flex items-center gap-2">
-              <FileCheck className="w-5 h-5 text-nafas-clay" />
+          <div className="bg-nafas-ivory p-6 rounded-3xl border-2 border-nafas-blue/30 shadow-md space-y-3 animate-in fade-in">
+            <h3 className="text-base font-black text-nafas-silt flex items-center gap-2">
+              <FileCheck className="w-5 h-5 text-nafas-blue" />
               <span>كيف نحتسب بيانات الأثر في نَفَس؟</span>
             </h3>
             <ul className="text-xs text-nafas-neutral-slate space-y-2 list-disc list-inside leading-relaxed">
@@ -79,25 +79,25 @@ export const PublicImpactDashboard: React.FC = () => {
         {/* 4 Hero Counters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           
-          <div className="bg-white p-6 rounded-3xl border border-nafas-midnight/10 shadow-sm space-y-2">
+          <div className="bg-nafas-ivory p-6 rounded-3xl border border-nafas-reed/10 shadow-sm space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-nafas-neutral-slate">المواقع الموثقة والمعالجة</span>
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <CheckCircle2 className="w-5 h-5 text-nafas-blue" />
             </div>
-            <div className="text-4xl font-black font-mono text-nafas-midnight">
+            <div className="text-4xl font-black font-mono text-nafas-silt">
               {impactMetrics.totalResolvedCleanups}
             </div>
-            <div className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+            <div className="text-xs text-nafas-blue font-bold flex items-center gap-1">
               <span>نسبة إنجاز 86% من البلاغات المصادقة</span>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-nafas-midnight/10 shadow-sm space-y-2">
+          <div className="bg-nafas-ivory p-6 rounded-3xl border border-nafas-reed/10 shadow-sm space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-nafas-neutral-slate">شتلات أصلية مغروسة ومحمية</span>
-              <Sprout className="w-5 h-5 text-nafas-clay" />
+              <Sprout className="w-5 h-5 text-nafas-blue" />
             </div>
-            <div className="text-4xl font-black font-mono text-nafas-clay">
+            <div className="text-4xl font-black font-mono text-nafas-blue">
               {impactMetrics.totalTreesPlanted}+
             </div>
             <div className="text-xs text-nafas-neutral-slate">
@@ -105,12 +105,12 @@ export const PublicImpactDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-nafas-midnight/10 shadow-sm space-y-2">
+          <div className="bg-nafas-ivory p-6 rounded-3xl border border-nafas-reed/10 shadow-sm space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-nafas-neutral-slate">ساعات العمل الميداني الموثقة</span>
               <Clock className="w-5 h-5 text-blue-600" />
             </div>
-            <div className="text-4xl font-black font-mono text-nafas-midnight">
+            <div className="text-4xl font-black font-mono text-nafas-silt">
               {impactMetrics.totalVolunteerHours}
             </div>
             <div className="text-xs text-nafas-neutral-slate">
@@ -118,15 +118,15 @@ export const PublicImpactDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-nafas-midnight/10 shadow-sm space-y-2">
+          <div className="bg-nafas-ivory p-6 rounded-3xl border border-nafas-reed/10 shadow-sm space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-nafas-neutral-slate">المتطوعون والمبلغون النشطون</span>
-              <Users className="w-5 h-5 text-nafas-dawn" />
+              <Users className="w-5 h-5 text-nafas-silt/70y" />
             </div>
-            <div className="text-4xl font-black font-mono text-nafas-midnight">
+            <div className="text-4xl font-black font-mono text-nafas-silt">
               {impactMetrics.totalActiveVolunteers.toLocaleString('ar-IQ')}
             </div>
-            <div className="text-xs text-emerald-700 font-bold">
+            <div className="text-xs text-nafas-blue font-bold">
               حسابات موثقة ومشاركات حقيقية
             </div>
           </div>
@@ -134,10 +134,10 @@ export const PublicImpactDashboard: React.FC = () => {
         </div>
 
         {/* Live Lifecycle State Distribution */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-nafas-midnight/10 shadow-sm space-y-5">
+        <div className="bg-nafas-ivory p-6 sm:p-8 rounded-3xl border border-nafas-reed/10 shadow-sm space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-black text-nafas-midnight flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-nafas-clay" />
+            <h3 className="text-lg font-black text-nafas-silt flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-nafas-blue" />
               <span>توزيع البلاغات الميدانية الحالية حسب مراحل المعالجة</span>
             </h3>
             <span className="text-xs font-mono text-nafas-neutral-slate">
@@ -147,7 +147,7 @@ export const PublicImpactDashboard: React.FC = () => {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
             
-            <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
+            <div className="p-4 rounded-2xl bg-gray-50 border border-nafas-reed/30">
               <div className="text-xs text-gray-500 font-bold">قيد المراجعة والتدقيق</div>
               <div className="text-2xl font-black font-mono text-gray-700 mt-1">{underReviewCount}</div>
               <div className="text-[11px] text-gray-400 mt-1">تنسيق أولي مع البلديات</div>
@@ -165,15 +165,15 @@ export const PublicImpactDashboard: React.FC = () => {
               <div className="text-[11px] text-amber-600 mt-1">حملات تنظيف جارية</div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
-              <div className="text-xs text-emerald-700 font-bold">معالجة مكتملة بالدليل</div>
-              <div className="text-2xl font-black font-mono text-emerald-900 mt-1">{resolvedCount}</div>
-              <div className="text-[11px] text-emerald-600 mt-1">صور قبل وبعد موثقة</div>
+            <div className="p-4 rounded-2xl bg-nafas-misty/40 border border-nafas-reed/30">
+              <div className="text-xs text-nafas-blue font-bold">معالجة مكتملة بالدليل</div>
+              <div className="text-2xl font-black font-mono text-nafas-silt mt-1">{resolvedCount}</div>
+              <div className="text-[11px] text-nafas-blue mt-1">صور قبل وبعد موثقة</div>
             </div>
 
           </div>
 
-          <div className="pt-3 text-[11px] text-nafas-neutral-slate/70 border-t border-gray-100 flex items-center justify-between">
+          <div className="pt-3 text-[11px] text-nafas-neutral-slate/70 border-t border-nafas-reed/20 flex items-center justify-between">
             <span>{t.transparencyPledge}</span>
             <span className="font-mono">تحديث لحظي: {new Date().toLocaleTimeString('ar-IQ')}</span>
           </div>

@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 import { 
   IRAQ_GOVERNORATES, 
   CATEGORY_INFO, 
@@ -12,8 +14,8 @@ import { EnvironmentalReport, ReportAuditLog, ReportStatus } from '../src/types'
 
 describe('NAFAS — The Breath of Mesopotamia: Master Test Suite', () => {
 
-  // Test Suite 1: Brand & Geographic Integrity
-  describe('1. Brand & Geographic Foundations', () => {
+  // Test Suite 1: Brand, Intro & Mesopotamian Color Palette
+  describe('1. Brand & Mesopotamian Nature Color Palette', () => {
     it('should contain all 18 official Iraqi governorates with valid coordinates and trilingual names', () => {
       expect(IRAQ_GOVERNORATES).toHaveLength(18);
       
@@ -37,26 +39,25 @@ describe('NAFAS — The Breath of Mesopotamia: Master Test Suite', () => {
       });
     });
 
-    it('should strictly avoid generic green brand colors and enforce Mesopotamian Palette', () => {
-      const brandColors = {
-        midnight: '#222238',
-        clay: '#C66F50',
-        clayDark: '#A65339',
-        dawn: '#AAB7F0',
-        mist: '#D6E2E6',
-        limestone: '#F7F1E7',
-        neutralSlate: '#47465F'
+    it('should strictly enforce the new post-intro Mesopotamian Nature Palette', () => {
+      const mesopotamianPalette = {
+        sand: '#F4EFE5',        // رمل فاتح - Page background
+        ivory: '#FFFCF5',       // عاجي - Card surfaces & input fields
+        silt: '#302D29',        // طمي داكن - Headings & primary text
+        blue: '#28566E',        // أزرق الرافدين - Primary buttons, links, active navigation
+        misty: '#D8E8ED',       // أزرق ضبابي - Selected filters & info alerts
+        reed: '#C8B68D',        // قصب جاف - Dividers & subtle decorative details
       };
 
-      // Ensure signature colors are exact
-      expect(brandColors.clay).toBe('#C66F50');
-      expect(brandColors.midnight).toBe('#222238');
-      expect(brandColors.limestone).toBe('#F7F1E7');
-      expect(brandColors.clayDark).toBe('#A65339');
+      expect(mesopotamianPalette.sand).toBe('#F4EFE5');
+      expect(mesopotamianPalette.ivory).toBe('#FFFCF5');
+      expect(mesopotamianPalette.silt).toBe('#302D29');
+      expect(mesopotamianPalette.blue).toBe('#28566E');
+      expect(mesopotamianPalette.misty).toBe('#D8E8ED');
+      expect(mesopotamianPalette.reed).toBe('#C8B68D');
     });
 
-    it('should ensure Clay Dark (#A65339) meets WCAG AA contrast (>= 4.5:1) against white', () => {
-      // Relative luminance calculation for #A65339 and #FFFFFF
+    it('should ensure Mesopotamian Blue (#28566E) with Ivory (#FFFCF5) text meets WCAG AAA contrast (>= 7:1)', () => {
       const hexToRgb = (hex: string) => {
         const num = parseInt(hex.replace('#', ''), 16);
         return [num >> 16, (num >> 8) & 255, num & 255];
@@ -70,12 +71,46 @@ describe('NAFAS — The Breath of Mesopotamia: Master Test Suite', () => {
         return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
       };
 
-      const [r1, g1, b1] = hexToRgb('#A65339');
+      const [r1, g1, b1] = hexToRgb('#28566E'); // Blue button
+      const [r2, g2, b2] = hexToRgb('#FFFCF5'); // Ivory text
       const lum1 = getLuminance(r1, g1, b1);
-      const lum2 = getLuminance(255, 255, 255); // White
+      const lum2 = getLuminance(r2, g2, b2);
 
       const contrastRatio = (Math.max(lum1, lum2) + 0.05) / (Math.min(lum1, lum2) + 0.05);
-      expect(contrastRatio).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio).toBeGreaterThanOrEqual(7.0); // WCAG AAA
+    });
+
+    it('should verify Dark Silt (#302D29) on Light Sand (#F4EFE5) meets WCAG AAA contrast', () => {
+      const hexToRgb = (hex: string) => {
+        const num = parseInt(hex.replace('#', ''), 16);
+        return [num >> 16, (num >> 8) & 255, num & 255];
+      };
+
+      const getLuminance = (r: number, g: number, b: number) => {
+        const a = [r, g, b].map(v => {
+          v /= 255;
+          return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        });
+        return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+      };
+
+      const [r1, g1, b1] = hexToRgb('#302D29');
+      const [r2, g2, b2] = hexToRgb('#F4EFE5');
+      const lum1 = getLuminance(r1, g1, b1);
+      const lum2 = getLuminance(r2, g2, b2);
+
+      const contrastRatio = (Math.max(lum1, lum2) + 0.05) / (Math.min(lum1, lum2) + 0.05);
+      expect(contrastRatio).toBeGreaterThanOrEqual(7.0);
+    });
+
+    it('should verify intro file is deployed to public/ directory with skip button and cuneiform', () => {
+      const introPath = path.resolve(__dirname, '../public/intro.html');
+      expect(fs.existsSync(introPath)).toBe(true);
+      const content = fs.readFileSync(introPath, 'utf-8');
+      expect(content).toContain('نَفَس');
+      expect(content).toContain('NAFAS');
+      expect(content).toContain('تخطّي إلى الموقع');
+      expect(content).toContain('prefers-reduced-motion');
     });
   });
 
@@ -118,12 +153,9 @@ describe('NAFAS — The Breath of Mesopotamia: Master Test Suite', () => {
       expect(initialReport.auditLogs.length).toBeGreaterThanOrEqual(3);
 
       const logs = initialReport.auditLogs;
-      // First log must be submitted
       expect(logs[0].newStatus).toBe('submitted');
-      // Subsequent logs show progress
       const hasVerifiedOrProgress = logs.some(l => l.newStatus === 'verified' || l.newStatus === 'in_progress');
       expect(hasVerifiedOrProgress).toBe(true);
-      // Final state in seed resolved
       expect(logs[logs.length - 1].newStatus).toBe('resolved');
     });
 
@@ -134,7 +166,6 @@ describe('NAFAS — The Breath of Mesopotamia: Master Test Suite', () => {
         imageAfterUrl: undefined
       };
 
-      // A report cannot be declared resolved without verification evidence
       const canResolve = Boolean(sampleReport.imageAfterUrl && sampleReport.status === 'resolved');
       expect(canResolve).toBe(false);
     });
@@ -176,9 +207,7 @@ describe('NAFAS — The Breath of Mesopotamia: Master Test Suite', () => {
       const registeredOnly = false;
       const verifiedAttendance = true;
 
-      // Registration alone awards no heavy cleanup points
       if (registeredOnly) volunteerPoints += 0;
-      // Verified attendance awards 100 points
       if (verifiedAttendance) volunteerPoints += 100;
 
       expect(volunteerPoints).toBe(200);

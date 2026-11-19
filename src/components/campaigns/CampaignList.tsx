@@ -72,17 +72,17 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
   };
 
   return (
-    <section className="py-12 bg-white border-b border-nafas-midnight/10 font-arabic text-right">
+    <section className="py-12 bg-nafas-ivory border-b border-nafas-reed/10 font-arabic text-right">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold text-nafas-clay">
+            <div className="flex items-center gap-2 text-xs font-bold text-nafas-blue">
               <Users className="w-4 h-4" />
               <span>العمل الميداني الجماعي</span>
             </div>
-            <h2 className="text-3xl font-black text-nafas-midnight mt-1">
+            <h2 className="text-3xl font-black text-nafas-silt mt-1">
               {t.campaignsNav}
             </h2>
             <p className="text-sm text-nafas-neutral-slate">
@@ -98,7 +98,7 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
             <select
               value={selectedGovId}
               onChange={(e) => setSelectedGovId(e.target.value)}
-              className="text-xs bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+              className="text-xs bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
             >
               <option value="all">كل المحافظات</option>
               {IRAQ_GOVERNORATES.map(gov => (
@@ -118,20 +118,20 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
             return (
               <div
                 key={campaign.id}
-                className="bg-nafas-limestone rounded-3xl p-6 border border-nafas-midnight/10 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                className="bg-nafas-sand rounded-3xl p-6 border border-nafas-reed/10 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
               >
                 <div className="space-y-4">
                   
                   {/* Governorate and Target pill */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold bg-white text-nafas-midnight px-3 py-1 rounded-full border border-nafas-midnight/10 flex items-center gap-1.5 shadow-sm">
-                      <MapPin className="w-3.5 h-3.5 text-nafas-clay" />
+                    <span className="text-xs font-bold bg-nafas-ivory text-nafas-silt px-3 py-1 rounded-full border border-nafas-reed/10 flex items-center gap-1.5 shadow-sm">
+                      <MapPin className="w-3.5 h-3.5 text-nafas-blue" />
                       <span>{govName}</span>
                     </span>
                     
                     {campaign.targetTrees > 0 && (
-                      <span className="text-xs font-mono font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <Sprout className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-xs font-mono font-bold bg-nafas-misty text-nafas-blue px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <Sprout className="w-3.5 h-3.5 text-nafas-blue" />
                         <span>{campaign.targetTrees} شتلة</span>
                       </span>
                     )}
@@ -139,7 +139,7 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
 
                   {/* Title and Description */}
                   <div>
-                    <h3 className="text-lg font-black text-nafas-midnight leading-snug">
+                    <h3 className="text-lg font-black text-nafas-silt leading-snug">
                       {campaign.titleAr}
                     </h3>
                     <p className="text-xs text-nafas-neutral-slate mt-2 line-clamp-2 leading-relaxed">
@@ -148,24 +148,24 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                   </div>
 
                   {/* Metadata List */}
-                  <div className="space-y-2 text-xs text-nafas-neutral-slate border-t border-b border-nafas-midnight/10 py-3">
+                  <div className="space-y-2 text-xs text-nafas-neutral-slate border-t border-b border-nafas-reed/10 py-3">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-nafas-clay" />
+                        <Calendar className="w-3.5 h-3.5 text-nafas-blue" />
                         <span>{campaign.date} ({campaign.startTime})</span>
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-nafas-dawn" />
+                        <Clock className="w-3.5 h-3.5 text-nafas-silt/70y" />
                         <span>{campaign.durationHours} ساعات</span>
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-nafas-midnight font-medium">
+                    <div className="text-[11px] text-nafas-silt font-medium">
                       📍 {campaign.meetingArea}
                     </div>
 
-                    <div className="text-[11px] text-emerald-800 flex items-center gap-1 font-semibold">
-                      <Award className="w-3.5 h-3.5 text-emerald-600" />
+                    <div className="text-[11px] text-nafas-blue flex items-center gap-1 font-semibold">
+                      <Award className="w-3.5 h-3.5 text-nafas-blue" />
                       <span>شهادة مشاركة رقمية معتمدة برمز QR</span>
                     </div>
                   </div>
@@ -173,16 +173,16 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                   {/* Capacity Progress Bar */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-nafas-midnight">
+                      <span className="font-bold text-nafas-silt">
                         المسجلون: {campaign.registeredCount} من أصل {campaign.volunteerCapacity}
                       </span>
-                      <span className={`font-bold ${isFull ? 'text-red-600' : 'text-emerald-700'}`}>
+                      <span className={`font-bold ${isFull ? 'text-red-600' : 'text-nafas-blue'}`}>
                         {isFull ? 'اكتملت المقاعد' : `${spotsLeft} مقاعد متبقية`}
                       </span>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-white overflow-hidden border border-nafas-midnight/10">
+                    <div className="w-full h-2 rounded-full bg-nafas-ivory overflow-hidden border border-nafas-reed/10">
                       <div
-                        className="h-full bg-nafas-clay rounded-full transition-all duration-500"
+                        className="h-full bg-nafas-blue rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(100, (campaign.registeredCount / campaign.volunteerCapacity) * 100)}%` }}
                       />
                     </div>
@@ -198,7 +198,7 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                     className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow transition-all ${
                       isFull
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-nafas-clay-dark hover:bg-nafas-clay text-white active:scale-95'
+                        : 'bg-nafas-blue hover:bg-nafas-blue text-white active:scale-95'
                     }`}
                   >
                     <UserPlus className="w-4 h-4" />
@@ -209,9 +209,9 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                   {isOrganizerOrAdmin && (
                     <button
                       onClick={() => setOrganizerActionCampaign(campaign)}
-                      className="w-full py-2 rounded-xl text-xs font-bold border border-nafas-midnight text-nafas-midnight hover:bg-white flex items-center justify-center gap-1.5 transition-colors"
+                      className="w-full py-2 rounded-xl text-xs font-bold border border-nafas-reed text-nafas-silt hover:bg-nafas-ivory flex items-center justify-center gap-1.5 transition-colors"
                     >
-                      <CheckSquare className="w-3.5 h-3.5 text-nafas-clay" />
+                      <CheckSquare className="w-3.5 h-3.5 text-nafas-blue" />
                       <span>تسجيل حضور المتطوعين وإصدار الشهادات (المنظم)</span>
                     </button>
                   )}
@@ -226,34 +226,34 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
 
       {/* Volunteer Registration Modal */}
       {registerModalCampaign && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-midnight/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-nafas-midnight/15 space-y-5 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-silt/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-nafas-ivory w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-nafas-reed/15 space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-nafas-reed/20 pb-3">
               <button onClick={() => setRegisterModalCampaign(null)} className="p-1 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-nafas-midnight" />
+                <X className="w-5 h-5 text-nafas-silt" />
               </button>
-              <h3 className="text-lg font-black text-nafas-midnight">
+              <h3 className="text-lg font-black text-nafas-silt">
                 تأكيد التسجيل في حملة التطوع
               </h3>
             </div>
 
             {regSuccessMessage ? (
               <div className="p-6 text-center space-y-3">
-                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                <h4 className="text-xl font-bold text-nafas-midnight">{t.registeredSuccess}</h4>
+                <CheckCircle2 className="w-12 h-12 text-nafas-blue mx-auto" />
+                <h4 className="text-xl font-bold text-nafas-silt">{t.registeredSuccess}</h4>
                 <p className="text-xs text-nafas-neutral-slate">
                   تم حجز مقعدك بنجاح. أُضيفت الحملة إلى جواز نَفَس الخاص بك.
                 </p>
               </div>
             ) : (
               <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                <div className="p-3 bg-nafas-limestone rounded-xl text-xs space-y-1">
-                  <div className="font-bold text-nafas-midnight">{registerModalCampaign.titleAr}</div>
+                <div className="p-3 bg-nafas-sand rounded-xl text-xs space-y-1">
+                  <div className="font-bold text-nafas-silt">{registerModalCampaign.titleAr}</div>
                   <div className="text-nafas-neutral-slate">الموعد: {registerModalCampaign.date} في {registerModalCampaign.meetingArea}</div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-nafas-midnight mb-1">
+                  <label className="block text-xs font-bold text-nafas-silt mb-1">
                     اسم المتطوع الكامل (لإصدار الشهادة):
                   </label>
                   <input
@@ -261,17 +261,17 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                     required
                     value={volunteerName}
                     onChange={(e) => setVolunteerName(e.target.value)}
-                    className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2.5 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+                    className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2.5 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
                   />
                 </div>
 
-                <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs text-nafas-neutral-slate leading-relaxed">
+                <div className="p-3 rounded-xl bg-gray-50 border border-nafas-reed/30 text-xs text-nafas-neutral-slate leading-relaxed">
                   🛡️ <strong>حماية الخصوصية:</strong> رقم هاتفك وبياناتك الشخصية مشفرة ولا تظهر للعامة. يتم تزويد منسق الحملة فقط بقائمة الأسماء للتحقق عند نقطة التجمع.
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-nafas-clay-dark hover:bg-nafas-clay text-white font-bold text-sm shadow"
+                  className="w-full py-3 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-nafas-ivory font-bold text-sm shadow"
                 >
                   تأكيد المشاركة والانضمام للحملة
                 </button>
@@ -283,24 +283,24 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
 
       {/* Organizer Attendance & Certificate Modal */}
       {organizerActionCampaign && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-midnight/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-nafas-midnight/15 space-y-5 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-silt/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-nafas-ivory w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-nafas-reed/15 space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-nafas-reed/20 pb-3">
               <button onClick={() => { setOrganizerActionCampaign(null); setIssuedCertFeedback(null); }} className="p-1 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-nafas-midnight" />
+                <X className="w-5 h-5 text-nafas-silt" />
               </button>
-              <h3 className="text-lg font-black text-nafas-midnight">
+              <h3 className="text-lg font-black text-nafas-silt">
                 لوحة المنظم: تأكيد الحضور وإصدار الشهادة
               </h3>
             </div>
 
             {issuedCertFeedback ? (
               <div className="p-6 text-center space-y-4">
-                <Award className="w-12 h-12 text-nafas-clay mx-auto" />
-                <h4 className="text-xl font-bold text-nafas-midnight">
+                <Award className="w-12 h-12 text-nafas-blue mx-auto" />
+                <h4 className="text-xl font-bold text-nafas-silt">
                   تم إصدار الشهادة الرسمية وتوثيق الساعات!
                 </h4>
-                <div className="bg-nafas-limestone p-3 rounded-xl text-xs font-mono font-bold text-nafas-clay">
+                <div className="bg-nafas-sand p-3 rounded-xl text-xs font-mono font-bold text-nafas-blue">
                   رمز التحقق: {issuedCertFeedback.verificationCode}
                 </div>
                 <button
@@ -309,7 +309,7 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                     setOrganizerActionCampaign(null);
                     setIssuedCertFeedback(null);
                   }}
-                  className="w-full py-2.5 rounded-xl bg-nafas-midnight text-white text-xs font-bold"
+                  className="w-full py-2.5 rounded-xl bg-nafas-silt text-nafas-ivory text-xs font-bold"
                 >
                   معاينة الشهادة الرقمية المعتمدة
                 </button>
@@ -321,7 +321,7 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-nafas-midnight mb-1">
+                  <label className="block text-xs font-bold text-nafas-silt mb-1">
                     اسم المتطوع الحاضر:
                   </label>
                   <input
@@ -329,12 +329,12 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                     required
                     value={attendeeNameInput}
                     onChange={(e) => setAttendeeNameInput(e.target.value)}
-                    className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2 text-nafas-midnight"
+                    className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2 text-nafas-silt"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-nafas-midnight mb-1">
+                  <label className="block text-xs font-bold text-nafas-silt mb-1">
                     ساعات التطوع الموثقة فعلياً:
                   </label>
                   <input
@@ -344,13 +344,13 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                     max="10"
                     value={hoursInput}
                     onChange={(e) => setHoursInput(parseFloat(e.target.value) || 3.5)}
-                    className="w-full text-xs font-mono bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2 text-nafas-midnight"
+                    className="w-full text-xs font-mono bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2 text-nafas-silt"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow"
+                  className="w-full py-3 rounded-xl bg-nafas-blue hover:bg-nafas-blue-dark text-nafas-ivory font-bold text-sm shadow"
                 >
                   تثبيت الحضور وإصدار الشهادة برمز QR
                 </button>

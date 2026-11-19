@@ -172,8 +172,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             width: 34px;
             height: 34px;
             border-radius: 50%;
-            background-color: ${isResolved ? '#15803D' : catInfo.color};
-            border: 3px solid #F7F1E7;
+            background-color: ${isResolved ? '#28566E' : catInfo.color};
+            border: 3px solid #F4EFE5;
             box-shadow: 0 4px 12px rgba(34, 34, 56, 0.35);
             cursor: pointer;
             transition: transform 0.2s;
@@ -205,10 +205,10 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       // Popup Content
       const popupHtml = `
         <div style="font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif; text-align: right; direction: rtl; width: 220px; padding: 4px;">
-          <div style="font-size: 10px; font-weight: bold; color: #C66F50; margin-bottom: 2px;">
+          <div style="font-size: 10px; font-weight: bold; color: #28566E; margin-bottom: 2px;">
             ${report.trackingNumber}
           </div>
-          <div style="font-size: 13px; font-weight: 800; color: #222238; line-height: 1.3; margin-bottom: 6px;">
+          <div style="font-size: 13px; font-weight: 800; color: #302D29; line-height: 1.3; margin-bottom: 6px;">
             ${report.title}
           </div>
           <div style="font-size: 11px; color: #47465F; margin-bottom: 8px;">
@@ -229,8 +229,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           <button id="view-report-${report.id}" style="
             width: 100%; 
             padding: 6px; 
-            background-color: #222238; 
-            color: #F7F1E7; 
+            background-color: #302D29; 
+            color: #F4EFE5; 
             font-size: 11px; 
             font-weight: bold; 
             border: none; 
@@ -256,17 +256,17 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   };
 
   return (
-    <section className="py-12 bg-nafas-limestone border-b border-nafas-midnight/10">
+    <section className="py-12 bg-nafas-sand border-b border-nafas-reed/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
         {/* Top Header & Filter Controls */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold text-nafas-clay">
+            <div className="flex items-center gap-2 text-xs font-bold text-nafas-blue">
               <MapPin className="w-4 h-4" />
               <span>المنظومة الجغرافية البيئية لبلاد الرافدين</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black font-arabic text-nafas-midnight mt-1">
+            <h2 className="text-2xl sm:text-3xl font-black font-arabic text-nafas-silt mt-1">
               {t.mapNav}
             </h2>
             <p className="text-xs sm:text-sm text-nafas-neutral-slate font-arabic">
@@ -276,11 +276,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
           {/* View Mode Toggle & Add Pin CTA */}
           <div className="flex items-center gap-3">
-            <div className="bg-white p-1 rounded-xl border border-nafas-midnight/10 flex items-center shadow-sm">
+            <div className="bg-nafas-ivory p-1 rounded-xl border border-nafas-reed/10 flex items-center shadow-sm">
               <button
                 onClick={() => setViewMode('map')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold font-arabic flex items-center gap-1.5 transition-colors ${
-                  viewMode === 'map' ? 'bg-nafas-midnight text-nafas-limestone' : 'text-nafas-neutral-slate hover:text-nafas-midnight'
+                  viewMode === 'map' ? 'bg-nafas-silt text-nafas-limestone' : 'text-nafas-neutral-slate hover:text-nafas-silt'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -289,7 +289,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
               <button
                 onClick={() => setViewMode('list')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold font-arabic flex items-center gap-1.5 transition-colors ${
-                  viewMode === 'list' ? 'bg-nafas-midnight text-nafas-limestone' : 'text-nafas-neutral-slate hover:text-nafas-midnight'
+                  viewMode === 'list' ? 'bg-nafas-silt text-nafas-limestone' : 'text-nafas-neutral-slate hover:text-nafas-silt'
                 }`}
               >
                 <List className="w-3.5 h-3.5" />
@@ -303,7 +303,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                   onOpenReportModalWithCoords(33.3152, 44.3661, 'baghdad');
                 }
               }}
-              className="px-4 py-2 rounded-xl bg-nafas-clay-dark hover:bg-nafas-clay text-white text-xs font-bold font-arabic flex items-center gap-1.5 shadow"
+              className="px-4 py-2 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-nafas-ivory text-xs font-bold font-arabic flex items-center gap-1.5 shadow"
             >
               <PlusCircle className="w-4 h-4" />
               <span>إبلاغ من إحداثيات جديدة</span>
@@ -312,7 +312,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         </div>
 
         {/* Filter Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-nafas-midnight/10 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-nafas-ivory p-4 rounded-2xl border border-nafas-reed/10 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           
           {/* Governorate Dropdown */}
           <div>
@@ -322,7 +322,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             <select
               value={selectedGovernorateId}
               onChange={(e) => setSelectedGovernorateId(e.target.value)}
-              className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+              className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
             >
               <option value="all">{t.allGovernorates}</option>
               {IRAQ_GOVERNORATES.map(gov => (
@@ -341,7 +341,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+              className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
             >
               <option value="all">{t.allCategories}</option>
               {Object.entries(CATEGORY_INFO).map(([key, info]) => (
@@ -360,7 +360,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+              className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
             >
               <option value="all">{t.allStatuses}</option>
               <option value="submitted">{t.statusSubmitted}</option>
@@ -381,7 +381,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="ابحث بالحي أو رقم التتبع..."
-              className="w-full text-xs font-arabic bg-nafas-limestone border border-nafas-midnight/15 rounded-xl px-3 py-2 text-nafas-midnight focus:outline-none focus:ring-2 focus:ring-nafas-clay"
+              className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
             />
           </div>
 
@@ -389,22 +389,22 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
         {/* View Content: Map View or List View */}
         {viewMode === 'map' ? (
-          <div className="relative rounded-3xl overflow-hidden border-2 border-nafas-midnight/15 shadow-xl bg-nafas-limestone">
+          <div className="relative rounded-3xl overflow-hidden border-2 border-nafas-reed/15 shadow-xl bg-nafas-sand">
             
             {/* Leaflet Map Canvas */}
             <div
               ref={mapContainerRef}
               className="h-[520px] sm:h-[600px] w-full z-10"
-              style={{ background: '#F7F1E7' }}
+              style={{ background: '#F4EFE5' }}
             />
 
             {/* Map Legend Overlay */}
-            <div className="absolute bottom-4 right-4 z-20 bg-white/95 backdrop-blur-md p-3 rounded-2xl border border-nafas-midnight/10 shadow-lg text-xs font-arabic space-y-1.5 max-w-[200px]">
-              <div className="font-bold text-nafas-midnight border-b border-gray-100 pb-1">
+            <div className="absolute bottom-4 right-4 z-20 bg-nafas-ivory/95 backdrop-blur-md p-3 rounded-2xl border border-nafas-reed/10 shadow-lg text-xs font-arabic space-y-1.5 max-w-[200px]">
+              <div className="font-bold text-nafas-silt border-b border-nafas-reed/20 pb-1">
                 دليل الرموز على الخريطة:
               </div>
               <div className="flex items-center gap-2 text-[11px]">
-                <span className="w-3 h-3 rounded-full bg-emerald-600 shrink-0"></span>
+                <span className="w-3 h-3 rounded-full bg-nafas-blue shrink-0"></span>
                 <span>تمت المعالجة بنجاح</span>
               </div>
               <div className="flex items-center gap-2 text-[11px]">
@@ -422,7 +422,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             </div>
 
             {/* Hint bar */}
-            <div className="absolute top-4 inset-x-0 mx-auto w-max z-20 bg-nafas-midnight/80 backdrop-blur-md text-nafas-limestone px-4 py-1.5 rounded-full text-xs font-arabic pointer-events-none shadow">
+            <div className="absolute top-4 inset-x-0 mx-auto w-max z-20 bg-nafas-silt/80 backdrop-blur-md text-nafas-limestone px-4 py-1.5 rounded-full text-xs font-arabic pointer-events-none shadow">
               💡 انقر على أي نقطة في الخريطة لتسجيل بلاغ بيئي فوري في ذلك الموقع
             </div>
 
@@ -438,19 +438,19 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                 <div
                   key={report.id}
                   onClick={() => onSelectReport(report)}
-                  className="bg-white rounded-2xl p-5 border border-nafas-midnight/10 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between text-right font-arabic group"
+                  className="bg-nafas-ivory rounded-2xl p-5 border border-nafas-reed/10 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between text-right font-arabic group"
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold text-nafas-clay bg-nafas-clay/10 px-2 py-0.5 rounded">
+                      <span className="text-xs font-mono font-bold text-nafas-blue bg-nafas-blue/10 px-2 py-0.5 rounded">
                         {report.trackingNumber}
                       </span>
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${isResolved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${isResolved ? 'bg-nafas-misty text-nafas-blue' : 'bg-amber-100 text-amber-800'}`}>
                         {isResolved ? t.statusResolved : t.statusInProgress}
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-nafas-midnight text-sm group-hover:text-nafas-clay transition-colors leading-snug">
+                    <h3 className="font-bold text-nafas-silt text-sm group-hover:text-nafas-blue transition-colors leading-snug">
                       {report.title}
                     </h3>
 
@@ -459,9 +459,9 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                     </p>
                   </div>
 
-                  <div className="pt-4 mt-3 border-t border-gray-100 flex items-center justify-between text-xs text-nafas-neutral-slate">
+                  <div className="pt-4 mt-3 border-t border-nafas-reed/20 flex items-center justify-between text-xs text-nafas-neutral-slate">
                     <span>📍 {report.neighborhood}</span>
-                    <button className="text-nafas-clay font-bold text-xs flex items-center gap-1 group-hover:underline">
+                    <button className="text-nafas-blue font-bold text-xs flex items-center gap-1 group-hover:underline">
                       <span>التفاصيل</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </button>

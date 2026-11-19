@@ -10,23 +10,33 @@ module.exports = {
     extend: {
       colors: {
         nafas: {
-          midnight: "#222238",
-          clay: "#C66F50",
-          "clay-dark": "#A65339",
-          "clay-light": "#DF8C6E",
-          dawn: "#AAB7F0",
-          mist: "#D6E2E6",
-          limestone: "#F7F1E7",
-          "neutral-slate": "#47465F",
-          sand: "#EAE0D0",
-          terracotta: "#B2583B",
+          // The 5 core Mesopotamian nature tokens requested:
+          sand: "#F4EFE5",        // رمل فاتح - Page background
+          ivory: "#FFFCF5",       // عاجي - Card surfaces & input fields
+          silt: "#302D29",        // طمي داكن - Headings & primary text
+          blue: "#28566E",        // أزرق الرافدين - Primary buttons, links, active navigation
+          "blue-dark": "#1d4154",  // Deep blue hover
+          "blue-light": "#366e8c", // Lighter blue accent
+          misty: "#D8E8ED",       // أزرق ضبابي - Selected filter pills & informational alerts
+          reed: "#C8B68D",        // قصب جاف - Dividers & subtle decorative details
+          "reed-light": "#e4dac0",
+          "reed-dark": "#aa9568",
+          // Safety aliases so any legacy references seamlessly adapt:
+          limestone: "#F4EFE5",
+          midnight: "#302D29",
+          clay: "#28566E",
+          "clay-dark": "#1d4154",
+          "clay-light": "#D8E8ED",
+          dawn: "#D8E8ED",
+          mist: "#C8B68D",
+          "neutral-slate": "#4c4842",
         },
         status: {
           submitted: "#5E607A",
-          review: "#D97706",
-          verified: "#0D9488",
+          review: "#B45309",
+          verified: "#28566E",    // Mesopotamian Blue for verified
           progress: "#2563EB",
-          resolved: "#15803D",
+          resolved: "#28566E",    // Mesopotamian Blue for resolved (no green)
           rejected: "#DC2626",
           duplicate: "#6B7280",
         },

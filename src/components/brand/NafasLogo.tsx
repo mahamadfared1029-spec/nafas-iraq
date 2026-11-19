@@ -24,8 +24,8 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
 
   const { icon: iconSize, text: textSize, subtext: subtextSize } = sizeMap[size];
 
-  // Distinctive Breath & Flow Symbol
-  // Represents the continuous flow of air across Mesopotamia, shaped like the undulating letterforms of 'نَفَس'
+  // Mesopotamian Nature Breath & Flow Symbol
+  // Represents air and river currents (Tigris and Euphrates) flowing through the reed marshes
   const LogoIcon = (
     <svg
       width={iconSize}
@@ -38,18 +38,18 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
       aria-label="شعار نَفَس — نبض بلاد الرافدين"
     >
       <defs>
-        {/* Clay to Dawn gradient representing the Iraqi sunrise over the rivers */}
+        {/* Mesopotamian Blue to Misty Blue gradient */}
         <linearGradient id="nafasBreathGrad" x1="10" y1="90" x2="90" y2="10" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#C66F50" />
-          <stop offset="50%" stopColor="#A65339" />
-          <stop offset="100%" stopColor="#AAB7F0" />
+          <stop offset="0%" stopColor="#28566E" />
+          <stop offset="50%" stopColor="#366E8C" />
+          <stop offset="100%" stopColor="#D8E8ED" />
         </linearGradient>
         <filter id="subtleGlow" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#222238" floodOpacity="0.15" />
+          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#302D29" floodOpacity="0.12" />
         </filter>
       </defs>
 
-      {/* Atmospheric Breath Flow Curves (Mesopotamian Wind & River currents) */}
+      {/* Atmospheric Breath Flow Curves (Mesopotamian Rivers and Air) */}
       <path
         d="M15 65C25 65 30 35 45 35C60 35 62 60 76 60C85 60 88 50 90 44"
         stroke="url(#nafasBreathGrad)"
@@ -59,23 +59,23 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
       />
       <path
         d="M10 50C22 50 28 20 45 20C62 20 66 45 80 45C88 45 92 38 94 32"
-        stroke="#222238"
+        stroke="#302D29"
         strokeWidth="6"
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity="0.85"
+        opacity="0.9"
       />
       <path
         d="M25 80C36 80 40 54 55 54C70 54 74 74 85 74"
-        stroke="#AAB7F0"
+        stroke="#C8B68D"
         strokeWidth="5"
         strokeLinecap="round"
-        opacity="0.9"
+        opacity="0.95"
       />
 
-      {/* The Breathing Seed / Nucleus of Action (Mesopotamian Clay terracotta dot) */}
-      <circle cx="45" cy="35" r="4.5" fill="#C66F50" />
-      <circle cx="76" cy="60" r="4" fill="#222238" />
+      {/* The Breathing Nucleus (Mesopotamian Blue & Dark Silt dots) */}
+      <circle cx="45" cy="35" r="4.5" fill="#28566E" />
+      <circle cx="76" cy="60" r="4" fill="#302D29" />
     </svg>
   );
 
@@ -88,15 +88,15 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
       {LogoIcon}
       <div className="flex flex-col text-right">
         <div className="flex items-baseline gap-2">
-          <span className={`font-arabic font-extrabold ${textSize} tracking-tight text-nafas-midnight`}>
+          <span className={`font-arabic font-extrabold ${textSize} tracking-tight text-nafas-silt`}>
             نَفَس
           </span>
-          <span className="font-latin text-xs font-bold uppercase tracking-widest text-nafas-clay">
+          <span className="font-latin text-xs font-bold uppercase tracking-widest text-nafas-blue">
             NAFAS
           </span>
         </div>
         {showSlogan && (
-          <span className={`font-arabic ${subtextSize} font-medium text-nafas-clay-dark -mt-1 tracking-normal`}>
+          <span className={`font-arabic ${subtextSize} font-medium text-nafas-blue/90 -mt-1 tracking-normal`}>
             خلّي العراق يتنفس
           </span>
         )}
