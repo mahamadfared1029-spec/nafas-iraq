@@ -5,6 +5,7 @@ import { NafasLogo } from '@/components/brand/NafasLogo';
 import { useNafas } from '@/lib/store';
 import { Role } from '@/types';
 import { 
+  Home,
   MapPin, 
   AlertCircle, 
   Users, 
@@ -47,8 +48,8 @@ export const Header: React.FC<HeaderProps> = ({
   const currentRoleInfo = rolesList.find(r => r.id === role) || rolesList[0];
 
   const navItems = [
+    { id: 'home', label: 'الرئيسية', icon: Home },
     { id: 'map', label: t.mapNav, icon: MapPin },
-    { id: 'reports', label: t.reportsNav, icon: AlertCircle },
     { id: 'campaigns', label: t.campaignsNav, icon: Users },
     { id: 'impact', label: t.impactNav, icon: BarChart3 },
     { id: 'planting', label: t.plantingNav, icon: Sprout },
@@ -120,9 +121,9 @@ export const Header: React.FC<HeaderProps> = ({
           
           {/* Brand Logo */}
           <div className="flex items-center gap-6">
-            <a href="#hero" onClick={() => setActiveTab('hero')} className="cursor-pointer">
+            <button onClick={() => setActiveTab('home')} className="cursor-pointer text-right flex items-center">
               <NafasLogo size="md" />
-            </a>
+            </button>
           </div>
 
           {/* Desktop Navigation Links */}

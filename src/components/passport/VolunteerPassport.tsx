@@ -163,7 +163,7 @@ export const VolunteerPassport: React.FC<PassportProps> = ({
           {/* Earned Certificates List */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-nafas-silt">
-              <Award className="w-4 h-4 text-nafas-silt/70y" />
+              <Award className="w-4 h-4 text-nafas-silt/70" />
               <span>الشهادات المعتمدة برمز QR ({passport.certificates.length})</span>
             </div>
 

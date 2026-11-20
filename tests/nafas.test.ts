@@ -243,4 +243,76 @@ describe('NAFAS — The Breath of Mesopotamia: Master Test Suite', () => {
     });
   });
 
+  // Test Suite 8: Master UX Restructuring & Geographic GIS Architecture
+  describe('8. Master UX Restructuring & GIS Architecture', () => {
+    it('should verify real GIS national border coordinates encompass Iraq', async () => {
+      const { IRAQ_BORDER_COORDINATES } = await import('../src/lib/iraqGeoData');
+      expect(IRAQ_BORDER_COORDINATES.length).toBeGreaterThanOrEqual(20);
+      
+      // Verify northernmost, southernmost, westernmost, and easternmost bounds
+      const lats = IRAQ_BORDER_COORDINATES.map(pt => pt[0]);
+      const lngs = IRAQ_BORDER_COORDINATES.map(pt => pt[1]);
+      
+      expect(Math.max(...lats)).toBeGreaterThanOrEqual(37.0); // Northern Kurdistan
+      expect(Math.min(...lats)).toBeLessThanOrEqual(29.9);   // Southern Basra/Faw
+      expect(Math.min(...lngs)).toBeLessThanOrEqual(39.0);   // Western desert (Trebil)
+      expect(Math.max(...lngs)).toBeGreaterThanOrEqual(48.5); // Eastern border (Faw/Shatt)
+    });
+
+    it('should verify Mesopotamian rivers (Tigris, Euphrates, Shatt al-Arab) GIS paths', async () => {
+      const { 
+        TIGRIS_RIVER_PATH, 
+        EUPHRATES_RIVER_PATH, 
+        SHATT_AL_ARAB_PATH 
+      } = await import('../src/lib/iraqGeoData');
+
+      expect(TIGRIS_RIVER_PATH.length).toBeGreaterThanOrEqual(15);
+      expect(EUPHRATES_RIVER_PATH.length).toBeGreaterThanOrEqual(15);
+      expect(SHATT_AL_ARAB_PATH.length).toBeGreaterThanOrEqual(5);
+
+      // Verify meeting at Qurna ([31.01, 47.43])
+      const tigrisEnd = TIGRIS_RIVER_PATH[TIGRIS_RIVER_PATH.length - 1];
+      const euphratesEnd = EUPHRATES_RIVER_PATH[EUPHRATES_RIVER_PATH.length - 1];
+      const shattStart = SHATT_AL_ARAB_PATH[0];
+
+      expect(tigrisEnd[0]).toBeCloseTo(31.01, 1);
+      expect(tigrisEnd[1]).toBeCloseTo(47.43, 1);
+      expect(euphratesEnd[0]).toBeCloseTo(31.01, 1);
+      expect(euphratesEnd[1]).toBeCloseTo(47.43, 1);
+      expect(shattStart[0]).toBeCloseTo(31.01, 1);
+      expect(shattStart[1]).toBeCloseTo(47.43, 1);
+    });
+
+    it('should verify all 4 interactive pin categories have distinct colors and schemas', async () => {
+      const { MASTER_MAP_PINS } = await import('../src/lib/iraqGeoData');
+      
+      const plantingPins = MASTER_MAP_PINS.filter(p => p.type === 'planting');
+      const cleanupPins = MASTER_MAP_PINS.filter(p => p.type === 'cleanup');
+      const pollutionPins = MASTER_MAP_PINS.filter(p => p.type === 'pollution');
+      const activityPins = MASTER_MAP_PINS.filter(p => p.type === 'activity');
+
+      expect(plantingPins.length).toBeGreaterThan(0);
+      expect(cleanupPins.length).toBeGreaterThan(0);
+      expect(pollutionPins.length).toBeGreaterThan(0);
+      expect(activityPins.length).toBeGreaterThan(0);
+
+      // Verify specified color tokens
+      expect(plantingPins[0].color).toBe('#16A34A'); // Green
+      expect(cleanupPins[0].color).toBe('#2563EB');   // Blue
+      expect(pollutionPins[0].color).toBe('#C66F50'); // Copper
+      expect(activityPins[0].color).toBe('#62467D');  // Deep Orchid Purple
+    });
+
+    it('should verify GIS polygons for all 18 governorates exist', async () => {
+      const { GOVERNORATES_GIS_DATA } = await import('../src/lib/iraqGeoData');
+      expect(GOVERNORATES_GIS_DATA.length).toBe(18);
+
+      GOVERNORATES_GIS_DATA.forEach(gov => {
+        expect(gov.polygon.length).toBeGreaterThanOrEqual(4);
+        expect(gov.center[0]).toBeGreaterThan(29);
+        expect(gov.center[0]).toBeLessThan(38);
+      });
+    });
+  });
+
 });

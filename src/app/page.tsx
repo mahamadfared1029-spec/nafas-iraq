@@ -1,60 +1,119 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NafasIntroOverlay from '@/components/intro/NafasIntroOverlay';
 import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { Hero } from '@/components/home/Hero';
-import { BeforeAfterShowcase } from '@/components/home/BeforeAfterShowcase';
+import { BottomNav } from '@/components/layout/BottomNav';
+import { HomeDashboard } from '@/components/home/HomeDashboard';
 import { IraqEnvironmentalMap } from '@/components/map/IraqEnvironmentalMap';
 import { CampaignList } from '@/components/campaigns/CampaignList';
 import { PublicImpactDashboard } from '@/components/impact/PublicImpactDashboard';
+import { BeforeAfterShowcase } from '@/components/home/BeforeAfterShowcase';
 import { PlantingGuide } from '@/components/education/PlantingGuide';
 import { HeritageAtlas } from '@/components/heritage/HeritageAtlas';
 import { PlantClinic } from '@/components/clinic/PlantClinic';
 import { ReportSubmissionModal } from '@/components/reports/ReportSubmissionModal';
 import { ReportDetailModal } from '@/components/reports/ReportDetailModal';
 import { VolunteerPassport } from '@/components/passport/VolunteerPassport';
+import { RewardsModal } from '@/components/rewards/RewardsModal';
 import { CertificateModal } from '@/components/certificates/CertificateModal';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
-import { useNafas } from '@/lib/store';
+import { 
+  ArrowRight, 
+  MapPin, 
+  Users, 
+  BarChart3, 
+  Sprout, 
+  BookOpen, 
+  HeartHandshake 
+} from 'lucide-react';
 
 export default function HomePage() {
-  const { setSelectedGovernorateId } = useNafas();
+  // Navigation View State: 'home' is the default hub dashboard
+  const [currentView, setCurrentView] = useState<string>('home');
 
-  // Modals & Overlay state
+  // Modals state
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [passportModalOpen, setPassportModalOpen] = useState(false);
+  const [rewardsModalOpen, setRewardsModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<EnvironmentalReport | null>(null);
   const [selectedCertificate, setSelectedCertificate] = useState<IssuedCertificate | null>(null);
   const [pinnedCoords, setPinnedCoords] = useState<{ lat: number; lng: number; governorateId: string } | null>(null);
 
-  // Active navigation tab
-  const [activeTab, setActiveTab] = useState('hero');
+  // Sync with browser back navigation
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.view) {
+        setCurrentView(e.state.view);
+      } else {
+        setCurrentView('home');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (viewId: string) => {
+    setCurrentView(viewId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+      window.history.pushState({ view: viewId }, '', viewId === 'home' ? '/' : `#${viewId}`);
+    } catch {
+      // Fallback for sandboxed frames
+    }
+  };
 
   const handleOpenReportWithCoords = (lat: number, lng: number, governorateId: string) => {
     setPinnedCoords({ lat, lng, governorateId });
     setReportModalOpen(true);
   };
 
-  const scrollToSection = (tabId: string) => {
-    setActiveTab(tabId);
-    const element = document.getElementById(tabId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+  // View Title and Subtitle Mapping
+  const viewHeaders: Record<string, { title: string; subtitle: string; icon: any }> = {
+    map: {
+      title: 'الخريطة البيئية التفاعلية للعراق',
+      subtitle: 'مسارات دجلة والفرات وشط العرب، وحملات التشجير والتنظيف وبلاغات التلوث',
+      icon: MapPin
+    },
+    campaigns: {
+      title: 'الحملات التطوعية والمبادرات الميدانية',
+      subtitle: 'سجّل حضورك في حملات تنظيف الأنهر وغرس الأشجار واحصل على ساعات موثقة',
+      icon: Users
+    },
+    impact: {
+      title: 'أثر نَفَس ولوحة الشفافية الوطنية',
+      subtitle: 'أرقام وإحصاءات حقيقية مدعمة بتوثيق مصوّر قبل وبعد المعالجة البيئية',
+      icon: BarChart3
+    },
+    planting: {
+      title: 'التقويم الزراعي ودليل التشجير العراقي',
+      subtitle: 'إرشادات زراعة النخيل، السدر، الغاف، والأنواع المتأقلمة مع مناخ بلاد الرافدين',
+      icon: Sprout
+    },
+    atlas: {
+      title: 'أطلس تراث العراق البيئي — روح الرافدين',
+      subtitle: 'تاريخ الأهوار، زقورة أور، جنائن بابل، وحكمة الأسلاف في إدارة المياه والأرض',
+      icon: BookOpen
+    },
+    clinic: {
+      title: 'صيدلية نَفَس النباتية',
+      subtitle: 'دليل تشخيص آفات النباتات وعلاجات بيئية مستدامة خالية من الكيماويات الضارة',
+      icon: HeartHandshake
     }
   };
 
+  const activeHeader = viewHeaders[currentView];
+
   return (
-    <div className="min-h-screen flex flex-col bg-nafas-sand text-nafas-silt">
+    <div className="min-h-screen flex flex-col bg-nafas-sand text-nafas-silt pb-20 sm:pb-8 selection:bg-nafas-orchid/20 selection:text-nafas-orchid">
       
-      {/* 0. Authentic Mesopotamian Opening Scene (Intro Entry) */}
+      {/* 0. Cinematic Mesopotamian Opening Scene (Intact & Preserved) */}
       <NafasIntroOverlay />
 
-      {/* Top Header */}
+      {/* 1. Global Navigation Header */}
       <Header
-        activeTab={activeTab}
-        setActiveTab={scrollToSection}
+        activeTab={currentView}
+        setActiveTab={navigateTo}
         onOpenReportModal={() => {
           setPinnedCoords(null);
           setReportModalOpen(true);
@@ -62,89 +121,156 @@ export default function HomePage() {
         onOpenPassportModal={() => setPassportModalOpen(true)}
       />
 
-      <main className="flex-1">
+      {/* 2. Main Content Area */}
+      <main className="flex-1 w-full">
         
-        {/* 1. Hero Narrative Section */}
-        <div id="hero">
-          <Hero
+        {/* =====================================================================
+            A. HOME DASHBOARD (When currentView === 'home')
+            ===================================================================== */}
+        {currentView === 'home' && (
+          <HomeDashboard
+            onNavigate={navigateTo}
             onOpenReportModal={() => {
               setPinnedCoords(null);
               setReportModalOpen(true);
             }}
-            onExploreCampaigns={() => scrollToSection('campaigns')}
-            onExploreMap={() => scrollToSection('map')}
+            onOpenPassportModal={() => setPassportModalOpen(true)}
+            onOpenRewardsModal={() => setRewardsModalOpen(true)}
           />
-        </div>
+        )}
 
-        {/* 2. Interactive Environmental Map of Iraq */}
-        <div id="map">
-          <IraqEnvironmentalMap
-            onSelectReport={(report) => setSelectedReport(report)}
-            onOpenReportModalWithCoords={handleOpenReportWithCoords}
-          />
-        </div>
+        {/* =====================================================================
+            B. DEDICATED SUB-SCREEN VIEWS (When currentView !== 'home')
+            ===================================================================== */}
+        {currentView !== 'home' && activeHeader && (
+          <div className="w-full">
+            
+            {/* Sub-screen Top Bar / Breadcrumb */}
+            <div className="bg-nafas-ivory/80 backdrop-blur-md border-b border-nafas-reed/30 px-4 sm:px-6 py-3.5 sticky top-[65px] z-30 transition-all">
+              <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+                
+                {/* Back to Home Button */}
+                <button
+                  onClick={() => navigateTo('home')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-nafas-sand/60 hover:bg-nafas-sand text-nafas-silt font-bold text-xs sm:text-sm border border-nafas-reed/30 transition-colors group shadow-2xs"
+                  aria-label="العودة للشاشة الرئيسية"
+                >
+                  <ArrowRight className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>العودة للرئيسية</span>
+                </button>
 
-        {/* 3. Before & After Verified Evidence Showcase */}
-        <div id="reports">
-          <BeforeAfterShowcase />
-        </div>
+                {/* Sub-screen Title & Icon */}
+                <div className="flex items-center gap-2 text-right">
+                  <div className="hidden sm:block">
+                    <h2 className="text-sm sm:text-base font-black text-nafas-silt leading-tight">
+                      {activeHeader.title}
+                    </h2>
+                    <p className="text-[11px] text-nafas-silt/70">
+                      {activeHeader.subtitle}
+                    </p>
+                  </div>
+                  <div className="w-8 h-8 rounded-lg bg-nafas-blue/10 border border-nafas-blue/20 flex items-center justify-center text-nafas-blue">
+                    {React.createElement(activeHeader.icon, { className: 'w-4 h-4' })}
+                  </div>
+                </div>
 
-        {/* 4. Volunteer Campaigns & Mobilization */}
-        <div id="campaigns">
-          <CampaignList
-            onViewCertificate={(cert) => setSelectedCertificate(cert)}
-          />
-        </div>
+              </div>
+            </div>
 
-        {/* 5. Public Impact & Transparency Dashboard */}
-        <div id="impact">
-          <PublicImpactDashboard />
-        </div>
+            {/* Sub-screen Body Container */}
+            <div className="py-4 sm:py-6">
+              
+              {/* 1. Map View */}
+              {currentView === 'map' && (
+                <div className="max-w-6xl mx-auto px-4">
+                  <IraqEnvironmentalMap
+                    onSelectReport={(report) => setSelectedReport(report)}
+                    onOpenReportModalWithCoords={handleOpenReportWithCoords}
+                  />
+                </div>
+              )}
 
-        {/* 6. Regional Planting Calendar */}
-        <div id="planting">
-          <PlantingGuide />
-        </div>
+              {/* 2. Campaigns View */}
+              {currentView === 'campaigns' && (
+                <div className="max-w-5xl mx-auto px-4">
+                  <CampaignList
+                    onViewCertificate={(cert) => setSelectedCertificate(cert)}
+                  />
+                </div>
+              )}
 
-        {/* 7. Iraqi Heritage Experience: Atlas Nafas */}
-        <div id="atlas">
-          <HeritageAtlas />
-        </div>
+              {/* 3. Impact & Verified Evidence View */}
+              {currentView === 'impact' && (
+                <div className="max-w-5xl mx-auto px-4 space-y-8">
+                  <PublicImpactDashboard />
+                  <BeforeAfterShowcase />
+                </div>
+              )}
 
-        {/* 8. Plant Clinic (صيدلية نَفَس النباتية) */}
-        <div id="clinic">
-          <PlantClinic />
-        </div>
+              {/* 4. Planting Guide View */}
+              {currentView === 'planting' && (
+                <div className="max-w-5xl mx-auto px-4">
+                  <PlantingGuide />
+                </div>
+              )}
+
+              {/* 5. Heritage Atlas View */}
+              {currentView === 'atlas' && (
+                <div className="max-w-5xl mx-auto px-4">
+                  <HeritageAtlas />
+                </div>
+              )}
+
+              {/* 6. Plant Clinic View */}
+              {currentView === 'clinic' && (
+                <div className="max-w-5xl mx-auto px-4">
+                  <PlantClinic />
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
 
       </main>
 
-      {/* Footer */}
-      <Footer />
+      {/* 3. Sticky Mobile Bottom Navigation (Always accessible) */}
+      <BottomNav
+        currentView={currentView}
+        onNavigate={navigateTo}
+        onOpenReportModal={() => {
+          setPinnedCoords(null);
+          setReportModalOpen(true);
+        }}
+        onOpenPassportModal={() => setPassportModalOpen(true)}
+      />
 
-      {/* Modal 1: Report Submission */}
+      {/* 4. Modals & Overlays */}
       <ReportSubmissionModal
         isOpen={reportModalOpen}
-        onClose={() => setReportModalOpen(false)}
+        onClose={() => {
+          setReportModalOpen(false);
+          setPinnedCoords(null);
+        }}
         initialCoords={pinnedCoords}
       />
 
-      {/* Modal 2: Report Detail & Moderator Audit Logs */}
       <ReportDetailModal
         report={selectedReport}
         onClose={() => setSelectedReport(null)}
       />
 
-      {/* Modal 3: Volunteer Passport Dashboard */}
       <VolunteerPassport
         isOpen={passportModalOpen}
         onClose={() => setPassportModalOpen(false)}
-        onSelectCertificate={(cert) => {
-          setPassportModalOpen(false);
-          setSelectedCertificate(cert);
-        }}
+        onSelectCertificate={(cert) => setSelectedCertificate(cert)}
       />
 
-      {/* Modal 4: Verifiable Digital Certificate */}
+      <RewardsModal
+        isOpen={rewardsModalOpen}
+        onClose={() => setRewardsModalOpen(false)}
+      />
+
       <CertificateModal
         certificate={selectedCertificate}
         onClose={() => setSelectedCertificate(null)}
