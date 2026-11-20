@@ -6,6 +6,14 @@
 @tailwind utilities;
 
 :root {
+  /* Master Spec Tokens */
+  --nafas-ink: #222238;
+  --nafas-walnut: #6B463B;
+  --nafas-purple: #62467D;
+  --nafas-lilac: #B797D0;
+  --nafas-copper: #C66F50;
+  --nafas-cream: #F7F1E7;
+
   --color-midnight: #222238;
   --color-walnut: #6B463B;
   --color-orchid: #62467D;

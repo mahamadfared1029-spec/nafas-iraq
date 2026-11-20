@@ -12,8 +12,10 @@ import {
   ShieldAlert, 
   CheckCircle2, 
   Copy, 
-  Sparkles, 
-  UploadCloud 
+  UploadCloud,
+  Navigation,
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -39,10 +41,32 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
   const [description, setDescription] = useState<string>('');
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   const [reportedBy, setReportedBy] = useState<string>(passport.userName);
-  const [imagePreview, setImagePreview] = useState<string>('https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?auto=format&fit=crop&w=800&q=80');
+  
+  // Real location state (no random math)
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(() => {
+    if (initialCoords?.lat && initialCoords?.lng) {
+      return { lat: initialCoords.lat, lng: initialCoords.lng };
+    }
+    const gov = IRAQ_GOVERNORATES.find(g => g.id === (initialCoords?.governorateId || 'baghdad')) || IRAQ_GOVERNORATES[0];
+    return { lat: gov.lat, lng: gov.lng };
+  });
+  const [locationSource, setLocationSource] = useState<'gps' | 'manual_picker' | 'initial_coords'>(
+    initialCoords ? 'initial_coords' : 'manual_picker'
+  );
+  const [accuracyM, setAccuracyM] = useState<number | undefined>(initialCoords ? 15 : 5000);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsMessage, setGpsMessage] = useState<string | null>(null);
+
+  // Real image upload state (no stock photo fallbacks)
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imageFileName, setImageFileName] = useState<string>('');
+  const [imageFileSize, setImageFileSize] = useState<number>(0);
+  const [imageError, setImageError] = useState<string | null>(null);
+
   const [isHazardousDetected, setIsHazardousDetected] = useState<boolean>(false);
   const [submittedTracking, setSubmittedTracking] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -66,12 +90,109 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
     }
   };
 
+  const handleGovernorateChange = (newGovId: string) => {
+    setGovernorateId(newGovId);
+    // If location is manual picker, update coordinates to selected governorate center
+    if (locationSource === 'manual_picker') {
+      const gov = IRAQ_GOVERNORATES.find(g => g.id === newGovId);
+      if (gov) {
+        setCoords({ lat: gov.lat, lng: gov.lng });
+        setAccuracyM(5000);
+      }
+    }
+  };
+
+  // Real device GPS acquisition
+  const handleAcquireGPS = () => {
+    if (!navigator.geolocation) {
+      setGpsMessage('جهازك لا يدعم خاصية تحديد الموقع الجغرافي GPS.');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsMessage(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        // Verify coordinates are approximately within Iraqi territorial extent (lat 29-38, lng 38-49)
+        if (latitude < 28.5 || latitude > 38.5 || longitude < 38.0 || longitude > 49.5) {
+          setGpsMessage('الموقع المقروء خارج النطاق الجغرافي للعراق. تم الاحتفاظ بمركز المحافظة.');
+          setGpsLoading(false);
+          return;
+        }
+        setCoords({ lat: Number(latitude.toFixed(6)), lng: Number(longitude.toFixed(6)) });
+        setAccuracyM(Math.round(accuracy));
+        setLocationSource('gps');
+        setGpsMessage(`تم التقاط الإحداثيات بنجاح بدقة ±${Math.round(accuracy)} متر.`);
+        setGpsLoading(false);
+      },
+      (error) => {
+        setGpsLoading(false);
+        if (error.code === 1) {
+          setGpsMessage('تم رفض الإذن لتحديد الموقع. يمكنك استخدام مركز المحافظة أو الإحداثيات اليدوية.');
+        } else if (error.code === 2) {
+          setGpsMessage('تعذر التقاط إشارة GPS حالياً. يرجى التأكد من تشغيل خدمات الموقع.');
+        } else {
+          setGpsMessage('انتهت مهلة طلب الموقع. تم استخدام مركز المحافظة المحددة.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+    );
+  };
+
+  // Real device image file upload and validation
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setImageError(null);
+    if (!file) return;
+
+    // Allowed mime types
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setImageError('نوع الملف غير مدعوم. يرجى اختيار صورة بصيغة JPG أو PNG أو WebP.');
+      return;
+    }
+
+    // Size limit: 5 MB
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setImageError('حجم الصورة يتجاوز الحد المسموح به (5 ميغابايت). يرجى تقليل حجمها.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImagePreview(event.target?.result as string);
+      setImageFileName(file.name);
+      setImageFileSize(file.size);
+    };
+    reader.onerror = () => {
+      setImageError('فشلت قراءة ملف الصورة. يرجى المحاولة مجدداً.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview('');
+    setImageFileName('');
+    setImageFileSize(0);
+    setImageError(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
     const selectedGov = IRAQ_GOVERNORATES.find(g => g.id === governorateId) || IRAQ_GOVERNORATES[0];
-    const lat = initialCoords?.lat || (selectedGov.lat + (Math.random() - 0.5) * 0.05);
-    const lng = initialCoords?.lng || (selectedGov.lng + (Math.random() - 0.5) * 0.05);
+    
+    // Explicit coordinates check - strictly NO Math.random()
+    const finalLat = coords?.lat ?? selectedGov.lat;
+    const finalLng = coords?.lng ?? selectedGov.lng;
+
+    if (finalLat < 28.5 || finalLat > 38.5 || finalLng < 38.0 || finalLng > 49.5) {
+      setFormError('إحداثيات البلاغ خارج النطاق الجغرافي للعراق.');
+      return;
+    }
 
     const report = addReport({
       title: title || `${CATEGORY_INFO[category].labelAr} في ${neighborhood || selectedGov.nameAr}`,
@@ -80,9 +201,14 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
       severity,
       governorateId,
       neighborhood: neighborhood || selectedGov.nameAr,
-      lat,
-      lng,
-      imageBeforeUrl: imagePreview,
+      lat: finalLat,
+      lng: finalLng,
+      location_source: locationSource,
+      accuracy_m: accuracyM,
+      source_layer_version: 'gbOpen-IRQ-ADM1-2022',
+      imageBeforeUrl: imagePreview, // Real user image or empty string - strictly NO stock photos
+      imageBeforeName: imageFileName || undefined,
+      imageBeforeSize: imageFileSize || undefined,
       reportedBy: isAnonymous ? 'مواطن مجهول' : reportedBy,
       isAnonymous,
       isHazardous: isHazardousDetected
@@ -169,12 +295,21 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                 </button>
               </div>
 
-              {/* Safety notice if hazardous */}
-              {isHazardousDetected && (
-                <div className="bg-red-50 border border-red-200 text-red-800 p-3.5 rounded-xl text-xs max-w-md mx-auto text-right">
-                  <strong>تنبيه السلامة:</strong> نظراً لاحتواء البلاغ على مخلفات قد تكون خطرة أو حارقة، تم إحالة الإحداثيات تلقائياً إلى فرق الدفاع المدني والبلدية المختصة.
+              {/* Truthful Status & Safety Notice (Replacing unsupported auto-referral claim) */}
+              <div className="bg-amber-50/80 border border-amber-200/80 text-amber-900 p-4 rounded-2xl text-xs max-w-md mx-auto text-right space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <span>حالة المتابعة الميدانية:</span>
                 </div>
-              )}
+                <p className="text-[11px] leading-relaxed text-amber-900">
+                  تم استلام البلاغ داخل نَفَس للمراجعة، ولم تُؤكَّد إحالته إلى جهة رسمية بعد.
+                </p>
+                {isHazardousDetected && (
+                  <p className="text-[11px] font-bold text-red-700 pt-1 border-t border-amber-200/60">
+                    ⚠️ نظراً لاحتواء البلاغ على مواد أو مخلفات قد تكون خطرة، يُمنع اقتراب المتطوعين أو لمسها، ويرجى الاتصال بالدفاع المدني (115) للحالات الطارئة.
+                  </p>
+                )}
+              </div>
 
               <button
                 onClick={onClose}
@@ -234,7 +369,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                   </label>
                   <select
                     value={governorateId}
-                    onChange={(e) => setGovernorateId(e.target.value)}
+                    onChange={(e) => handleGovernorateChange(e.target.value)}
                     className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2.5 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
                   >
                     {IRAQ_GOVERNORATES.map(gov => (
@@ -256,6 +391,54 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                     className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2.5 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
                   />
                 </div>
+              </div>
+
+              {/* Geolocation Section (No Random Coordinates) */}
+              <div className="bg-nafas-sand/50 p-4 rounded-2xl border border-nafas-reed/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-nafas-silt flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-nafas-blue" />
+                    <span>إحداثيات الموقع الميداني:</span>
+                  </label>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    locationSource === 'gps' 
+                      ? 'bg-emerald-100 text-emerald-800' 
+                      : locationSource === 'initial_coords' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {locationSource === 'gps' ? 'GPS جهاز دقيق' : locationSource === 'initial_coords' ? 'نقر الخريطة' : 'مركز المحافظة'}
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="flex-1 text-xs font-mono bg-white px-3 py-2 rounded-xl border border-nafas-reed/30 text-nafas-silt">
+                    {coords ? `${coords.lat.toFixed(5)}°N, ${coords.lng.toFixed(5)}°E (${accuracyM ? '±' + accuracyM + 'م' : 'تقريبي'})` : 'لم تُحدد الإحداثيات'}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAcquireGPS}
+                    disabled={gpsLoading}
+                    className="px-3.5 py-2 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    {gpsLoading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>جارٍ الالتقاط...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="w-3.5 h-3.5" />
+                        <span>التقاط GPS الحالي</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {gpsMessage && (
+                  <p className="text-[11px] text-nafas-silt/80">{gpsMessage}</p>
+                )}
               </div>
 
               {/* Title & Description */}
@@ -288,21 +471,54 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                 </div>
               </div>
 
-              {/* Photo Upload Area */}
+              {/* Real Photo Upload Area (No Stock Photos) */}
               <div>
                 <label className="block text-xs font-bold text-nafas-silt mb-1">
-                  صورة ميدانية توثيقية (أقل من 5 ميغابايت):
+                  صورة ميدانية توثيقية من هاتفك أو جهازك (JPG/PNG/WebP حتى 5MB):
                 </label>
-                <div className="border-2 border-dashed border-nafas-reed/40 rounded-2xl p-4 text-center bg-nafas-sand/50 flex flex-col items-center justify-center gap-2">
-                  <img
-                    src={imagePreview}
-                    alt="معاينة الصورة"
-                    className="w-32 h-20 object-cover rounded-xl border border-nafas-reed/30 shadow-sm"
-                  />
-                  <span className="text-[11px] text-nafas-neutral-slate">
-                    تم تضمين صورة نموذجية أولية للمعاينة (الحد الأقصى 5MB - JPG/PNG/WebP)
-                  </span>
-                </div>
+                
+                {imagePreview ? (
+                  <div className="relative rounded-2xl border-2 border-nafas-blue/30 bg-nafas-sand/40 p-3 flex items-center justify-between gap-3">
+                    <img
+                      src={imagePreview}
+                      alt="معاينة الصورة المرفوعة"
+                      className="w-24 h-16 object-cover rounded-xl border border-nafas-reed/30 shadow-xs"
+                    />
+                    <div className="flex-1 text-right text-xs">
+                      <p className="font-bold text-nafas-silt truncate max-w-[200px]">{imageFileName || 'صورة_ميدانية.jpg'}</p>
+                      <p className="text-[11px] text-nafas-neutral-slate">{(imageFileSize / 1024).toFixed(1)} كيلوبايت · توثيق أصلي</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="p-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 transition-colors"
+                      title="حذف الصورة"
+                      aria-label="حذف الصورة"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-nafas-reed/40 hover:border-nafas-blue/60 rounded-2xl p-5 text-center bg-nafas-sand/40 hover:bg-nafas-sand/70 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <div className="w-10 h-10 rounded-full bg-white shadow-xs flex items-center justify-center text-nafas-blue group-hover:scale-105 transition-transform">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-nafas-blue block">اضغط لاختيار صورة أو التقاطها بكاميرا الهاتف</span>
+                      <span className="text-[10px] text-nafas-neutral-slate">لا يتم استبدال الصور المفقودة بصور مزيفة</span>
+                    </div>
+                  </label>
+                )}
+
+                {imageError && (
+                  <p className="text-xs text-red-600 mt-1.5 font-bold">{imageError}</p>
+                )}
               </div>
 
               {/* Privacy and Anonymous Toggle */}
@@ -317,6 +533,12 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                   className="w-4 h-4 text-nafas-blue rounded border-nafas-reed/40 focus:ring-nafas-blue"
                 />
               </div>
+
+              {formError && (
+                <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-bold">
+                  {formError}
+                </div>
+              )}
 
               {/* Submit Button */}
               <button

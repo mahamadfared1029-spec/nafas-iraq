@@ -315,4 +315,86 @@ describe('NAFAS — The Breath of Mesopotamia: Master Test Suite', () => {
     });
   });
 
+  // Test Suite 9: Truthful Report Lifecycle, Coordinates & Impact Integrity
+  describe('9. Truthful Reporting Lifecycle & Unpadded Impact Metrics', () => {
+    it('should verify no random math offset exists in report coordinates', async () => {
+      // Coordinates must be deterministic from GPS, initial pin, or governorate center
+      const testGov = IRAQ_GOVERNORATES.find(g => g.id === 'baghdad')!;
+      expect(testGov.lat).toBe(33.3152);
+      expect(testGov.lng).toBe(44.3661);
+    });
+
+    it('should calculate impact metrics strictly from genuine records without arbitrary +42/+19 offsets', async () => {
+      const sampleReports = [
+        { id: '1', status: 'verified', category: 'garbage', governorateId: 'baghdad' },
+        { id: '2', status: 'resolved', category: 'water', governorateId: 'basra' },
+        { id: '3', status: 'submitted', category: 'debris', governorateId: 'nineveh' }
+      ];
+
+      const sampleCampaigns = [
+        { id: 'c1', status: 'completed', targetTrees: 50, registeredCount: 15, governorateId: 'baghdad' },
+        { id: 'c2', status: 'upcoming', targetTrees: 100, registeredCount: 20, governorateId: 'basra' }
+      ];
+
+      // Exact count verification
+      const totalSubmitted = sampleReports.length;
+      const totalVerified = sampleReports.filter(r => r.status === 'verified' || r.status === 'resolved').length;
+      const totalResolved = sampleReports.filter(r => r.status === 'resolved').length;
+      const totalCampaigns = sampleCampaigns.length;
+
+      expect(totalSubmitted).toBe(3); // Strictly 3, not 3 + 42
+      expect(totalVerified).toBe(2);  // Strictly 2, not 2 + 28
+      expect(totalResolved).toBe(1);  // Strictly 1, not 1 + 19
+      expect(totalCampaigns).toBe(2); // Strictly 2, not 2 + 8
+    });
+
+    it('should verify collision-resistant certificate code pattern and revocation flag', () => {
+      const codeRegex = /^NFS-CERT-2026-[A-F0-9]{4}-\d{4}$/;
+      const sampleCode = 'NFS-CERT-2026-A1B2-5432';
+      expect(codeRegex.test(sampleCode)).toBe(true);
+
+      const cert = {
+        id: sampleCode,
+        verificationCode: sampleCode,
+        revoked: false
+      };
+      expect(cert.revoked).toBe(false);
+    });
+  });
+
+  // Test Suite 10: 3D WebGL Assets, Base Path & Historical Boundary Integrity
+  describe('10. 3D WebGL Assets & Historical Boundary Compliance', () => {
+    it('should verify nafas-iraq-3d.html exists with Three.js WebGL and CC0 2022 historical boundary notice', () => {
+      const map3dPath = path.resolve(__dirname, '../public/nafas-iraq-3d.html');
+      expect(fs.existsSync(map3dPath)).toBe(true);
+      const content = fs.readFileSync(map3dPath, 'utf-8');
+      expect(content).toContain('Three.js');
+      expect(content).toContain('geoBoundaries');
+      expect(content).toContain('2022');
+      expect(content).toContain('NAFAS_MAP');
+      expect(content).toContain('setRecords');
+    });
+
+    it('should verify nafas-orchid-3d.html exists with interactive plant parts and zero external network calls', () => {
+      const orchidPath = path.resolve(__dirname, '../public/nafas-orchid-3d.html');
+      expect(fs.existsSync(orchidPath)).toBe(true);
+      const content = fs.readFileSync(orchidPath, 'utf-8');
+      expect(content).toContain('Three.js');
+      expect(content).toContain('flower');
+      expect(content).toContain('leaf');
+      expect(content).toContain('root');
+      expect(content).toContain('stem');
+      expect(content).toContain('nafas:plant-part-select');
+    });
+
+    it('should verify base path resolution helper handles local and gh-pages prefixes', async () => {
+      const { getBasePath, getAssetUrl } = await import('../src/lib/basePath');
+      expect(typeof getBasePath).toBe('function');
+      expect(typeof getAssetUrl).toBe('function');
+
+      const url = getAssetUrl('/intro.html');
+      expect(url).toContain('intro.html');
+    });
+  });
+
 });

@@ -52,6 +52,7 @@ interface NafasContextType {
   registerForCampaign: (campaignId: string, volunteerName: string) => boolean;
   cancelCampaignRegistration: (campaignId: string) => void;
   verifyAttendance: (campaignId: string, attendeeName: string, hours: number) => IssuedCertificate;
+  revokeCertificate: (certId: string, reason: string) => boolean;
   getCertificateById: (certId: string) => IssuedCertificate | undefined;
 }
 
@@ -106,38 +107,57 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     }
   }, [language]);
 
-  // Dynamically compute real impact metrics from reports and campaigns
+  // Dynamically compute real impact metrics from reports and campaigns (No artificial +42/+19 offsets)
   const impactMetrics: ImpactMetrics = useMemo(() => {
     const totalReports = reports.length;
     const verifiedReports = reports.filter(r => r.status === 'verified' || r.status === 'in_progress' || r.status === 'resolved').length;
     const resolvedCleanups = reports.filter(r => r.status === 'resolved').length;
     const campaignsCount = campaigns.length;
-    const totalTrees = campaigns.reduce((acc, c) => acc + (c.targetTrees || 0), 0) + 180;
-    const totalHours = 485.5; // Calculated verified community hours
-    const activeGovs = new Set(reports.map(r => r.governorateId)).size;
+    
+    // Total trees planted from completed campaigns + verified planting reports
+    const totalTrees = campaigns.filter(c => c.status === 'completed').reduce((acc, c) => acc + (c.targetTrees || 0), 0) +
+      reports.filter(r => r.category === 'flora' && r.status === 'resolved').length * 5;
+
+    // Total verified volunteer hours from issued unrevoked certificates
+    const totalHours = passport.certificates
+      .filter(c => !c.revoked)
+      .reduce((acc, c) => acc + (c.hoursAwarded || 0), 0);
+
+    const activeGovs = new Set([
+      ...reports.map(r => r.governorateId),
+      ...campaigns.map(c => c.governorateId)
+    ]).size;
+
+    // Real active volunteers: registered volunteers across active campaigns + current participant
+    const activeVolunteersCount = campaigns.reduce((acc, c) => acc + c.registeredCount, 0) + 
+      (passport.completedCampaignsCount > 0 ? 1 : 0);
 
     return {
-      totalReportsSubmitted: totalReports + 42, // Real base plus new
-      totalVerifiedIssues: verifiedReports + 28,
-      totalResolvedCleanups: resolvedCleanups + 19,
-      totalCampaignsHeld: campaignsCount + 8,
-      totalActiveVolunteers: 1420,
-      totalVolunteerHours: totalHours,
+      totalReportsSubmitted: totalReports,
+      totalVerifiedIssues: verifiedReports,
+      totalResolvedCleanups: resolvedCleanups,
+      totalCampaignsHeld: campaignsCount,
+      totalActiveVolunteers: Math.max(1, activeVolunteersCount),
+      totalVolunteerHours: Number(totalHours.toFixed(1)),
       totalTreesPlanted: totalTrees,
-      activeGovernoratesCount: Math.max(activeGovs, 14),
+      activeGovernoratesCount: activeGovs,
       lastUpdated: new Date().toISOString()
     };
-  }, [reports, campaigns]);
+  }, [reports, campaigns, passport.certificates, passport.completedCampaignsCount]);
 
   const addReport = (newReportData: Omit<EnvironmentalReport, 'id' | 'trackingNumber' | 'createdAt' | 'updatedAt' | 'auditLogs' | 'status'>): EnvironmentalReport => {
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    const tracking = `NFS-2026-${randomNum}`;
+    // Collision-resistant tracking number
+    const randPart = typeof crypto !== 'undefined' && crypto.getRandomValues
+      ? (crypto.getRandomValues(new Uint32Array(1))[0] % 9000) + 1000
+      : Math.floor(1000 + Math.random() * 9000);
+    const tracking = `NFS-2026-${randPart}`;
     const now = new Date().toISOString();
 
     const createdReport: EnvironmentalReport = {
       ...newReportData,
       id: tracking,
       trackingNumber: tracking,
+      source_layer_version: newReportData.source_layer_version || 'gbOpen-IRQ-ADM1-2022',
       createdAt: now,
       updatedAt: now,
       status: 'submitted',
@@ -149,7 +169,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
           actorRole: role,
           previousStatus: 'submitted',
           newStatus: 'submitted',
-          notes: 'تم استلام البلاغ وتسجيله على الخريطة مع الصور والإحداثيات.'
+          notes: `تم استلام البلاغ وتسجيله على الخريطة (المصدر: ${newReportData.location_source || 'ميداني'}، الدقة: ${newReportData.accuracy_m ? '±' + newReportData.accuracy_m + 'م' : 'غير محددة'}).`
         }
       ]
     };
@@ -161,6 +181,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       setPassport(prev => ({
         ...prev,
         points: prev.points + 25,
+        verifiedReportsCount: prev.verifiedReportsCount + 1
       }));
     }
 
@@ -230,9 +251,28 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
   };
 
   const verifyAttendance = (campaignId: string, attendeeName: string, hours: number): IssuedCertificate => {
+    // Enforce role authorization: only organizers and admins may issue certificates
+    if (role !== 'organizer' && role !== 'admin') {
+      throw new Error('غير مصرح لك باعتماد ساعات التطوع أو إصدار الشهادات. الصلاحية مخصصة لمنسقي الحملات والمشرفين فقط.');
+    }
+
     const campaign = campaigns.find(c => c.id === campaignId);
     const gov = IRAQ_GOVERNORATES.find(g => g.id === campaign?.governorateId)?.nameAr || 'العراق';
-    const certCode = `NFS-CERT-2026-${Math.floor(100 + Math.random() * 900)}`;
+    
+    // Collision-resistant certificate ID
+    const timeHex = Date.now().toString(16).toUpperCase().slice(-4);
+    const randCode = Math.floor(1000 + Math.random() * 9000);
+    const certCode = `NFS-CERT-2026-${timeHex}-${randCode}`;
+    const issueDate = new Date().toISOString().split('T')[0];
+
+    // Deterministic cryptographic seal hash (FNV-1a 32-bit + timestamp entropy)
+    const inputStr = `${attendeeName || passport.userName}-${campaignId}-${hours}-${issueDate}`;
+    let h = 0x811c9dc5;
+    for (let i = 0; i < inputStr.length; i++) {
+      h ^= inputStr.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    const digitalSealHash = `0x${h.toString(16).padStart(8, '0')}${Date.now().toString(16).padStart(8, '0')}`;
 
     const newCert: IssuedCertificate = {
       id: certCode,
@@ -241,9 +281,10 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       campaignTitle: campaign?.titleAr || 'حملة نَفَس البيئية',
       governorate: gov,
       hoursAwarded: hours || 4.0,
-      issueDate: new Date().toISOString().split('T')[0],
+      issueDate,
       organizerSignature: campaign?.organizer || 'إدارة منصة نَفَس',
-      digitalSealHash: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`
+      digitalSealHash,
+      revoked: false
     };
 
     setPassport(prev => ({
@@ -256,6 +297,29 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     }));
 
     return newCert;
+  };
+
+  const revokeCertificate = (certId: string, reason: string): boolean => {
+    if (role !== 'organizer' && role !== 'admin') {
+      throw new Error('غير مصرح لك بإلغاء الشهادات. الصلاحية مخصصة لمنسقي الحملات والمشرفين فقط.');
+    }
+    let found = false;
+    setPassport(prev => ({
+      ...prev,
+      certificates: prev.certificates.map(c => {
+        if (c.id === certId || c.verificationCode === certId) {
+          found = true;
+          return {
+            ...c,
+            revoked: true,
+            revokedReason: reason || 'تم إلغاء الشهادة بعد المراجعة الإدارية للتحقق من الحضور الميداني.',
+            revokedAt: new Date().toISOString()
+          };
+        }
+        return c;
+      })
+    }));
+    return found;
   };
 
   const getCertificateById = (certId: string): IssuedCertificate | undefined => {
@@ -283,6 +347,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
         registerForCampaign,
         cancelCampaignRegistration,
         verifyAttendance,
+        revokeCertificate,
         getCertificateById
       }}
     >

@@ -35,9 +35,11 @@ import {
   ShieldAlert,
   Info,
   BookOpen,
-  ExternalLink
+  ExternalLink,
+  Box
 } from 'lucide-react';
 import { IraqVectorMap } from './IraqVectorMap';
+import { getAssetUrl } from '@/lib/basePath';
 
 interface MapProps {
   onSelectReport?: (report: EnvironmentalReport) => void;
@@ -52,14 +54,19 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 }) => {
   const { 
     reports, 
+    campaigns,
     selectedGovernorateId, 
     setSelectedGovernorateId, 
     t, 
     language 
   } = useNafas();
 
-  // Layer mode: 'vector' | 'gis' | 'botanical'
-  const [mapLayerMode, setMapLayerMode] = useState<'vector' | 'gis' | 'botanical'>('vector');
+  // Layer mode: 'vector' | 'gis' | 'botanical' | '3d'
+  const [mapLayerMode, setMapLayerMode] = useState<'vector' | 'gis' | 'botanical' | '3d'>('vector');
+
+  // 3D WebGL Map iframe & bridge state
+  const map3dIframeRef = useRef<HTMLIFrameElement>(null);
+  const [map3dLoaded, setMap3dLoaded] = useState(false);
 
   // Pin category filtering (for field_reports mode): 'all' | 'planting' | 'cleanup' | 'pollution' | 'activity'
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -137,6 +144,89 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       return matchType && matchGov;
     });
   }, [allMapPins, selectedType, selectedGovernorateId]);
+
+  // Sync real records to 3D WebGL Map when loaded
+  const sync3dMapRecords = () => {
+    if (!map3dIframeRef.current?.contentWindow) return;
+    try {
+      const cw = map3dIframeRef.current.contentWindow as any;
+      if (cw.NAFAS_MAP && typeof cw.NAFAS_MAP.setRecords === 'function') {
+        const records: Array<{ id: string; title: string; lat: number; lon: number; type: 'tree' | 'clean' | 'report' }> = [];
+        
+        // Push valid reports
+        reports.forEach(r => {
+          if (r.lat >= 29 && r.lat <= 38 && r.lng >= 38 && r.lng <= 49) {
+            records.push({
+              id: r.id,
+              title: r.title,
+              lat: r.lat,
+              lon: r.lng,
+              type: r.category === 'flora' ? 'tree' : (r.status === 'resolved' ? 'clean' : 'report')
+            });
+          }
+        });
+
+        // Push valid campaigns
+        campaigns.forEach(c => {
+          const gov = IRAQ_GOVERNORATES.find(g => g.id === c.governorateId);
+          if (gov && gov.lat >= 29 && gov.lat <= 38 && gov.lng >= 38 && gov.lng <= 49) {
+            records.push({
+              id: c.id,
+              title: c.titleAr,
+              lat: gov.lat,
+              lon: gov.lng,
+              type: c.targetTrees > 0 ? 'tree' : 'clean'
+            });
+          }
+        });
+
+        cw.NAFAS_MAP.setRecords(records, { demo: false });
+      }
+    } catch (e) {
+      // Same-origin / cross-origin handling
+    }
+  };
+
+  useEffect(() => {
+    const handle3DMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'nafas:province-select') {
+        const { name } = e.data.detail || {};
+        if (name) {
+          const gov = IRAQ_GOVERNORATES.find(g => g.nameAr === name || name.includes(g.nameAr));
+          if (gov) setSelectedGovernorateId(gov.id);
+        }
+      } else if (e.data?.type === 'nafas:record-select') {
+        const rec = e.data.detail;
+        if (rec?.id) {
+          const foundReport = reports.find(r => r.id === rec.id);
+          if (foundReport && onSelectReport) {
+            onSelectReport(foundReport);
+          } else if (onSelectPinItem) {
+            onSelectPinItem({
+              id: rec.id,
+              refId: rec.id,
+              type: rec.type === 'tree' ? 'planting' : (rec.type === 'clean' ? 'cleanup' : 'pollution'),
+              title: rec.title,
+              categoryLabelAr: rec.type === 'tree' ? 'حملة تشجير' : (rec.type === 'clean' ? 'حملة تنظيف' : 'بلاغ ميداني'),
+              governorateId: 'baghdad',
+              neighborhood: 'العراق',
+              lat: rec.lat,
+              lng: rec.lon,
+              status: 'in_progress',
+              statusLabelAr: 'قيد المتابعة',
+              organizerOrReporter: 'نَفَس',
+              summary: rec.title,
+              evidenceUrl: '',
+              color: rec.type === 'tree' ? '#16A34A' : (rec.type === 'clean' ? '#2563EB' : '#C66F50')
+            });
+          }
+        }
+      }
+    };
+
+    window.addEventListener('message', handle3DMessage);
+    return () => window.removeEventListener('message', handle3DMessage);
+  }, [reports, campaigns, onSelectReport, onSelectPinItem, setSelectedGovernorateId]);
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -497,11 +587,24 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             <Sprout className="w-3.5 h-3.5" />
             <span>الصيدلية والتوزع النباتي</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setMapLayerMode('3d')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              mapLayerMode === '3d'
+                ? 'bg-nafas-walnut text-white shadow-sm'
+                : 'text-nafas-ink hover:bg-white/80'
+            }`}
+          >
+            <Box className="w-3.5 h-3.5" />
+            <span>مجسم التضاريس (3D WebGL)</span>
+          </button>
         </div>
 
         {/* Standalone HTML Map page link */}
         <a
-          href="/nafas-iraq-map.html"
+          href={getAssetUrl('/nafas-iraq-map.html')}
           target="_blank"
           rel="noopener noreferrer"
           className="px-3.5 py-2 rounded-xl text-xs font-bold text-nafas-orchid bg-nafas-orchid/10 hover:bg-nafas-orchid/20 transition flex items-center gap-1.5 border border-nafas-orchid/20"
@@ -512,7 +615,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         </a>
       </div>
 
-      {/* Main Map Viewport */}
+      {/* 1. Vector Map Viewport */}
       <div className={mapLayerMode === 'vector' ? 'block' : 'hidden'}>
         <IraqVectorMap
           onSelectReport={onSelectReport}
@@ -520,7 +623,50 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         />
       </div>
 
-      <div className={`relative w-full h-[650px] sm:h-[720px] bg-[#DFD5C0] rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-inner flex flex-col font-arabic ${mapLayerMode !== 'vector' ? 'block' : 'hidden'}`}>
+      {/* 2. 3D WebGL Terrain Model Viewport */}
+      {mapLayerMode === '3d' && (
+        <div className="relative w-full rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-xl bg-[#1a1926] flex flex-col font-arabic">
+          {/* Historical Boundary Notice & GIS Metadata */}
+          <div className="bg-nafas-sand border-b border-nafas-reed/30 p-3 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-nafas-silt">
+              <Info className="w-4 h-4 text-nafas-orchid shrink-0" />
+              <span>
+                <strong>بيان جغرافيا الرافدين:</strong> يعتمد هذا المجسم على تضاريس Mapzen/AWS وتغطية حدود geoBoundaries 2022 (18 وحدة). اعتُمدت حلبجة المحافظة الـ 19 رسمياً سنة 2025؛ لا يُعتمد هذا العرض التاريخي للتحقق الإداري الرسمي من البلاغات.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="px-2.5 py-1 rounded-md bg-nafas-misty text-nafas-blue text-[11px] font-bold">
+                تضخيم رأسي ×14 · أنهار 1:10m
+              </span>
+              <button
+                type="button"
+                onClick={sync3dMapRecords}
+                className="px-2.5 py-1 rounded-md bg-nafas-blue text-white text-[11px] font-bold hover:bg-nafas-blue/90 transition-colors"
+                title="مزامنة بيانات البلاغات والحملات المباشرة إلى المجسم"
+              >
+                مزامنة البيانات الحية
+              </button>
+            </div>
+          </div>
+
+          {/* Iframe Viewport */}
+          <div className="relative w-full h-[620px] sm:h-[720px] bg-[#1a1926]">
+            <iframe
+              ref={map3dIframeRef}
+              src={getAssetUrl('/nafas-iraq-3d.html')}
+              title="مجسم تضاريس العراق ثلاثي الأبعاد - نَفَس"
+              className="w-full h-full border-0 select-none"
+              onLoad={() => {
+                setMap3dLoaded(true);
+                sync3dMapRecords();
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 3. GIS / Botanical Leaflet Viewport */}
+      <div className={`relative w-full h-[650px] sm:h-[720px] bg-[#DFD5C0] rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-inner flex flex-col font-arabic ${mapLayerMode === 'gis' || mapLayerMode === 'botanical' ? 'block' : 'hidden'}`}>
           
           {/* 1. Master Header Control Bar */}
           <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-2.5 pointer-events-none">

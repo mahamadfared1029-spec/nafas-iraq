@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNafas } from '@/lib/store';
 import { PlantRecord, ProblemRecord, SeasonalCareRecord } from '@/types/plants';
+import { getAssetUrl } from '@/lib/basePath';
 import { 
   botanicalData, 
   searchAndFilterPlants, 
@@ -66,6 +67,51 @@ export const PlantClinic: React.FC = () => {
 
   // Researcher Mode Toggle
   const [isResearcherMode, setIsResearcherMode] = useState(false);
+
+  // 3D Orchid WebGL Model State
+  const [show3dOrchid, setShow3dOrchid] = useState(false);
+  const [selectedOrchidPart, setSelectedOrchidPart] = useState<'flower' | 'leaf' | 'root' | 'stem'>('flower');
+  const orchidIframeRef = useRef<HTMLIFrameElement>(null);
+
+  const orchidPartDetails: Record<'flower' | 'leaf' | 'root' | 'stem', { title: string; subtitle: string; description: string; careTip: string }> = {
+    flower: {
+      title: 'الأزهار والبتلات',
+      subtitle: 'أعضاء التكاثر وجذب الملقحات الحيوية',
+      description: 'تتكون الزهرة في الأوركيد من ثلاث سبلات وثلاث بتلات منها الشفة السفلية (Labellum) المتمايزة لإرشاد النحل والحشرات الملقحة. في علم النبات العلاجي، تُدرس الأزهار لاحتوائها على مركبات طيارة، وتُفحص بعناية لتمييز الأنواع السامة مثل الدفلة عن الأنواع الطبية الآمنة.',
+      careTip: 'الري المعتدل وتجنب رش الماء مباشرة على البتلات يمنع تكون البقع الفطرية ويطيل فترة الإزهار.'
+    },
+    leaf: {
+      title: 'الأوراق والمسام التنفسية',
+      subtitle: 'مركز التمثيل الضوئي وتبادل الغازات',
+      description: 'أوراق النبات العريض تحتضن خلايا البناء الضوئي والمسام التي تمتص ثاني أكسيد الكربون وتطلق الأكسجين. تُعتبر الأوراق المؤشر البصري الأول لصحة النبات، حيث يدل اصفرارها (Chlorosis) على نقص الحديد أو تعفن الجذور، وتدل الحروق الطرفية على ملوحة المياه.',
+      careTip: 'مسح الأوراق بقطعة قماش ناعمة مبللة بالماء المقطر يزيل الغبار ويعزز قدرة النبتة على التنفس الضوئي.'
+    },
+    root: {
+      title: 'الجذور وشعيرات الامتصاص',
+      subtitle: 'الجذور الهوائية والأرضية لامتصاص الرطوبة وتثبيت النبات',
+      description: 'تمتلك نباتات الأوركيد والفصائل الهوائية جذوراً مغطاة بنسيج الفيلادين (Velamen) الفضي الذي يمتص الرطوبة الجوية والندى. في بيئة العراق الجافة، تتكيف النباتات الأصيلة بجذور وتدية عميقة تصل للمياه الجوفية (مثل السدر والغاف).',
+      careTip: 'تهوية التربة والتأكد من وجود ثقوب تصريف كافية في الأصيص يمنع اختناق الجذور وظهور الفطريات اللاهوائية.'
+    },
+    stem: {
+      title: 'الساق والأنسجة الوعائية',
+      subtitle: 'الدعامة الهيكلية وقنوات الخشب واللحاء',
+      description: 'تحمل الساق الأوراق والأزهار وتنقل العصارة الغذائية والماء عبر الحزم الوعائية. مقاومة السيقان للرياح العاتية وتكيفها مع الجفاف عبر التخزين العصاري هي ميزة تطورية أساسية لنباتات المناطق الحارة.',
+      careTip: 'تثبيت السيقان الرفيعة بدعامات خيزران وتجنب الري الزائد عند قاعدة الساق يقيها من التعفن التاجي.'
+    }
+  };
+
+  useEffect(() => {
+    const handleOrchidMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'nafas:plant-part-select') {
+        const { part } = e.data.detail || {};
+        if (part && ['flower', 'leaf', 'root', 'stem'].includes(part)) {
+          setSelectedOrchidPart(part);
+        }
+      }
+    };
+    window.addEventListener('message', handleOrchidMessage);
+    return () => window.removeEventListener('message', handleOrchidMessage);
+  }, []);
 
   // Filtered Plants List
   const filteredPlants = useMemo(() => {
@@ -166,6 +212,18 @@ export const PlantClinic: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setShow3dOrchid(!show3dOrchid)}
+                className={`px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border ${
+                  show3dOrchid
+                    ? 'bg-purple-900 text-white border-purple-950 shadow-sm'
+                    : 'bg-nafas-sand/80 text-nafas-silt border-nafas-reed/30 hover:bg-nafas-sand'
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                <span>{show3dOrchid ? 'إخفاء مجسم الأوركيد 3D' : 'مجسم الأوركيد الحيّ (3D)'}</span>
+              </button>
+
+              <button
                 onClick={() => {
                   setActiveTab('triage');
                 }}
@@ -177,6 +235,96 @@ export const PlantClinic: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* ======================================================== */}
+        {/* 3D ORCHID INTERACTIVE BOTANICAL ENTRANCE                */}
+        {/* ======================================================== */}
+        {show3dOrchid && (
+          <section className="bg-nafas-ivory rounded-3xl p-5 border-2 border-purple-300/40 shadow-xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-nafas-reed/20">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-800">
+                  <OrchidMotif variant="icon" size="sm" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-nafas-silt">
+                    مجسم الأوركيد الحيّ ثلاثي الأبعاد — تشريح النبات التعليمي
+                  </h3>
+                  <p className="text-xs text-nafas-silt/70">
+                    نموذج تفاعلي مستوحى من Phalaenopsis لاستكشاف بنية الأوراق، الأزهار، الجذور، والساق
+                  </p>
+                </div>
+              </div>
+
+              {/* Accessible Alternative Buttons */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {(['flower', 'leaf', 'root', 'stem'] as const).map(partKey => (
+                  <button
+                    key={partKey}
+                    onClick={() => {
+                      setSelectedOrchidPart(partKey);
+                      try {
+                        const cw = orchidIframeRef.current?.contentWindow as any;
+                        if (cw && typeof cw.choosePart === 'function') {
+                          cw.choosePart(partKey);
+                        }
+                      } catch (e) {}
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      selectedOrchidPart === partKey
+                        ? 'bg-purple-800 text-white shadow-xs'
+                        : 'bg-nafas-sand/60 text-nafas-silt hover:bg-nafas-sand border border-nafas-reed/30'
+                    }`}
+                  >
+                    {partKey === 'flower' ? 'الأزهار' : partKey === 'leaf' ? 'الأوراق' : partKey === 'root' ? 'الجذور' : 'الساق'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Split View: 3D WebGL Canvas + Educational Detail Panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* 3D WebGL Viewport */}
+              <div className="lg:col-span-8 bg-[#181622] rounded-2xl overflow-hidden h-[450px] sm:h-[520px] relative border border-nafas-reed/30">
+                <iframe
+                  ref={orchidIframeRef}
+                  src={getAssetUrl('/nafas-orchid-3d.html')}
+                  title="مجسم الأوركيد ثلاثي الأبعاد - نَفَس"
+                  className="w-full h-full border-0 select-none"
+                />
+              </div>
+
+              {/* Educational Card for Selected Part */}
+              <div className="lg:col-span-4 bg-nafas-sand/40 rounded-2xl p-5 border border-nafas-reed/30 flex flex-col justify-between space-y-4 text-right">
+                <div className="space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-900 text-xs font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-700" />
+                    <span>الجزء المحدد: {orchidPartDetails[selectedOrchidPart].title}</span>
+                  </div>
+
+                  <h4 className="text-base font-black text-nafas-silt">
+                    {orchidPartDetails[selectedOrchidPart].subtitle}
+                  </h4>
+
+                  <p className="text-xs text-nafas-silt/80 leading-relaxed">
+                    {orchidPartDetails[selectedOrchidPart].description}
+                  </p>
+
+                  <div className="bg-nafas-ivory p-3.5 rounded-xl border border-nafas-reed/20 space-y-1">
+                    <span className="text-[11px] font-bold text-nafas-blue block">💡 إرشاد الرعاية الميداني:</span>
+                    <p className="text-[11px] text-stone-700 leading-relaxed">
+                      {orchidPartDetails[selectedOrchidPart].careTip}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-nafas-reed/20 text-[10px] text-nafas-silt/60 leading-normal">
+                  ⚠️ <strong>ملاحظة توعوية:</strong> هذا المجسم الفني الهندسي للأغراض التعليمية التشريحية، ولا يُمثّل تشخيصاً زراعياً أو وصفة طبية أو دليلاً على توزع بري محلي في العراق.
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Navigation Tabs Bar */}
         <div className="flex flex-wrap items-center gap-2 border-b border-nafas-reed/20 pb-2">

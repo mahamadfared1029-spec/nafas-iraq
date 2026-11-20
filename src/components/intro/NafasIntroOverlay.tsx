@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { getAssetUrl } from '@/lib/basePath';
 
 export default function NafasIntroOverlay() {
   const [shouldShow, setShouldShow] = useState<boolean | null>(null);
@@ -98,7 +99,7 @@ export default function NafasIntroOverlay() {
       {/* Sandboxed iframe isolating all intro styles, base64 cuneiform font, and scripts */}
       <iframe
         ref={iframeRef}
-        src={`${basePath}/intro.html`}
+        src={getAssetUrl('/intro.html')}
         title="NAFAS Opening Scene"
         className="w-full h-full border-0 select-none"
         allow="autoplay"

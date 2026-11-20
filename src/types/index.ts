@@ -67,7 +67,12 @@ export interface EnvironmentalReport {
   neighborhood: string;
   lat: number;
   lng: number;
+  location_source?: 'gps' | 'manual_picker' | 'initial_coords';
+  accuracy_m?: number;
+  source_layer_version?: string;
   imageBeforeUrl: string;
+  imageBeforeName?: string;
+  imageBeforeSize?: number;
   imageAfterUrl?: string;
   status: ReportStatus;
   createdAt: string;
@@ -126,6 +131,10 @@ export interface IssuedCertificate {
   issueDate: string;
   organizerSignature: string;
   digitalSealHash: string;
+  revoked?: boolean;
+  revokedReason?: string;
+  revokedAt?: string;
+  recipientPhoneMasked?: string;
 }
 
 export interface ImpactMetrics {

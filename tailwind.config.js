@@ -10,6 +10,14 @@ module.exports = {
     extend: {
       colors: {
         nafas: {
+          // Exact Master Spec Tokens
+          ink: "#222238",             // حبر ليلي / Ink
+          walnut: "#6B463B",          // جوزي بلاد الرافدين / Walnut
+          purple: "#62467D",          // بنفسجي أوركيد / Purple
+          lilac: "#B797D0",           // ليلكي أوركيد / Lilac
+          copper: "#C66F50",          // نحاسي بلاد الرافدين / Copper
+          cream: "#F7F1E7",           // كريمي دافئ / Cream
+
           // Revised Master Palette: Mesopotamian Earth & Orchid Atmosphere
           midnight: "#222238",        // Deep mineral violet-black for text & deep anchors
           walnut: "#6B463B",          // Warm elegant Mesopotamian Walnut brown
