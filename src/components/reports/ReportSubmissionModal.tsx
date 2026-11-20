@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNafas } from '@/lib/store';
 import { IRAQ_GOVERNORATES, CATEGORY_INFO } from '@/lib/constants';
 import { PollutionCategory, SeverityLevel } from '@/types';
@@ -12,10 +12,11 @@ import {
   ShieldAlert, 
   CheckCircle2, 
   Copy, 
-  UploadCloud,
   Navigation,
   Loader2,
-  Trash2
+  Trash2,
+  Check,
+  Edit3
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -33,7 +34,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
   const { addReport, t, passport } = useNafas();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [governorateId, setGovernorateId] = useState<string>(initialCoords?.governorateId || 'baghdad');
+  const [governorateId, setGovernorateId] = useState<string>('baghdad');
   const [neighborhood, setNeighborhood] = useState<string>('');
   const [category, setCategory] = useState<PollutionCategory>('garbage');
   const [severity, setSeverity] = useState<SeverityLevel>('medium');
@@ -42,20 +43,18 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   const [reportedBy, setReportedBy] = useState<string>(passport.userName);
   
-  // Real location state (no random math)
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(() => {
-    if (initialCoords?.lat && initialCoords?.lng) {
-      return { lat: initialCoords.lat, lng: initialCoords.lng };
-    }
-    const gov = IRAQ_GOVERNORATES.find(g => g.id === (initialCoords?.governorateId || 'baghdad')) || IRAQ_GOVERNORATES[0];
-    return { lat: gov.lat, lng: gov.lng };
-  });
-  const [locationSource, setLocationSource] = useState<'gps' | 'manual_picker' | 'initial_coords'>(
-    initialCoords ? 'initial_coords' : 'manual_picker'
-  );
-  const [accuracyM, setAccuracyM] = useState<number | undefined>(initialCoords ? 15 : 5000);
+  // Real coordinates state (strictly null until explicitly acquired or chosen)
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationSource, setLocationSource] = useState<'gps' | 'manual_picker' | 'initial_coords' | 'governorate_center_approximate' | null>(null);
+  const [accuracyM, setAccuracyM] = useState<number | undefined>(undefined);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsMessage, setGpsMessage] = useState<string | null>(null);
+
+  // Manual coordinate input fields
+  const [manualMode, setManualMode] = useState(false);
+  const [manualLat, setManualLat] = useState('');
+  const [manualLng, setManualLng] = useState('');
+  const [approximateAck, setApproximateAck] = useState(false);
 
   // Real image upload state (no stock photo fallbacks)
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -67,6 +66,36 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
   const [submittedTracking, setSubmittedTracking] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Reset or initialize state cleanly whenever the modal opens or initialCoords change
+  useEffect(() => {
+    if (isOpen) {
+      if (initialCoords && typeof initialCoords.lat === 'number' && typeof initialCoords.lng === 'number') {
+        const roundedLat = Number(initialCoords.lat.toFixed(6));
+        const roundedLng = Number(initialCoords.lng.toFixed(6));
+        setCoords({ lat: roundedLat, lng: roundedLng });
+        setLocationSource('initial_coords');
+        setAccuracyM(undefined); // Clicked on map; do not fabricate GPS accuracy
+        setManualLat(String(roundedLat));
+        setManualLng(String(roundedLng));
+        if (initialCoords.governorateId && initialCoords.governorateId !== 'pending_review') {
+          setGovernorateId(initialCoords.governorateId);
+        }
+      } else {
+        // Strict reset: no auto-assignment of Baghdad center
+        setCoords(null);
+        setLocationSource(null);
+        setAccuracyM(undefined);
+        setManualLat('');
+        setManualLng('');
+      }
+      setManualMode(false);
+      setApproximateAck(false);
+      setGpsMessage(null);
+      setFormError(null);
+      setStep(1);
+    }
+  }, [isOpen, initialCoords]);
 
   if (!isOpen) return null;
 
@@ -90,19 +119,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
     }
   };
 
-  const handleGovernorateChange = (newGovId: string) => {
-    setGovernorateId(newGovId);
-    // If location is manual picker, update coordinates to selected governorate center
-    if (locationSource === 'manual_picker') {
-      const gov = IRAQ_GOVERNORATES.find(g => g.id === newGovId);
-      if (gov) {
-        setCoords({ lat: gov.lat, lng: gov.lng });
-        setAccuracyM(5000);
-      }
-    }
-  };
-
-  // Real device GPS acquisition
+  // Real device GPS acquisition (no silent center fallback on failure)
   const handleAcquireGPS = () => {
     if (!navigator.geolocation) {
       setGpsMessage('جهازك لا يدعم خاصية تحديد الموقع الجغرافي GPS.');
@@ -114,30 +131,71 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude, accuracy } = position.coords;
-        // Verify coordinates are approximately within Iraqi territorial extent (lat 29-38, lng 38-49)
+        // Verify coordinates are approximately within Iraqi territorial extent (lat 28.5-38.5, lng 38.0-49.5)
         if (latitude < 28.5 || latitude > 38.5 || longitude < 38.0 || longitude > 49.5) {
-          setGpsMessage('الموقع المقروء خارج النطاق الجغرافي للعراق. تم الاحتفاظ بمركز المحافظة.');
+          setCoords(null);
+          setLocationSource(null);
+          setAccuracyM(undefined);
+          setGpsMessage('الموقع المقروء خارج النطاق الجغرافي للعراق. يرجى إدخال الموقع يدوياً.');
           setGpsLoading(false);
           return;
         }
-        setCoords({ lat: Number(latitude.toFixed(6)), lng: Number(longitude.toFixed(6)) });
+        const roundedLat = Number(latitude.toFixed(6));
+        const roundedLng = Number(longitude.toFixed(6));
+        setCoords({ lat: roundedLat, lng: roundedLng });
+        setManualLat(String(roundedLat));
+        setManualLng(String(roundedLng));
         setAccuracyM(Math.round(accuracy));
         setLocationSource('gps');
-        setGpsMessage(`تم التقاط الإحداثيات بنجاح بدقة ±${Math.round(accuracy)} متر.`);
+        setGpsMessage(`تم التقاط الإحداثيات الفعلية بنجاح بدقة ±${Math.round(accuracy)} متر.`);
         setGpsLoading(false);
       },
       (error) => {
         setGpsLoading(false);
+        // Do NOT silently assign center!
+        setCoords(null);
+        setLocationSource(null);
+        setAccuracyM(undefined);
         if (error.code === 1) {
-          setGpsMessage('تم رفض الإذن لتحديد الموقع. يمكنك استخدام مركز المحافظة أو الإحداثيات اليدوية.');
+          setGpsMessage('تم رفض الإذن لتحديد الموقع. يمكنك إدخال الإحداثيات يدوياً أو استخدام التأشير على الخريطة.');
         } else if (error.code === 2) {
-          setGpsMessage('تعذر التقاط إشارة GPS حالياً. يرجى التأكد من تشغيل خدمات الموقع.');
+          setGpsMessage('تعذر التقاط إشارة GPS حالياً. يرجى إدخال الإحداثيات يدوياً.');
         } else {
-          setGpsMessage('انتهت مهلة طلب الموقع. تم استخدام مركز المحافظة المحددة.');
+          setGpsMessage('انتهت مهلة طلب GPS. يرجى إدخال الإحداثيات يدوياً.');
         }
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
     );
+  };
+
+  // Explicit manual coordinate application
+  const handleApplyManualCoordinates = () => {
+    const parsedLat = parseFloat(manualLat);
+    const parsedLng = parseFloat(manualLng);
+    if (isNaN(parsedLat) || isNaN(parsedLng)) {
+      setGpsMessage('يرجى إدخال أرقام صحيحة لخط العرض وخط الطول.');
+      return;
+    }
+    if (parsedLat < 28.5 || parsedLat > 38.5 || parsedLng < 38.0 || parsedLng > 49.5) {
+      setGpsMessage('الإحداثيات المدخلة تقع خارج حدود العراق (خط العرض 29–38، خط الطول 38–49).');
+      return;
+    }
+    setCoords({ lat: Number(parsedLat.toFixed(6)), lng: Number(parsedLng.toFixed(6)) });
+    setLocationSource('manual_picker');
+    setAccuracyM(undefined); // No fabricated GPS accuracy
+    setGpsMessage('تم اعتماد الإحداثيات اليدوية ومراجعتها.');
+    setManualMode(false);
+  };
+
+  // Explicit approximate governorate center choice
+  const handleUseApproximateGovernorateCenter = () => {
+    const gov = IRAQ_GOVERNORATES.find(g => g.id === governorateId) || IRAQ_GOVERNORATES[0];
+    setCoords({ lat: gov.lat, lng: gov.lng });
+    setManualLat(String(gov.lat));
+    setManualLng(String(gov.lng));
+    setLocationSource('governorate_center_approximate');
+    setAccuracyM(undefined);
+    setGpsMessage(`تم تعيين مركز ${gov.nameAr} كإحداثي تقريبي مؤقت يلزم إقراره.`);
   };
 
   // Real device image file upload and validation
@@ -183,16 +241,23 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
     e.preventDefault();
     setFormError(null);
 
-    const selectedGov = IRAQ_GOVERNORATES.find(g => g.id === governorateId) || IRAQ_GOVERNORATES[0];
-    
-    // Explicit coordinates check - strictly NO Math.random()
-    const finalLat = coords?.lat ?? selectedGov.lat;
-    const finalLng = coords?.lng ?? selectedGov.lng;
-
-    if (finalLat < 28.5 || finalLat > 38.5 || finalLng < 38.0 || finalLng > 49.5) {
-      setFormError('إحداثيات البلاغ خارج النطاق الجغرافي للعراق.');
+    // Strict validation: must have genuine coordinates chosen/confirmed by user
+    if (!coords || typeof coords.lat !== 'number' || typeof coords.lng !== 'number') {
+      setFormError('لا يمكن إرسال البلاغ دون تحديد موقع فعلي مؤكد. يرجى التقاط GPS، أو النقر على الخريطة، أو إدخال الإحداثيات يدوياً.');
       return;
     }
+
+    if (coords.lat < 28.5 || coords.lat > 38.5 || coords.lng < 38.0 || coords.lng > 49.5) {
+      setFormError('إحداثيات البلاغ تقع خارج النطاق الجغرافي للعراق.');
+      return;
+    }
+
+    if (locationSource === 'governorate_center_approximate' && !approximateAck) {
+      setFormError('عند اختيار مركز المحافظة كإحداثي تقريبي، يجب تأكيد الإقرار المكتوب أدناه.');
+      return;
+    }
+
+    const selectedGov = IRAQ_GOVERNORATES.find(g => g.id === governorateId) || IRAQ_GOVERNORATES[0];
 
     const report = addReport({
       title: title || `${CATEGORY_INFO[category].labelAr} في ${neighborhood || selectedGov.nameAr}`,
@@ -201,12 +266,12 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
       severity,
       governorateId,
       neighborhood: neighborhood || selectedGov.nameAr,
-      lat: finalLat,
-      lng: finalLng,
-      location_source: locationSource,
+      lat: coords.lat,
+      lng: coords.lng,
+      location_source: locationSource || 'manual_picker',
       accuracy_m: accuracyM,
       source_layer_version: 'gbOpen-IRQ-ADM1-2022',
-      imageBeforeUrl: imagePreview, // Real user image or empty string - strictly NO stock photos
+      imageBeforeUrl: imagePreview, // Genuine uploaded image or empty string - strictly NO stock photos
       imageBeforeName: imageFileName || undefined,
       imageBeforeSize: imageFileSize || undefined,
       reportedBy: isAnonymous ? 'مواطن مجهول' : reportedBy,
@@ -217,7 +282,6 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
     setSubmittedTracking(report.trackingNumber);
     setStep(3);
 
-    // Fire celebratory confetti
     try {
       confetti({
         particleCount: 80,
@@ -369,7 +433,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                   </label>
                   <select
                     value={governorateId}
-                    onChange={(e) => handleGovernorateChange(e.target.value)}
+                    onChange={(e) => setGovernorateId(e.target.value)}
                     className="w-full text-xs font-arabic bg-nafas-sand border border-nafas-reed/15 rounded-xl px-3 py-2.5 text-nafas-silt focus:outline-none focus:ring-2 focus:ring-nafas-blue"
                   >
                     {IRAQ_GOVERNORATES.map(gov => (
@@ -393,51 +457,143 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                 </div>
               </div>
 
-              {/* Geolocation Section (No Random Coordinates) */}
-              <div className="bg-nafas-sand/50 p-4 rounded-2xl border border-nafas-reed/20 space-y-2">
+              {/* Geolocation Section: Genuine User Confirmation Required */}
+              <div className="bg-nafas-sand/50 p-4 rounded-2xl border border-nafas-reed/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-nafas-silt flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-nafas-blue" />
-                    <span>إحداثيات الموقع الميداني:</span>
+                    <span>موقع المخالفة الميداني:</span>
                   </label>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    locationSource === 'gps' 
-                      ? 'bg-emerald-100 text-emerald-800' 
-                      : locationSource === 'initial_coords' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-amber-100 text-amber-800'
+                    coords 
+                      ? (locationSource === 'gps' ? 'bg-emerald-100 text-emerald-800' : locationSource === 'initial_coords' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')
+                      : 'bg-red-100 text-red-800 animate-pulse'
                   }`}>
-                    {locationSource === 'gps' ? 'GPS جهاز دقيق' : locationSource === 'initial_coords' ? 'نقر الخريطة' : 'مركز المحافظة'}
+                    {coords 
+                      ? (locationSource === 'gps' ? `GPS دقيق (±${accuracyM || 0}م)` : locationSource === 'initial_coords' ? 'محدد من الخريطة' : locationSource === 'governorate_center_approximate' ? 'مركز تقريبي' : 'إدخال يدوي مراجع')
+                      : 'مطلوب التحديد'
+                    }
                   </span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <div className="flex-1 text-xs font-mono bg-white px-3 py-2 rounded-xl border border-nafas-reed/30 text-nafas-silt">
-                    {coords ? `${coords.lat.toFixed(5)}°N, ${coords.lng.toFixed(5)}°E (${accuracyM ? '±' + accuracyM + 'م' : 'تقريبي'})` : 'لم تُحدد الإحداثيات'}
-                  </div>
+                {/* Status Box */}
+                <div className={`p-3 rounded-xl border text-xs font-mono flex items-center justify-between ${
+                  coords ? 'bg-white border-nafas-reed/30 text-nafas-silt' : 'bg-red-50/60 border-red-200 text-red-800'
+                }`}>
+                  <span>
+                    {coords 
+                      ? `${coords.lat.toFixed(5)}°N, ${coords.lng.toFixed(5)}°E`
+                      : 'لم يتم تحديد موقع البلاغ بعد. اختر إحدى الطرق أدناه لتأكيد الموقع:'
+                    }
+                  </span>
+                  {coords && (
+                    <span className="text-[11px] font-sans font-bold text-emerald-700 flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>مؤكد</span>
+                    </span>
+                  )}
+                </div>
 
+                {/* Action Buttons: GPS, Manual Input, Approximate Center */}
+                <div className="flex flex-wrap gap-2 pt-1">
                   <button
                     type="button"
                     onClick={handleAcquireGPS}
                     disabled={gpsLoading}
-                    className="px-3.5 py-2 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                    className="px-3 py-2 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-white text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
                   >
                     {gpsLoading ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>جارٍ الالتقاط...</span>
+                        <span>جارٍ الاتصال بـ GPS...</span>
                       </>
                     ) : (
                       <>
                         <Navigation className="w-3.5 h-3.5" />
-                        <span>التقاط GPS الحالي</span>
+                        <span>التقاط GPS من جهازي</span>
                       </>
                     )}
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setManualMode(!manualMode)}
+                    className="px-3 py-2 rounded-xl bg-nafas-sand hover:bg-nafas-sand/80 text-nafas-silt border border-nafas-reed/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-nafas-walnut" />
+                    <span>إدخال إحداثيات يدوياً</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleUseApproximateGovernorateCenter}
+                    className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium border border-stone-300 transition-colors"
+                  >
+                    <span>استخدام مركز المحافظة كتقريب</span>
+                  </button>
                 </div>
 
+                {/* Manual Input Drawer */}
+                {manualMode && (
+                  <div className="p-3 bg-white rounded-xl border border-nafas-reed/30 space-y-2 animate-in fade-in">
+                    <p className="text-[11px] text-nafas-neutral-slate">
+                      أدخل إحداثيات WGS84 الدقيقة لموقع البلاغ:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-nafas-silt font-bold block mb-1">خط العرض (Latitude: 29.0–38.0):</label>
+                        <input
+                          type="number"
+                          step="0.00001"
+                          value={manualLat}
+                          onChange={(e) => setManualLat(e.target.value)}
+                          placeholder="مثال: 33.31520"
+                          className="w-full text-xs font-mono bg-nafas-sand border border-nafas-reed/20 rounded-lg px-2.5 py-1.5 text-left"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-nafas-silt font-bold block mb-1">خط الطول (Longitude: 38.0–49.0):</label>
+                        <input
+                          type="number"
+                          step="0.00001"
+                          value={manualLng}
+                          onChange={(e) => setManualLng(e.target.value)}
+                          placeholder="مثال: 44.36610"
+                          className="w-full text-xs font-mono bg-nafas-sand border border-nafas-reed/20 rounded-lg px-2.5 py-1.5 text-left"
+                          dir="ltr"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleApplyManualCoordinates}
+                      className="w-full py-1.5 rounded-lg bg-nafas-silt text-nafas-ivory text-xs font-bold hover:bg-nafas-silt/90 transition-colors"
+                    >
+                      تطبيق ومراجعة الإحداثيات
+                    </button>
+                  </div>
+                )}
+
+                {/* Approximate Center Acknowledgment Checkbox */}
+                {locationSource === 'governorate_center_approximate' && (
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5 text-xs text-amber-900 animate-in fade-in">
+                    <label className="flex items-start gap-2 cursor-pointer font-bold">
+                      <input
+                        type="checkbox"
+                        checked={approximateAck}
+                        onChange={(e) => setApproximateAck(e.target.checked)}
+                        className="mt-0.5 rounded border-amber-300 text-nafas-blue focus:ring-nafas-blue"
+                      />
+                      <span>
+                        أُقرّ بأن هذه الإحداثيات تمثّل مركز المحافظة الإداري فقط وليست موقعاً ميدانياً دقيقاً للمشكلة.
+                      </span>
+                    </label>
+                  </div>
+                )}
+
                 {gpsMessage && (
-                  <p className="text-[11px] text-nafas-silt/80">{gpsMessage}</p>
+                  <p className="text-[11px] text-nafas-silt/80 pt-1">{gpsMessage}</p>
                 )}
               </div>
 

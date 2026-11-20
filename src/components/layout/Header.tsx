@@ -59,12 +59,18 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-nafas-sand/95 backdrop-blur-md border-b border-nafas-reed/30 shadow-sm transition-all duration-300">
-      {/* Top Banner: Role switcher simulation bar */}
-      <div className="bg-nafas-silt text-nafas-sand px-4 py-1.5 text-xs flex flex-wrap items-center justify-between border-b border-nafas-reed/20">
+      {/* Top Banner: Role switcher simulation bar & Demo Notice */}
+      <div className="bg-nafas-silt text-nafas-sand px-4 py-1.5 text-xs flex flex-wrap items-center justify-between border-b border-nafas-reed/20 gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-nafas-misty font-semibold">تجربة الأدوار المباشرة:</span>
+          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 text-[11px] font-bold border border-amber-500/30">
+            وضع العرض التجريبي (Demo)
+          </span>
+          <span className="text-nafas-misty font-semibold hidden sm:inline">محاكي الأدوار:</span>
           <span className={`px-2 py-0.5 rounded-full font-medium ${currentRoleInfo.badgeColor}`}>
             {language === 'en' ? currentRoleInfo.labelEn : currentRoleInfo.labelAr}
+          </span>
+          <span className="text-[11px] text-nafas-sand/60 hidden md:inline">
+            (التوثيق الرسمي والشهادات القانونية تتطلب خادم مصادقة وطني)
           </span>
         </div>
 
@@ -85,17 +91,18 @@ export const Header: React.FC<HeaderProps> = ({
               className="hover:text-nafas-misty flex items-center gap-1 font-medium transition-colors"
               aria-label="تبديل الصلاحية"
             >
-              <span>{t.roleSwitcherLabel}</span>
+              <span>محاكي الأدوار</span>
               <UserCircle className="w-3.5 h-3.5" />
             </button>
 
             {roleMenuOpen && (
               <div 
-                className="absolute left-0 sm:right-0 mt-1 w-64 bg-nafas-ivory text-nafas-silt rounded-xl shadow-xl border border-nafas-reed/30 py-2 z-50 animate-in fade-in slide-in-from-top-1"
+                className="absolute left-0 sm:right-0 mt-1 w-72 bg-nafas-ivory text-nafas-silt rounded-xl shadow-xl border border-nafas-reed/30 py-2 z-50 animate-in fade-in slide-in-from-top-1"
                 onClick={() => setRoleMenuOpen(false)}
               >
-                <div className="px-3 py-1 text-[11px] font-bold text-nafas-silt/70 uppercase border-b border-nafas-reed/20">
-                  اختر الدور للتحقق المباشر
+                <div className="px-3 py-1.5 text-[11px] font-bold text-nafas-silt/80 border-b border-nafas-reed/20">
+                  <div>محاكي أدوار المعاينة التجريبية</div>
+                  <div className="text-[10px] text-nafas-silt/60 font-normal mt-0.5">تبديل الدور هنا لمحاكاة الواجهة فقط ولا يمنح تفويضاً رسمياً</div>
                 </div>
                 {rolesList.map(r => (
                   <button

@@ -50,7 +50,10 @@ function selectText(title,text){$('selectedTitle').textContent=title;$('selected
 function notify(type,payload){
   window.dispatchEvent(new CustomEvent(type,{detail:payload}));
   if(window.parent && window.parent !== window){
-    try{ window.parent.postMessage({type,detail:payload},'*'); }catch(e){}
+    try{
+      const targetOrigin = window.location.origin && window.location.origin !== 'null' ? window.location.origin : '*';
+      window.parent.postMessage({type,detail:payload}, targetOrigin);
+    }catch(e){}
   }
 }
 

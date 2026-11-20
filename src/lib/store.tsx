@@ -45,6 +45,8 @@ interface NafasContextType {
   impactMetrics: ImpactMetrics;
   selectedGovernorateId: string;
   setSelectedGovernorateId: (id: string) => void;
+  isDemoMode: boolean;
+  userRegisteredCampaignIds: string[];
   
   // Actions
   addReport: (newReport: Omit<EnvironmentalReport, 'id' | 'trackingNumber' | 'createdAt' | 'updatedAt' | 'auditLogs' | 'status'>) => EnvironmentalReport;
@@ -66,6 +68,8 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
   
   const [reports, setReports] = useState<EnvironmentalReport[]>(INITIAL_REPORTS);
   const [campaigns, setCampaigns] = useState<VolunteerCampaign[]>(INITIAL_CAMPAIGNS);
+  const [userRegisteredCampaignIds, setUserRegisteredCampaignIds] = useState<string[]>([]);
+  const isDemoMode = true; // Frontend demonstration simulator mode
 
   const [passport, setPassport] = useState<UserPassport>({
     userName: 'حيدر الكرخي',
@@ -91,7 +95,9 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
         hoursAwarded: 4.5,
         issueDate: '2026-11-12',
         organizerSignature: 'م. مروة الكرخي (منسق نَفَس الميداني)',
-        digitalSealHash: '0x8f2a...c94e'
+        digitalSealHash: '0x8f2a...c94e',
+        isDemoCertificate: true,
+        watermarkText: 'معاينة تجريبية (Demo Simulator)'
       }
     ]
   });
@@ -107,29 +113,34 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     }
   }, [language]);
 
-  // Dynamically compute real impact metrics from reports and campaigns (No artificial +42/+19 offsets)
+  // Dynamically compute real impact metrics from reports and campaigns
+  // Truthful metrics: exclude in_progress, no targetTrees extrapolation, no flora * 5, no Math.max(1, activeVolunteers)
   const impactMetrics: ImpactMetrics = useMemo(() => {
     const totalReports = reports.length;
-    const verifiedReports = reports.filter(r => r.status === 'verified' || r.status === 'in_progress' || r.status === 'resolved').length;
+    // Count ONLY verified and resolved issues (exclude in_progress)
+    const verifiedReports = reports.filter(r => r.status === 'verified' || r.status === 'resolved').length;
     const resolvedCleanups = reports.filter(r => r.status === 'resolved').length;
     const campaignsCount = campaigns.length;
     
-    // Total trees planted from completed campaigns + verified planting reports
-    const totalTrees = campaigns.filter(c => c.status === 'completed').reduce((acc, c) => acc + (c.targetTrees || 0), 0) +
-      reports.filter(r => r.category === 'flora' && r.status === 'resolved').length * 5;
+    // Total trees planted from completed campaigns with actual confirmed planted trees (not future targets, no artificial * 5)
+    const totalTrees = campaigns
+      .filter(c => c.status === 'completed')
+      .reduce((acc, c) => acc + ((c as any).treesPlanted || 0), 0);
 
     // Total verified volunteer hours from issued unrevoked certificates
     const totalHours = passport.certificates
       .filter(c => !c.revoked)
       .reduce((acc, c) => acc + (c.hoursAwarded || 0), 0);
 
-    const activeGovs = new Set([
-      ...reports.map(r => r.governorateId),
-      ...campaigns.map(c => c.governorateId)
-    ]).size;
+    const activeGovs = (reports.length > 0 || campaigns.length > 0)
+      ? new Set([
+          ...reports.map(r => r.governorateId),
+          ...campaigns.map(c => c.governorateId)
+        ]).size
+      : 0;
 
-    // Real active volunteers: registered volunteers across active campaigns + current participant
-    const activeVolunteersCount = campaigns.reduce((acc, c) => acc + c.registeredCount, 0) + 
+    // Real active volunteers: registered volunteers across active campaigns + completed participants (if 0, stays 0)
+    const activeVolunteersCount = campaigns.reduce((acc, c) => acc + (c.registeredCount || 0), 0) + 
       (passport.completedCampaignsCount > 0 ? 1 : 0);
 
     return {
@@ -137,7 +148,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       totalVerifiedIssues: verifiedReports,
       totalResolvedCleanups: resolvedCleanups,
       totalCampaignsHeld: campaignsCount,
-      totalActiveVolunteers: Math.max(1, activeVolunteersCount),
+      totalActiveVolunteers: activeVolunteersCount, // No forcing Math.max(1, ...)
       totalVolunteerHours: Number(totalHours.toFixed(1)),
       totalTreesPlanted: totalTrees,
       activeGovernoratesCount: activeGovs,
@@ -213,6 +224,11 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
   };
 
   const registerForCampaign = (campaignId: string, volunteerName: string): boolean => {
+    // Prevent duplicate registration for the same campaign
+    if (userRegisteredCampaignIds.includes(campaignId)) {
+      return false;
+    }
+
     let success = false;
     setCampaigns(prev => prev.map(c => {
       if (c.id === campaignId) {
@@ -229,6 +245,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     }));
 
     if (success) {
+      setUserRegisteredCampaignIds(prev => [...prev, campaignId]);
       setPassport(prev => ({
         ...prev,
         points: prev.points + 15,
@@ -238,6 +255,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
   };
 
   const cancelCampaignRegistration = (campaignId: string) => {
+    setUserRegisteredCampaignIds(prev => prev.filter(id => id !== campaignId));
     setCampaigns(prev => prev.map(c => {
       if (c.id === campaignId && c.registeredCount > 0) {
         return {
@@ -274,6 +292,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     }
     const digitalSealHash = `0x${h.toString(16).padStart(8, '0')}${Date.now().toString(16).padStart(8, '0')}`;
 
+    // Mark clearly as demo simulator certificate since running without real national server backend
     const newCert: IssuedCertificate = {
       id: certCode,
       verificationCode: certCode,
@@ -284,14 +303,16 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       issueDate,
       organizerSignature: campaign?.organizer || 'إدارة منصة نَفَس',
       digitalSealHash,
-      revoked: false
+      revoked: false,
+      isDemoCertificate: true,
+      watermarkText: 'معاينة تجريبية (Demo Simulator) — غير معتمد رسمياً دون مصادقة الخادم الوطني'
     };
 
     setPassport(prev => ({
       ...prev,
       verifiedHours: prev.verifiedHours + hours,
       completedCampaignsCount: prev.completedCampaignsCount + 1,
-      treesPlantedCount: prev.treesPlantedCount + (campaign?.targetTrees ? Math.ceil(campaign.targetTrees / (campaign.volunteerCapacity || 1)) : 2),
+      treesPlantedCount: prev.treesPlantedCount + ((campaign as any)?.treesPlanted ? Math.ceil((campaign as any).treesPlanted / (campaign?.volunteerCapacity || 1)) : 0),
       points: prev.points + 100,
       certificates: [newCert, ...prev.certificates]
     }));
@@ -342,6 +363,8 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
         impactMetrics,
         selectedGovernorateId,
         setSelectedGovernorateId,
+        isDemoMode,
+        userRegisteredCampaignIds,
         addReport,
         updateReportStatus,
         registerForCampaign,

@@ -84,7 +84,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       title: 'أثر نَفَس',
       description: 'أرقام الشفافية والأثر البيئي الموثق',
       icon: BarChart3,
-      badge: '99.4% موثق',
+      badge: impactMetrics.totalVerifiedIssues > 0 ? `${impactMetrics.totalVerifiedIssues} موثق` : 'سجلات مدققة',
       color: 'text-nafas-walnut bg-nafas-walnut/10 border-nafas-walnut/20'
     },
     {

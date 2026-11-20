@@ -102,7 +102,13 @@ export const PlantClinic: React.FC = () => {
 
   useEffect(() => {
     const handleOrchidMessage = (e: MessageEvent) => {
-      if (e.data?.type === 'nafas:plant-part-select') {
+      // Validate origin, iframe source and data shape
+      const allowedOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+      if (e.origin !== allowedOrigin && e.origin !== 'null' && allowedOrigin !== '') return;
+      if (orchidIframeRef.current && e.source !== orchidIframeRef.current.contentWindow) return;
+      if (!e.data || typeof e.data !== 'object') return;
+
+      if (e.data.type === 'nafas:plant-part-select') {
         const { part } = e.data.detail || {};
         if (part && ['flower', 'leaf', 'root', 'stem'].includes(part)) {
           setSelectedOrchidPart(part);

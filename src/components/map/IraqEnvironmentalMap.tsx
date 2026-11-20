@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { IraqVectorMap } from './IraqVectorMap';
 import { getAssetUrl } from '@/lib/basePath';
+import { isPointInPolygon } from '@/lib/gisContainment';
 
 interface MapProps {
   onSelectReport?: (report: EnvironmentalReport) => void;
@@ -67,12 +68,22 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   // 3D WebGL Map iframe & bridge state
   const map3dIframeRef = useRef<HTMLIFrameElement>(null);
   const [map3dLoaded, setMap3dLoaded] = useState(false);
+  const [sync3DStatus, setSync3DStatus] = useState<{ status: 'idle' | 'synced' | 'error'; count: number; errorMsg?: string }>({ status: 'idle', count: 0 });
 
   // Pin category filtering (for field_reports mode): 'all' | 'planting' | 'cleanup' | 'pollution' | 'activity'
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedPin, setSelectedPin] = useState<MapPinItem | null>(null);
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
   const [pinModeActive, setPinModeActive] = useState(false);
+  const pinModeActiveRef = useRef(pinModeActive);
+
+  // Keep ref synchronized so Leaflet event handler closure is never stale
+  useEffect(() => {
+    pinModeActiveRef.current = pinModeActive;
+    if (mapContainerRef.current) {
+      mapContainerRef.current.style.cursor = pinModeActive ? 'crosshair' : '';
+    }
+  }, [pinModeActive]);
 
   // Botanical Layer State
   // Exclude any plant on hold from public distribution
@@ -145,7 +156,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     });
   }, [allMapPins, selectedType, selectedGovernorateId]);
 
-  // Sync real records to 3D WebGL Map when loaded
+  // Sync real records to 3D WebGL Map when loaded (truthful coordinates only, no fabricated centroid marketing)
   const sync3dMapRecords = () => {
     if (!map3dIframeRef.current?.contentWindow) return;
     try {
@@ -153,9 +164,10 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       if (cw.NAFAS_MAP && typeof cw.NAFAS_MAP.setRecords === 'function') {
         const records: Array<{ id: string; title: string; lat: number; lon: number; type: 'tree' | 'clean' | 'report' }> = [];
         
-        // Push valid reports
+        // Push only authentic reports with genuine geographic coordinates within Iraq bounds
         reports.forEach(r => {
-          if (r.lat >= 29 && r.lat <= 38 && r.lng >= 38 && r.lng <= 49) {
+          if (typeof r.lat === 'number' && typeof r.lng === 'number' &&
+              r.lat >= 28.5 && r.lat <= 38.5 && r.lng >= 38.0 && r.lng <= 49.5) {
             records.push({
               id: r.id,
               title: r.title,
@@ -166,38 +178,45 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           }
         });
 
-        // Push valid campaigns
-        campaigns.forEach(c => {
-          const gov = IRAQ_GOVERNORATES.find(g => g.id === c.governorateId);
-          if (gov && gov.lat >= 29 && gov.lat <= 38 && gov.lng >= 38 && gov.lng <= 49) {
-            records.push({
-              id: c.id,
-              title: c.titleAr,
-              lat: gov.lat,
-              lon: gov.lng,
-              type: c.targetTrees > 0 ? 'tree' : 'clean'
-            });
-          }
-        });
+        // Do NOT market governorate centers as campaign field locations; only reports with field coords are synchronized
 
         cw.NAFAS_MAP.setRecords(records, { demo: false });
+        setSync3DStatus({ status: 'synced', count: records.length });
       }
-    } catch (e) {
-      // Same-origin / cross-origin handling
+    } catch (e: any) {
+      console.error('Error synchronizing 3D records:', e);
+      setSync3DStatus({
+        status: 'error',
+        count: 0,
+        errorMsg: e?.message || 'فشل مزامنة السجلات مع المجسم ثلاثي الأبعاد'
+      });
+      // Clear demo records on failure to prevent retaining misleading demo pins
+      try {
+        const cw = map3dIframeRef.current?.contentWindow as any;
+        if (typeof cw?.NAFAS_MAP?.setRecords === 'function') {
+          cw.NAFAS_MAP.setRecords([], { demo: false });
+        }
+      } catch (_) {}
     }
   };
 
   useEffect(() => {
     const handle3DMessage = (e: MessageEvent) => {
-      if (e.data?.type === 'nafas:province-select') {
+      // Validate origin, iframe source and data shape
+      const allowedOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+      if (e.origin !== allowedOrigin && e.origin !== 'null' && allowedOrigin !== '') return;
+      if (map3dIframeRef.current && e.source !== map3dIframeRef.current.contentWindow) return;
+      if (!e.data || typeof e.data !== 'object') return;
+
+      if (e.data.type === 'nafas:province-select') {
         const { name } = e.data.detail || {};
-        if (name) {
+        if (name && typeof name === 'string') {
           const gov = IRAQ_GOVERNORATES.find(g => g.nameAr === name || name.includes(g.nameAr));
           if (gov) setSelectedGovernorateId(gov.id);
         }
-      } else if (e.data?.type === 'nafas:record-select') {
+      } else if (e.data.type === 'nafas:record-select') {
         const rec = e.data.detail;
-        if (rec?.id) {
+        if (rec?.id && typeof rec.id === 'string') {
           const foundReport = reports.find(r => r.id === rec.id);
           if (foundReport && onSelectReport) {
             onSelectReport(foundReport);
@@ -206,16 +225,16 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
               id: rec.id,
               refId: rec.id,
               type: rec.type === 'tree' ? 'planting' : (rec.type === 'clean' ? 'cleanup' : 'pollution'),
-              title: rec.title,
+              title: rec.title || 'سجل بيئي',
               categoryLabelAr: rec.type === 'tree' ? 'حملة تشجير' : (rec.type === 'clean' ? 'حملة تنظيف' : 'بلاغ ميداني'),
               governorateId: 'baghdad',
               neighborhood: 'العراق',
-              lat: rec.lat,
-              lng: rec.lon,
+              lat: typeof rec.lat === 'number' ? rec.lat : 33.3152,
+              lng: typeof rec.lon === 'number' ? rec.lon : 44.3661,
               status: 'in_progress',
               statusLabelAr: 'قيد المتابعة',
               organizerOrReporter: 'نَفَس',
-              summary: rec.title,
+              summary: rec.title || '',
               evidenceUrl: '',
               color: rec.type === 'tree' ? '#16A34A' : (rec.type === 'clean' ? '#2563EB' : '#C66F50')
             });
@@ -361,22 +380,26 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       const markersLayer = L.layerGroup().addTo(map);
       markersLayerRef.current = markersLayer;
 
-      // Click on Map to Drop a Pin
+      // Click on Map to Drop a Pin (uses live ref to prevent stale closure)
       map.on('click', (e: any) => {
-        if (!pinModeActive) return;
-        const { lat, lng } = e.latlng;
-        let closestGov = 'baghdad';
-        let minDist = 999;
-        IRAQ_GOVERNORATES.forEach(g => {
-          const d = Math.hypot(g.lat - lat, g.lng - lng);
-          if (d < minDist) {
-            minDist = d;
-            closestGov = g.id;
+        if (!pinModeActiveRef.current) return;
+        const lat = Number(e.latlng.lat.toFixed(6));
+        const lng = Number(e.latlng.lng.toFixed(6));
+
+        // Point-in-polygon verification against official GIS polygon rings (no naive nearest-center guessing)
+        let matchedGovId: string | undefined = undefined;
+        for (const g of GOVERNORATES_GIS_DATA) {
+          if (isPointInPolygon(lat, lng, g.polygon)) {
+            matchedGovId = g.id;
+            break;
           }
-        });
+        }
+
+        // If outside recognized ADM1 polygon rings, label as pending review
+        const resolvedGovId = matchedGovId || 'pending_review';
 
         if (onOpenReportModalWithCoords) {
-          onOpenReportModalWithCoords(lat, lng, closestGov);
+          onOpenReportModalWithCoords(lat, lng, resolvedGovId);
           setPinModeActive(false);
         }
       });
@@ -638,11 +661,21 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
               <span className="px-2.5 py-1 rounded-md bg-nafas-misty text-nafas-blue text-[11px] font-bold">
                 تضخيم رأسي ×14 · أنهار 1:10m
               </span>
+              {sync3DStatus.status === 'synced' && (
+                <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200">
+                  تمت مزامنة {sync3DStatus.count} سجل موثق
+                </span>
+              )}
+              {sync3DStatus.status === 'error' && (
+                <span className="px-2.5 py-1 rounded-md bg-rose-50 text-rose-800 text-[11px] font-bold border border-rose-200" title={sync3DStatus.errorMsg}>
+                  فشل مزامنة السجلات
+                </span>
+              )}
               <button
                 type="button"
                 onClick={sync3dMapRecords}
                 className="px-2.5 py-1 rounded-md bg-nafas-blue text-white text-[11px] font-bold hover:bg-nafas-blue/90 transition-colors"
-                title="مزامنة بيانات البلاغات والحملات المباشرة إلى المجسم"
+                title="مزامنة بيانات البلاغات الموثقة إلى المجسم"
               >
                 مزامنة البيانات الحية
               </button>

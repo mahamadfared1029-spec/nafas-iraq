@@ -18,6 +18,7 @@ import { VolunteerPassport } from '@/components/passport/VolunteerPassport';
 import { RewardsModal } from '@/components/rewards/RewardsModal';
 import { CertificateModal } from '@/components/certificates/CertificateModal';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
+import { getBasePath } from '@/lib/basePath';
 import { 
   ArrowRight, 
   MapPin, 
@@ -28,8 +29,16 @@ import {
   HeartHandshake 
 } from 'lucide-react';
 
+const VALID_VIEWS = ['home', 'map', 'campaigns', 'impact', 'planting', 'atlas', 'clinic'];
+
+function parseViewFromHash(): string {
+  if (typeof window === 'undefined') return 'home';
+  const cleanHash = window.location.hash.replace(/^#\/?/, '').trim();
+  return VALID_VIEWS.includes(cleanHash) && cleanHash !== 'home' ? cleanHash : 'home';
+}
+
 export default function HomePage() {
-  // Navigation View State: 'home' is the default hub dashboard
+  // Navigation View State: initialized from URL hash if present
   const [currentView, setCurrentView] = useState<string>('home');
 
   // Modals state
@@ -40,24 +49,46 @@ export default function HomePage() {
   const [selectedCertificate, setSelectedCertificate] = useState<IssuedCertificate | null>(null);
   const [pinnedCoords, setPinnedCoords] = useState<{ lat: number; lng: number; governorateId: string } | null>(null);
 
-  // Sync with browser back navigation
+  // Sync with browser back navigation, initial hash, and refresh
   useEffect(() => {
+    // Read initial view from URL hash on mount
+    const initialView = parseViewFromHash();
+    if (initialView !== 'home') {
+      setCurrentView(initialView);
+    }
+
+    const syncView = () => {
+      const view = parseViewFromHash();
+      setCurrentView(view);
+    };
+
     const handlePopState = (e: PopStateEvent) => {
-      if (e.state && e.state.view) {
+      if (e.state && e.state.view && VALID_VIEWS.includes(e.state.view)) {
         setCurrentView(e.state.view);
       } else {
-        setCurrentView('home');
+        syncView();
       }
     };
+
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', syncView);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', syncView);
+    };
   }, []);
 
   const navigateTo = (viewId: string) => {
-    setCurrentView(viewId);
+    const target = VALID_VIEWS.includes(viewId) ? viewId : 'home';
+    setCurrentView(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     try {
-      window.history.pushState({ view: viewId }, '', viewId === 'home' ? '/' : `#${viewId}`);
+      const base = getBasePath();
+      // Ensure basePath is strictly preserved: '/nafas-iraq/' instead of breaking to '/'
+      const targetUrl = target === 'home'
+        ? (base ? `${base}/` : '/')
+        : (base ? `${base}/#${target}` : `#${target}`);
+      window.history.pushState({ view: target }, '', targetUrl);
     } catch {
       // Fallback for sandboxed frames
     }
