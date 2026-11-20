@@ -25,6 +25,8 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+deploy_to_github.py
+data-versions/
 
 # typescript
 *.tsbuildinfo

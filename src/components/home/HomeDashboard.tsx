@@ -114,10 +114,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     {
       id: 'clinic',
       title: 'الصيدلية النباتية',
-      description: 'تشخيص أمراض النباتات وحلول طبيعية',
+      description: 'فحص النبات، التوزع الجغرافي، وإسعاف الطوارئ',
       icon: HeartHandshake,
-      badge: 'استشارات مجانية',
-      color: 'text-rose-800 bg-rose-500/10 border-rose-500/20'
+      badge: 'فحص وإسعاف 1.0',
+      color: 'text-purple-800 bg-purple-500/10 border-purple-500/20'
     },
     {
       id: 'atlas',
