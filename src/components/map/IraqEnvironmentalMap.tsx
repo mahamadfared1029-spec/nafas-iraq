@@ -34,8 +34,10 @@ import {
   PlusCircle,
   ShieldAlert,
   Info,
-  BookOpen
+  BookOpen,
+  ExternalLink
 } from 'lucide-react';
+import { IraqVectorMap } from './IraqVectorMap';
 
 interface MapProps {
   onSelectReport?: (report: EnvironmentalReport) => void;
@@ -56,8 +58,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     language 
   } = useNafas();
 
-  // Layer mode: 'field_reports' | 'botanical'
-  const [mapLayerMode, setMapLayerMode] = useState<'field_reports' | 'botanical'>('field_reports');
+  // Layer mode: 'vector' | 'gis' | 'botanical'
+  const [mapLayerMode, setMapLayerMode] = useState<'vector' | 'gis' | 'botanical'>('vector');
 
   // Pin category filtering (for field_reports mode): 'all' | 'planting' | 'cleanup' | 'pollution' | 'activity'
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -189,11 +191,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       GOVERNORATES_GIS_DATA.forEach(gov => {
         const poly = L.polygon(gov.polygon, {
-          color: '#6B463B',
-          weight: 1.2,
-          opacity: 0.35,
-          fillColor: '#F7F1E7',
-          fillOpacity: 0.05
+          color: '#3E2C1E',
+          weight: 1.8,
+          opacity: 0.75,
+          fillColor: '#DFD5C0',
+          fillOpacity: 0.12
         });
 
         poly.bindTooltip(
@@ -202,15 +204,15 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         );
 
         poly.on('mouseover', () => {
-          poly.setStyle({ opacity: 0.9, weight: 2, fillColor: '#B797D0', fillOpacity: 0.15 });
+          poly.setStyle({ opacity: 1.0, weight: 2.5, fillColor: '#62467D', fillOpacity: 0.25, color: '#62467D' });
         });
 
         poly.on('mouseout', () => {
           // Re-apply style depending on mode
           if (mapLayerMode === 'botanical' && botanicalDistributionInfo.governorateIds.has(gov.id)) {
-            poly.setStyle({ opacity: 0.9, weight: 2.5, fillColor: '#62467D', fillOpacity: 0.35, color: '#62467D' });
+            poly.setStyle({ opacity: 0.95, weight: 2.8, fillColor: '#62467D', fillOpacity: 0.45, color: '#62467D' });
           } else {
-            poly.setStyle({ opacity: 0.35, weight: 1.2, fillColor: '#F7F1E7', fillOpacity: 0.05, color: '#6B463B' });
+            poly.setStyle({ opacity: 0.75, weight: 1.8, fillColor: '#DFD5C0', fillOpacity: 0.12, color: '#3E2C1E' });
           }
         });
 
@@ -289,9 +291,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         }
       });
 
-      if (mapLayerMode === 'field_reports') {
-        renderPins(L, map, markersLayer, filteredPins);
-      }
+      renderPins(L, map, markersLayer, filteredPins);
     }
 
     initLeaflet();
@@ -304,6 +304,16 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       }
     };
   }, []);
+
+  // Invalidate Leaflet size and trigger tile refresh when switching away from vector mode
+  useEffect(() => {
+    if (mapLayerMode !== 'vector' && leafletMapRef.current) {
+      const timer = setTimeout(() => {
+        leafletMapRef.current?.invalidateSize();
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [mapLayerMode]);
 
   // Update layer styles when mapLayerMode or selectedBotanicalPlant changes
   useEffect(() => {
@@ -318,21 +328,21 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           if (governorateIds.has(gov.id)) {
             poly.setStyle({
               color: '#62467D',
-              weight: 2.5,
+              weight: 2.8,
               opacity: 0.95,
               fillColor: '#62467D',
-              fillOpacity: 0.38
+              fillOpacity: 0.45
             });
             poly.setTooltipContent(
               `<div style="font-family: inherit; font-size: 11px; font-weight: bold; color: #222238;">${gov.nameAr}<br/><span style="color: #62467D; font-size: 10px;">موثق تواجد: ${selectedBotanicalPlant.locale?.common_names?.[0]?.name || selectedBotanicalPlant.taxon.scientific_name}</span></div>`
             );
           } else {
             poly.setStyle({
-              color: '#6B463B',
-              weight: 1.0,
-              opacity: 0.25,
-              fillColor: '#F7F1E7',
-              fillOpacity: 0.05
+              color: '#3E2C1E',
+              weight: 1.4,
+              opacity: 0.55,
+              fillColor: '#DFD5C0',
+              fillOpacity: 0.1
             });
             poly.setTooltipContent(
               `<div style="font-family: inherit; font-size: 11px; font-weight: bold; color: #222238;">${gov.nameAr}</div>`
@@ -351,11 +361,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         const poly = govPolygonsMapRef.current.get(gov.id);
         if (poly) {
           poly.setStyle({
-            color: '#6B463B',
-            weight: 1.2,
-            opacity: 0.35,
-            fillColor: '#F7F1E7',
-            fillOpacity: 0.05
+            color: '#3E2C1E',
+            weight: 1.8,
+            opacity: 0.75,
+            fillColor: '#DFD5C0',
+            fillOpacity: 0.12
           });
           poly.setTooltipContent(
             `<div style="font-family: inherit; font-size: 11px; font-weight: bold; color: #222238;">${gov.nameAr}</div>`
@@ -445,85 +455,130 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[650px] sm:h-[720px] bg-nafas-sand/40 rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-inner flex flex-col font-arabic">
-      
-      {/* 1. Master Header Control Bar */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-2.5 pointer-events-none">
-        
-        {/* Row 1: Layer Switcher & Quick Camera */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* Layer Mode Toggle */}
-          <div className="flex items-center gap-1.5 p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-2xl shadow-lg border border-nafas-reed/30 pointer-events-auto">
-            <button
-              onClick={() => setMapLayerMode('field_reports')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                mapLayerMode === 'field_reports'
-                  ? 'bg-nafas-blue text-nafas-ivory shadow-sm'
-                  : 'text-stone-700 hover:bg-stone-100'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              <span>البلاغات والحملات الميدانية</span>
-            </button>
+    <div className="space-y-4 font-arabic" dir="rtl">
+      {/* 0. Top Mode Selector Bar */}
+      <div className="bg-[#FFFCF5] p-3 rounded-2xl border border-nafas-walnut/15 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-nafas-limestone rounded-xl border border-nafas-walnut/10">
+          <button
+            type="button"
+            onClick={() => setMapLayerMode('vector')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              mapLayerMode === 'vector'
+                ? 'bg-nafas-orchid text-white shadow-sm'
+                : 'text-nafas-ink hover:bg-white/80'
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span>خريطة العراق المتجهة (19 محافظة)</span>
+          </button>
 
-            <button
-              onClick={() => setMapLayerMode('botanical')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                mapLayerMode === 'botanical'
-                  ? 'bg-purple-900 text-white shadow-sm'
-                  : 'text-purple-950 hover:bg-purple-50'
-              }`}
-            >
-              <Sprout className="w-3.5 h-3.5" />
-              <span>الصيدلية والتوزع النباتي</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setMapLayerMode('gis')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              mapLayerMode === 'gis'
+                ? 'bg-nafas-blue text-white shadow-sm'
+                : 'text-nafas-ink hover:bg-white/80'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>خريطة الأقمار الصناعية (GIS)</span>
+          </button>
 
-          {/* Reset Camera / Pin Button */}
-          <div className="flex items-center gap-2 pointer-events-auto">
-            <button
-              onClick={() => {
-                setSelectedGovernorateId('all');
-                setSelectedType('all');
-              }}
-              className="px-3 py-2 bg-nafas-ivory/95 backdrop-blur-md rounded-xl text-xs font-bold text-nafas-silt shadow-md border border-nafas-reed/30 hover:bg-nafas-sand/50 transition-all flex items-center gap-1.5"
-              title="إعادة ضبط عرض العراق الشامل"
-            >
-              <Compass className="w-3.5 h-3.5 text-nafas-blue" />
-              <span className="hidden sm:inline">عموم العراق</span>
-            </button>
-
-            {mapLayerMode === 'field_reports' && (
-              <button
-                onClick={() => setPinModeActive(!pinModeActive)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5 border ${
-                  pinModeActive
-                    ? 'bg-nafas-clay text-white border-nafas-clay animate-pulse'
-                    : 'bg-nafas-ivory/95 backdrop-blur-md text-nafas-silt border-nafas-reed/30 hover:bg-nafas-sand/50'
-                }`}
-                title="انقر على الخريطة لتحديد موقع بلاغ بيئي"
-              >
-                <PlusCircle className="w-3.5 h-3.5 text-nafas-clay" />
-                <span>{pinModeActive ? 'انقر على موقع المشكلة...' : 'أشّر على الخريطة'}</span>
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setMapLayerMode('botanical')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              mapLayerMode === 'botanical'
+                ? 'bg-purple-900 text-white shadow-sm'
+                : 'text-nafas-ink hover:bg-white/80'
+            }`}
+          >
+            <Sprout className="w-3.5 h-3.5" />
+            <span>الصيدلية والتوزع النباتي</span>
+          </button>
         </div>
 
-        {/* Row 2: Mode-Specific Controls */}
-        {mapLayerMode === 'field_reports' ? (
-          /* Field Reports Category Pills */
-          <div className="flex items-center gap-1.5 p-1.5 bg-nafas-ivory/95 backdrop-blur-md rounded-2xl shadow-lg border border-nafas-reed/30 pointer-events-auto overflow-x-auto max-w-full">
-            <button
-              onClick={() => setSelectedType('all')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                selectedType === 'all'
-                  ? 'bg-nafas-silt text-nafas-ivory shadow-sm'
-                  : 'text-nafas-silt/70 hover:text-nafas-silt hover:bg-nafas-sand/50'
-              }`}
-            >
-              الكل ({allMapPins.length})
-            </button>
+        {/* Standalone HTML Map page link */}
+        <a
+          href="/nafas-iraq-map.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3.5 py-2 rounded-xl text-xs font-bold text-nafas-orchid bg-nafas-orchid/10 hover:bg-nafas-orchid/20 transition flex items-center gap-1.5 border border-nafas-orchid/20"
+          title="فتح ملف الخريطة المستقلة nafas-iraq-map.html في نافذة جديدة"
+        >
+          <span>الخريطة المستقلة (HTML)</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </div>
+
+      {/* Main Map Viewport */}
+      <div className={mapLayerMode === 'vector' ? 'block' : 'hidden'}>
+        <IraqVectorMap
+          onSelectReport={onSelectReport}
+          onSelectPinItem={onSelectPinItem}
+        />
+      </div>
+
+      <div className={`relative w-full h-[650px] sm:h-[720px] bg-[#DFD5C0] rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-inner flex flex-col font-arabic ${mapLayerMode !== 'vector' ? 'block' : 'hidden'}`}>
+          
+          {/* 1. Master Header Control Bar */}
+          <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-2.5 pointer-events-none">
+            
+            {/* Row 1: Quick Camera */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-2xl shadow-lg border border-nafas-reed/30 pointer-events-auto">
+                <span className="px-3 py-1 text-xs font-bold text-nafas-ink flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-nafas-orchid" />
+                  <span>{mapLayerMode === 'gis' ? 'طبقة البلاغات والحملات الميدانية (GIS)' : 'طبقة الصيدلية والتوزع النباتي'}</span>
+                </span>
+              </div>
+
+              {/* Reset Camera / Pin Button */}
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <button
+                  onClick={() => {
+                    setSelectedGovernorateId('all');
+                    setSelectedType('all');
+                  }}
+                  className="px-3 py-2 bg-nafas-ivory/95 backdrop-blur-md rounded-xl text-xs font-bold text-nafas-silt shadow-md border border-nafas-reed/30 hover:bg-nafas-sand/50 transition-all flex items-center gap-1.5"
+                  title="إعادة ضبط عرض العراق الشامل"
+                >
+                  <Compass className="w-3.5 h-3.5 text-nafas-blue" />
+                  <span className="hidden sm:inline">عموم العراق</span>
+                </button>
+
+                {mapLayerMode === 'gis' && (
+                  <button
+                    onClick={() => setPinModeActive(!pinModeActive)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5 border ${
+                      pinModeActive
+                        ? 'bg-nafas-clay text-white border-nafas-clay animate-pulse'
+                        : 'bg-nafas-ivory/95 backdrop-blur-md text-nafas-silt border-nafas-reed/30 hover:bg-nafas-sand/50'
+                    }`}
+                    title="انقر على الخريطة لتحديد موقع بلاغ بيئي"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-nafas-clay" />
+                    <span>{pinModeActive ? 'انقر على موقع المشكلة...' : 'أشّر على الخريطة'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Row 2: Mode-Specific Controls */}
+            {mapLayerMode === 'gis' ? (
+              /* Field Reports Category Pills */
+              <div className="flex items-center gap-1.5 p-1.5 bg-nafas-ivory/95 backdrop-blur-md rounded-2xl shadow-lg border border-nafas-reed/30 pointer-events-auto overflow-x-auto max-w-full">
+                <button
+                  onClick={() => setSelectedType('all')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    selectedType === 'all'
+                      ? 'bg-nafas-silt text-nafas-ivory shadow-sm'
+                      : 'text-nafas-silt/70 hover:text-nafas-silt hover:bg-nafas-sand/50'
+                  }`}
+                >
+                  الكل ({allMapPins.length})
+                </button>
 
             <button
               onClick={() => setSelectedType('planting')}
@@ -638,6 +693,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       {/* 2. Map Container */}
       <div 
         ref={mapContainerRef} 
+        style={{ background: '#DFD5C0' }}
         className="w-full flex-1 z-0 relative cursor-grab active:cursor-grabbing"
       />
 
@@ -864,6 +920,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           </div>
         </div>
       )}
+
+        </div>
 
     </div>
   );
