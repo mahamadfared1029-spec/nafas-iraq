@@ -41,7 +41,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <button
           onClick={() => onNavigate('map')}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition-all ${
-            currentView === 'map' 
+            currentView === 'map' || currentView === 'map-3d'
               ? 'text-nafas-blue font-bold scale-105' 
               : 'text-nafas-silt/70 hover:text-nafas-silt'
           }`}

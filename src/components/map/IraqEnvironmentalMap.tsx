@@ -43,12 +43,14 @@ import { getAssetUrl } from '@/lib/basePath';
 import { isPointInPolygon } from '@/lib/gisContainment';
 
 interface MapProps {
+  initialLayer?: 'vector' | 'gis' | 'botanical' | '3d';
   onSelectReport?: (report: EnvironmentalReport) => void;
   onOpenReportModalWithCoords?: (lat: number, lng: number, governorateId: string) => void;
   onSelectPinItem?: (item: MapPinItem) => void;
 }
 
 export const IraqEnvironmentalMap: React.FC<MapProps> = ({
+  initialLayer,
   onSelectReport,
   onOpenReportModalWithCoords,
   onSelectPinItem
@@ -63,7 +65,35 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   } = useNafas();
 
   // Layer mode: 'vector' | 'gis' | 'botanical' | '3d'
-  const [mapLayerMode, setMapLayerMode] = useState<'vector' | 'gis' | 'botanical' | '3d'>('vector');
+  const [mapLayerMode, setMapLayerMode] = useState<'vector' | 'gis' | 'botanical' | '3d'>(() => {
+    if (initialLayer) return initialLayer;
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash === '#map-3d' || hash === '#map3d') {
+        return '3d';
+      }
+    }
+    return 'vector';
+  });
+
+  // Keep layer mode synced when initialLayer changes
+  useEffect(() => {
+    if (initialLayer) {
+      setMapLayerMode(initialLayer);
+    }
+  }, [initialLayer]);
+
+  // Listen to hash changes for direct 3d navigation
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (hash === '#map-3d' || hash === '#map3d') {
+        setMapLayerMode('3d');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
 
   // 3D WebGL Map iframe & bridge state
   const map3dIframeRef = useRef<HTMLIFrameElement>(null);
@@ -616,12 +646,15 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             onClick={() => setMapLayerMode('3d')}
             className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
               mapLayerMode === '3d'
-                ? 'bg-nafas-walnut text-white shadow-sm'
-                : 'text-nafas-ink hover:bg-white/80'
+                ? 'bg-amber-900 text-white shadow-sm ring-2 ring-amber-500/50'
+                : 'text-amber-900 bg-amber-100/70 hover:bg-amber-200/80 border border-amber-300/50'
             }`}
           >
-            <Box className="w-3.5 h-3.5" />
+            <Box className="w-3.5 h-3.5 text-amber-500" />
             <span>مجسم التضاريس (3D WebGL)</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-black bg-amber-500 text-white shadow-2xs">
+              3D
+            </span>
           </button>
         </div>
 

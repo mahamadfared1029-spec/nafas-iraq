@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { getAssetUrl } from '@/lib/basePath';
+import { getAssetUrl, getBasePath } from '@/lib/basePath';
 
 export default function NafasIntroOverlay() {
   const [shouldShow, setShouldShow] = useState<boolean | null>(null);
@@ -15,27 +15,53 @@ export default function NafasIntroOverlay() {
     } catch (e) {
       // ignore storage exceptions
     }
+
+    // Clean URL hash if it was triggered via #intro
+    if (typeof window !== 'undefined' && window.location.hash === '#intro') {
+      try {
+        const base = getBasePath();
+        const targetUrl = base ? `${base}/` : '/';
+        window.history.replaceState(null, '', targetUrl);
+      } catch (e) {}
+    }
+
     const timer = setTimeout(() => {
       setShouldShow(false);
       setIsFading(false);
-    }, 700);
+    }, 600);
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    // Check if user prefers reduced motion
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let hasSeen = false;
-    try {
-      hasSeen = sessionStorage.getItem('nafas_intro_seen') === 'true';
-    } catch (e) {}
-
-    if (hasSeen || prefersReducedMotion) {
-      setShouldShow(false);
-      return;
-    }
-
+  const startIntro = useCallback(() => {
+    setIsFading(false);
     setShouldShow(true);
+  }, []);
+
+  useEffect(() => {
+    // Determine whether intro should show automatically
+    const checkShouldShow = () => {
+      if (typeof window === 'undefined') return false;
+
+      // Explicit trigger in URL: #intro or ?intro=1 always opens intro
+      if (window.location.hash === '#intro' || window.location.search.includes('intro=1')) {
+        return true;
+      }
+
+      let hasSeen = false;
+      try {
+        hasSeen = sessionStorage.getItem('nafas_intro_seen') === 'true';
+      } catch (e) {}
+
+      if (hasSeen) return false;
+
+      // Honor OS reduced motion for auto-play on first visit
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReducedMotion) return false;
+
+      return true;
+    };
+
+    setShouldShow(checkShouldShow());
 
     // Listen to postMessage from iframe
     const handleMessage = (event: MessageEvent) => {
@@ -48,32 +74,43 @@ export default function NafasIntroOverlay() {
       }
     };
 
-    // Listen for custom trigger to replay intro
+    // Custom events and hash listener
     const handleReplay = () => {
       try {
         sessionStorage.removeItem('nafas_intro_seen');
       } catch (e) {}
-      setIsFading(false);
-      setShouldShow(true);
+      startIntro();
+    };
+
+    const handleHash = () => {
+      if (window.location.hash === '#intro') {
+        startIntro();
+      }
+    };
+
+    // Keyboard accessibility: ESC key to skip intro
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        completeIntro();
+      }
     };
 
     window.addEventListener('message', handleMessage);
     window.addEventListener('replay-nafas-intro', handleReplay);
+    window.addEventListener('hashchange', handleHash);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       window.removeEventListener('message', handleMessage);
       window.removeEventListener('replay-nafas-intro', handleReplay);
+      window.removeEventListener('hashchange', handleHash);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [completeIntro]);
+  }, [completeIntro, startIntro]);
 
-  if (shouldShow === false) {
+  if (!shouldShow) {
     return null;
   }
-
-  // Detect base path for GitHub Pages or root
-  const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/nafas-iraq')
-    ? '/nafas-iraq'
-    : '';
 
   return (
     <div
@@ -86,13 +123,14 @@ export default function NafasIntroOverlay() {
       }`}
     >
       {/* Fallback & immediate skip button on top of iframe */}
-      <div className="absolute top-5 left-5 z-20">
+      <div className="absolute top-5 left-5 z-20 flex items-center gap-3">
         <button
           onClick={completeIntro}
           type="button"
-          className="px-4 py-2 text-xs md:text-sm font-medium tracking-wide bg-[#232120]/80 hover:bg-[#FFFCF5] text-[#FFFCF5] hover:text-[#232120] border border-[#D7C9AE]/40 rounded-full backdrop-blur-md transition-all duration-200 shadow-lg focus:outline-none focus:ring-2 focus:ring-[#A7CFE3]"
+          className="px-4 py-2 text-xs md:text-sm font-medium tracking-wide bg-[#232120]/80 hover:bg-[#FFFCF5] text-[#FFFCF5] hover:text-[#232120] border border-[#D7C9AE]/40 rounded-full backdrop-blur-md transition-all duration-200 shadow-lg focus:outline-none focus:ring-2 focus:ring-[#A7CFE3] flex items-center gap-2"
         >
-          تخطّي إلى الموقع الرئيسي &larr;
+          <span>تخطّي إلى الموقع الرئيسي</span>
+          <span className="text-xs">&larr; (ESC)</span>
         </button>
       </div>
 

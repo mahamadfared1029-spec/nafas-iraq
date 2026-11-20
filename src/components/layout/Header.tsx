@@ -16,7 +16,9 @@ import {
   Menu, 
   X, 
   UserCircle,
-  PlayCircle
+  PlayCircle,
+  Box,
+  Sparkles
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -50,11 +52,13 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { id: 'home', label: 'الرئيسية', icon: Home },
     { id: 'map', label: t.mapNav, icon: MapPin },
+    { id: 'map-3d', label: 'خريطة 3D', icon: Box },
     { id: 'campaigns', label: t.campaignsNav, icon: Users },
     { id: 'impact', label: t.impactNav, icon: BarChart3 },
     { id: 'planting', label: t.plantingNav, icon: Sprout },
     { id: 'atlas', label: t.atlasNav, icon: BookOpen },
     { id: 'clinic', label: t.clinicNav, icon: HeartHandshake },
+    { id: 'orchid-3d', label: 'أوركيد 3D', icon: Sparkles },
   ];
 
   return (

@@ -38,6 +38,21 @@ describe('NAFAS Defect Fixes & Production Readiness Test Suite', () => {
       expect(parseViewFromHash('#impact')).toBe('impact');
       expect(parseViewFromHash('#invalid-view')).toBe('home');
       expect(parseViewFromHash('')).toBe('home');
+
+      // Test 3D views deep-linking
+      const parseAppViewFromHash = (hash: string) => {
+        const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
+        if (clean === 'map3d') return 'map-3d';
+        if (clean === 'orchid' || clean === 'clinic-3d') return 'orchid-3d';
+        const validViews = ['home', 'map', 'map-3d', 'campaigns', 'impact', 'planting', 'atlas', 'clinic', 'orchid-3d'];
+        return validViews.includes(clean) ? clean : 'home';
+      };
+
+      expect(parseAppViewFromHash('#map-3d')).toBe('map-3d');
+      expect(parseAppViewFromHash('#map3d')).toBe('map-3d');
+      expect(parseAppViewFromHash('#orchid-3d')).toBe('orchid-3d');
+      expect(parseAppViewFromHash('#orchid')).toBe('orchid-3d');
+      expect(parseAppViewFromHash('#clinic-3d')).toBe('orchid-3d');
     });
 
     it('should construct pushState URLs maintaining basePath to prevent 404', () => {
@@ -301,6 +316,67 @@ describe('NAFAS Defect Fixes & Production Readiness Test Suite', () => {
       // Both must use targetOrigin computed from window.location.origin
       expect(map3dContent).toContain('window.parent.postMessage({type,detail:payload}, targetOrigin)');
       expect(orchidContent).toContain('window.parent.postMessage({type,detail:payload}, targetOrigin)');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 6. 3D Models Discoverability & Intro Replay Reliability
+  // ---------------------------------------------------------------------------
+  describe('6. 3D Models Discoverability & Intro Replay Reliability', () => {
+    it('should verify NafasIntroOverlay registers listeners and handles #intro trigger without early exit', () => {
+      const introPath = path.resolve(__dirname, '../src/components/intro/NafasIntroOverlay.tsx');
+      const introContent = fs.readFileSync(introPath, 'utf-8');
+
+      // Must support replay-nafas-intro event
+      expect(introContent).toContain("'replay-nafas-intro'");
+      expect(introContent).toContain("addEventListener('replay-nafas-intro'");
+      
+      // Must support #intro or ?intro=1
+      expect(introContent).toContain("hash === '#intro'");
+      
+      // Must support ESC key to dismiss
+      expect(introContent).toContain("e.key === 'Escape'");
+      
+      // Must have iframe src pointing to intro.html
+      expect(introContent).toContain("getAssetUrl('/intro.html')");
+    });
+
+    it('should verify HomeDashboard contains dedicated 3D showcase and replay intro CTA', () => {
+      const homePath = path.resolve(__dirname, '../src/components/home/HomeDashboard.tsx');
+      const homeContent = fs.readFileSync(homePath, 'utf-8');
+
+      // Replay intro CTA
+      expect(homeContent).toContain("'replay-nafas-intro'");
+      expect(homeContent).toContain('الدخولية');
+
+      // 3D showcase cards
+      expect(homeContent).toContain("onNavigate('map-3d')");
+      expect(homeContent).toContain("onNavigate('orchid-3d')");
+      expect(homeContent).toContain('مجسم تضاريس العراق ثلاثي الأبعاد');
+      expect(homeContent).toContain('مجسم زهرة الأوركيد ثلاثي الأبعاد');
+    });
+
+    it('should verify page.tsx routes map-3d and orchid-3d views', () => {
+      const pagePath = path.resolve(__dirname, '../src/app/page.tsx');
+      const pageContent = fs.readFileSync(pagePath, 'utf-8');
+
+      expect(pageContent).toContain("'map-3d'");
+      expect(pageContent).toContain("'orchid-3d'");
+      expect(pageContent).toContain("initialLayer={currentView === 'map-3d' ? '3d' : undefined}");
+      expect(pageContent).toContain("initialShow3D={currentView === 'orchid-3d'}");
+    });
+
+    it('should verify IraqEnvironmentalMap and PlantClinic support initial 3D modes', () => {
+      const mapPath = path.resolve(__dirname, '../src/components/map/IraqEnvironmentalMap.tsx');
+      const clinicPath = path.resolve(__dirname, '../src/components/clinic/PlantClinic.tsx');
+
+      const mapContent = fs.readFileSync(mapPath, 'utf-8');
+      const clinicContent = fs.readFileSync(clinicPath, 'utf-8');
+
+      expect(mapContent).toContain('initialLayer');
+      expect(mapContent).toContain("hash === '#map-3d'");
+      expect(clinicContent).toContain('initialShow3D');
+      expect(clinicContent).toContain("hash === '#orchid-3d'");
     });
   });
 

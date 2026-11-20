@@ -42,7 +42,11 @@ import {
   PhoneCall
 } from 'lucide-react';
 
-export const PlantClinic: React.FC = () => {
+interface PlantClinicProps {
+  initialShow3D?: boolean;
+}
+
+export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false }) => {
   const { t } = useNafas();
 
   // Active Tab: 'triage' | 'catalog' | 'problems' | 'calendar' | 'policies'
@@ -69,7 +73,33 @@ export const PlantClinic: React.FC = () => {
   const [isResearcherMode, setIsResearcherMode] = useState(false);
 
   // 3D Orchid WebGL Model State
-  const [show3dOrchid, setShow3dOrchid] = useState(false);
+  const [show3dOrchid, setShow3dOrchid] = useState<boolean>(() => {
+    if (initialShow3D) return true;
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash === '#orchid-3d' || hash === '#clinic-3d' || hash === '#orchid') {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (initialShow3D) {
+      setShow3dOrchid(true);
+    }
+  }, [initialShow3D]);
+
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (hash === '#orchid-3d' || hash === '#clinic-3d' || hash === '#orchid') {
+        setShow3dOrchid(true);
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
   const [selectedOrchidPart, setSelectedOrchidPart] = useState<'flower' | 'leaf' | 'root' | 'stem'>('flower');
   const orchidIframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -219,14 +249,17 @@ export const PlantClinic: React.FC = () => {
 
               <button
                 onClick={() => setShow3dOrchid(!show3dOrchid)}
-                className={`px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border ${
+                className={`px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border shadow-sm ${
                   show3dOrchid
-                    ? 'bg-purple-900 text-white border-purple-950 shadow-sm'
-                    : 'bg-nafas-sand/80 text-nafas-silt border-nafas-reed/30 hover:bg-nafas-sand'
+                    ? 'bg-purple-900 text-white border-purple-950 ring-2 ring-purple-400/50'
+                    : 'bg-purple-100/90 text-purple-900 border-purple-300 hover:bg-purple-200'
                 }`}
               >
-                <Sparkles className="w-4 h-4 text-purple-600" />
-                <span>{show3dOrchid ? 'إخفاء مجسم الأوركيد 3D' : 'مجسم الأوركيد الحيّ (3D)'}</span>
+                <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
+                <span>{show3dOrchid ? 'إخفاء مجسم الأوركيد 3D' : 'فتح مجسم الأوركيد الحيّ (3D WebGL)'}</span>
+                <span className="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-full font-black">
+                  3D
+                </span>
               </button>
 
               <button

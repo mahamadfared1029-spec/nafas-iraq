@@ -26,14 +26,28 @@ import {
   BarChart3, 
   Sprout, 
   BookOpen, 
-  HeartHandshake 
+  HeartHandshake,
+  Box,
+  Sparkles
 } from 'lucide-react';
 
-const VALID_VIEWS = ['home', 'map', 'campaigns', 'impact', 'planting', 'atlas', 'clinic'];
+const VALID_VIEWS = [
+  'home', 
+  'map', 
+  'map-3d', 
+  'campaigns', 
+  'impact', 
+  'planting', 
+  'atlas', 
+  'clinic', 
+  'orchid-3d'
+];
 
 function parseViewFromHash(): string {
   if (typeof window === 'undefined') return 'home';
   const cleanHash = window.location.hash.replace(/^#\/?/, '').trim();
+  if (cleanHash === 'map3d') return 'map-3d';
+  if (cleanHash === 'orchid' || cleanHash === 'clinic-3d') return 'orchid-3d';
   return VALID_VIEWS.includes(cleanHash) && cleanHash !== 'home' ? cleanHash : 'home';
 }
 
@@ -130,6 +144,16 @@ export default function HomePage() {
       title: 'صيدلية نَفَس النباتية',
       subtitle: 'دليل تشخيص آفات النباتات وعلاجات بيئية مستدامة خالية من الكيماويات الضارة',
       icon: HeartHandshake
+    },
+    'map-3d': {
+      title: 'مجسم تضاريس العراق ثلاثي الأبعاد (3D WebGL)',
+      subtitle: 'تضاريس ثلاثية الأبعاد تفاعلية لبلاد الرافدين وحوضي دجلة والفرات مع إسقاط بيانات البلاغات',
+      icon: Box
+    },
+    'orchid-3d': {
+      title: 'المجسم التشريحي لزهرة الأوركيد (3D Orchid)',
+      subtitle: 'نموذج نباتي تفاعلي ثلاثي الأبعاد لاستكشاف بنية الأزهار والأوراق والجذور ومكافحة الآفات',
+      icon: Sparkles
     }
   };
 
@@ -211,10 +235,11 @@ export default function HomePage() {
             {/* Sub-screen Body Container */}
             <div className="py-4 sm:py-6">
               
-              {/* 1. Map View */}
-              {currentView === 'map' && (
+              {/* 1. Map View (Standard or 3D WebGL) */}
+              {(currentView === 'map' || currentView === 'map-3d') && (
                 <div className="max-w-6xl mx-auto px-4">
                   <IraqEnvironmentalMap
+                    initialLayer={currentView === 'map-3d' ? '3d' : undefined}
                     onSelectReport={(report) => setSelectedReport(report)}
                     onOpenReportModalWithCoords={handleOpenReportWithCoords}
                   />
@@ -252,10 +277,10 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* 6. Plant Clinic View */}
-              {currentView === 'clinic' && (
+              {/* 6. Plant Clinic View (Standard or 3D Orchid) */}
+              {(currentView === 'clinic' || currentView === 'orchid-3d') && (
                 <div className="max-w-5xl mx-auto px-4">
-                  <PlantClinic />
+                  <PlantClinic initialShow3D={currentView === 'orchid-3d'} />
                 </div>
               )}
 
