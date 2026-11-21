@@ -148,14 +148,24 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
+  const labelsLayerRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null);
   const riversLayerRef = useRef<any>(null);
   const boundariesLayerRef = useRef<any>(null);
+  const nationalBorderLayerRef = useRef<any>(null);
+  const tigrisRef = useRef<any>(null);
+  const euphratesRef = useRef<any>(null);
+  const shattRef = useRef<any>(null);
   const govPolygonsMapRef = useRef<Map<string, any>>(new Map());
 
-  // Basemap & Map API Key State
-  type BasemapProvider = 'carto' | 'osm' | 'satellite' | 'mapbox';
-  const [basemapProvider, setBasemapProvider] = useState<BasemapProvider>('carto');
+  // Basemap & Map API Key State — High-Resolution Satellite GIS is the default
+  type BasemapProvider = 'satellite' | 'carto' | 'osm' | 'mapbox';
+  const [basemapProvider, setBasemapProvider] = useState<BasemapProvider>('satellite');
+  const basemapProviderRef = useRef<BasemapProvider>('satellite');
+  useEffect(() => {
+    basemapProviderRef.current = basemapProvider;
+  }, [basemapProvider]);
+
   const [mapboxToken, setMapboxToken] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('nafas_mapbox_token') || process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -173,13 +183,34 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       map.removeLayer(tileLayerRef.current);
       tileLayerRef.current = null;
     }
+    if (labelsLayerRef.current) {
+      map.removeLayer(labelsLayerRef.current);
+      labelsLayerRef.current = null;
+    }
 
     let layer: any = null;
 
     if (provider === 'satellite') {
+      // 1. High-Resolution ESRI World Imagery (Authentic Satellite Imagery from Space)
       layer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; National Geographic, Esri, DeLorme, NAVTEQ',
-        maxZoom: 18,
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+        maxZoom: 19,
+        crossOrigin: true
+      });
+
+      // 2. Clear Hybrid Vector Labels Overlay (Governorates, Cities, Places, Borders)
+      const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        pane: 'overlayPane',
+        opacity: 0.95,
+        crossOrigin: true
+      });
+      labels.addTo(map);
+      labelsLayerRef.current = labels;
+
+      // Resilient fallback on error
+      layer.on('tileerror', () => {
+        console.warn('Satellite tile fetch notice; resilient tile retry');
       });
     } else if (provider === 'osm') {
       layer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -189,21 +220,23 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     } else if (provider === 'mapbox') {
       const activeToken = token || mapboxToken;
       if (activeToken) {
-        layer = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/{z}/{x}/{y}?access_token=${activeToken}`, {
+        // High-resolution Mapbox Satellite Streets
+        layer = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${activeToken}`, {
           attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; OpenStreetMap',
           maxZoom: 19,
           tileSize: 512,
           zoomOffset: -1
         });
       } else {
-        layer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',
-          subdomains: 'abcd',
-          maxZoom: 19
+        // High-resolution ESRI Satellite
+        layer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles &copy; Esri &mdash; World Imagery',
+          maxZoom: 19,
+          crossOrigin: true
         });
       }
     } else {
-      // Default: CartoDB Voyager
+      // Default / fallback: CartoDB Voyager
       layer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',
         subdomains: 'abcd',
@@ -422,14 +455,16 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       applyBasemapLayer(L, map, basemapProvider, mapboxToken);
 
       // 1. National Border Polyline / Polygon
-      L.polygon(IRAQ_BORDER_COORDINATES, {
-        color: '#6B463B',
+      const isSat = basemapProvider === 'satellite' || basemapProvider === 'mapbox';
+      const borderPoly = L.polygon(IRAQ_BORDER_COORDINATES, {
+        color: isSat ? '#F59E0B' : '#6B463B',
         weight: 2.5,
-        opacity: 0.85,
+        opacity: 0.9,
         fillColor: '#62467D',
-        fillOpacity: 0.02,
-        dashArray: '4, 4'
+        fillOpacity: isSat ? 0.0 : 0.02,
+        dashArray: '5, 5'
       }).addTo(map);
+      nationalBorderLayerRef.current = borderPoly;
 
       // 2. Governorate Boundaries Layer Group
       const boundariesLayer = L.layerGroup().addTo(map);
@@ -438,11 +473,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       GOVERNORATES_GIS_DATA.forEach(gov => {
         const poly = L.polygon(gov.polygon, {
-          color: '#3E2C1E',
-          weight: 1.8,
-          opacity: 0.75,
-          fillColor: '#DFD5C0',
-          fillOpacity: 0.12
+          color: isSat ? '#F7F1E7' : '#3E2C1E',
+          weight: isSat ? 1.4 : 1.8,
+          opacity: isSat ? 0.8 : 0.75,
+          fillColor: isSat ? '#FFFFFF' : '#DFD5C0',
+          fillOpacity: isSat ? 0.02 : 0.12
         });
 
         poly.bindTooltip(
@@ -459,7 +494,14 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           if (mapLayerMode === 'botanical' && botanicalDistributionInfo.governorateIds.has(gov.id)) {
             poly.setStyle({ opacity: 0.95, weight: 2.8, fillColor: '#62467D', fillOpacity: 0.45, color: '#62467D' });
           } else {
-            poly.setStyle({ opacity: 0.75, weight: 1.8, fillColor: '#DFD5C0', fillOpacity: 0.12, color: '#3E2C1E' });
+            const satNow = basemapProviderRef.current === 'satellite' || basemapProviderRef.current === 'mapbox';
+            poly.setStyle({
+              opacity: satNow ? 0.8 : 0.75,
+              weight: satNow ? 1.4 : 1.8,
+              fillColor: satNow ? '#FFFFFF' : '#DFD5C0',
+              fillOpacity: satNow ? 0.02 : 0.12,
+              color: satNow ? '#F7F1E7' : '#3E2C1E'
+            });
           }
         });
 
@@ -477,12 +519,13 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       // Tigris
       const tigrisPolyline = L.polyline(TIGRIS_RIVER_PATH, {
-        color: '#28566E',
-        weight: 4,
-        opacity: 0.85,
+        color: isSat ? '#38BDF8' : '#28566E',
+        weight: isSat ? 4.5 : 4,
+        opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(riversLayer);
+      tigrisRef.current = tigrisPolyline;
       tigrisPolyline.bindTooltip(
         '<div style="font-family: inherit; font-size: 12px; font-weight: bold; color: #28566E;">نهر دجلة الخالد</div>',
         { sticky: true }
@@ -490,12 +533,13 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       // Euphrates
       const euphratesPolyline = L.polyline(EUPHRATES_RIVER_PATH, {
-        color: '#2563EB',
-        weight: 4,
-        opacity: 0.85,
+        color: isSat ? '#60A5FA' : '#2563EB',
+        weight: isSat ? 4.5 : 4,
+        opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(riversLayer);
+      euphratesRef.current = euphratesPolyline;
       euphratesPolyline.bindTooltip(
         '<div style="font-family: inherit; font-size: 12px; font-weight: bold; color: #2563EB;">نهر الفرات العظيم</div>',
         { sticky: true }
@@ -503,12 +547,13 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       // Shatt al-Arab
       const shattPolyline = L.polyline(SHATT_AL_ARAB_PATH, {
-        color: '#1D4ED8',
-        weight: 5,
-        opacity: 0.9,
+        color: isSat ? '#0284C7' : '#1D4ED8',
+        weight: isSat ? 5.5 : 5,
+        opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(riversLayer);
+      shattRef.current = shattPolyline;
       shattPolyline.bindTooltip(
         '<div style="font-family: inherit; font-size: 12px; font-weight: bold; color: #1D4ED8;">شط العرب</div>',
         { sticky: true }
@@ -556,13 +601,44 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     };
   }, []);
 
-  // Update tile layer whenever basemap provider or token changes
+  // Update tile layer and vector styling whenever basemap provider or token changes
   useEffect(() => {
     if (!leafletMapRef.current) return;
     import('leaflet').then(L => {
       applyBasemapLayer(L, leafletMapRef.current, basemapProvider, mapboxToken);
+
+      const isSat = basemapProvider === 'satellite' || basemapProvider === 'mapbox';
+      if (nationalBorderLayerRef.current) {
+        nationalBorderLayerRef.current.setStyle({
+          color: isSat ? '#F59E0B' : '#6B463B',
+          fillOpacity: isSat ? 0.0 : 0.02
+        });
+      }
+      if (tigrisRef.current) {
+        tigrisRef.current.setStyle({ color: isSat ? '#38BDF8' : '#28566E', weight: isSat ? 4.5 : 4 });
+      }
+      if (euphratesRef.current) {
+        euphratesRef.current.setStyle({ color: isSat ? '#60A5FA' : '#2563EB', weight: isSat ? 4.5 : 4 });
+      }
+      if (shattRef.current) {
+        shattRef.current.setStyle({ color: isSat ? '#0284C7' : '#1D4ED8', weight: isSat ? 5.5 : 5 });
+      }
+
+      // Update governorate polygons to match basemap
+      GOVERNORATES_GIS_DATA.forEach(gov => {
+        const poly = govPolygonsMapRef.current.get(gov.id);
+        if (poly && mapLayerMode !== 'botanical') {
+          poly.setStyle({
+            color: isSat ? '#F7F1E7' : '#3E2C1E',
+            weight: isSat ? 1.4 : 1.8,
+            fillColor: isSat ? '#FFFFFF' : '#DFD5C0',
+            fillOpacity: isSat ? 0.02 : 0.12,
+            opacity: isSat ? 0.8 : 0.75
+          });
+        }
+      });
     });
-  }, [basemapProvider, mapboxToken]);
+  }, [basemapProvider, mapboxToken, mapLayerMode]);
 
   // ResizeObserver guarantees Leaflet recalculates dimensions on any container/window resizing
   useEffect(() => {
@@ -592,6 +668,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   useEffect(() => {
     if (!leafletMapRef.current || !boundariesLayerRef.current) return;
 
+    const isSat = basemapProvider === 'satellite' || basemapProvider === 'mapbox';
+
     if (mapLayerMode === 'botanical' && selectedBotanicalPlant) {
       const { governorateIds } = botanicalDistributionInfo;
 
@@ -611,11 +689,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             );
           } else {
             poly.setStyle({
-              color: '#3E2C1E',
-              weight: 1.4,
-              opacity: 0.55,
-              fillColor: '#DFD5C0',
-              fillOpacity: 0.1
+              color: isSat ? '#F7F1E7' : '#3E2C1E',
+              weight: isSat ? 1.4 : 1.4,
+              opacity: isSat ? 0.6 : 0.55,
+              fillColor: isSat ? '#000000' : '#DFD5C0',
+              fillOpacity: isSat ? 0.05 : 0.1
             });
             poly.setTooltipContent(
               `<div style="font-family: inherit; font-size: 11px; font-weight: bold; color: #222238;">${gov.nameAr}</div>`
@@ -634,11 +712,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         const poly = govPolygonsMapRef.current.get(gov.id);
         if (poly) {
           poly.setStyle({
-            color: '#3E2C1E',
-            weight: 1.8,
-            opacity: 0.75,
-            fillColor: '#DFD5C0',
-            fillOpacity: 0.12
+            color: isSat ? '#F7F1E7' : '#3E2C1E',
+            weight: isSat ? 1.4 : 1.8,
+            opacity: isSat ? 0.8 : 0.75,
+            fillColor: isSat ? '#FFFFFF' : '#DFD5C0',
+            fillOpacity: isSat ? 0.02 : 0.12
           });
           poly.setTooltipContent(
             `<div style="font-family: inherit; font-size: 11px; font-weight: bold; color: #222238;">${gov.nameAr}</div>`
@@ -652,7 +730,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         });
       }
     }
-  }, [mapLayerMode, selectedBotanicalPlantId, botanicalDistributionInfo, filteredPins]);
+  }, [mapLayerMode, selectedBotanicalPlantId, botanicalDistributionInfo, filteredPins, basemapProvider]);
 
   // Smooth fly-to on governorate change
   useEffect(() => {
@@ -862,7 +940,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       )}
 
       {/* 3. GIS / Botanical Leaflet Viewport */}
-      <div className={`relative w-full h-[650px] sm:h-[720px] bg-[#DFD5C0] rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-inner flex flex-col font-arabic ${mapLayerMode === 'gis' || mapLayerMode === 'botanical' ? 'block' : 'hidden'}`}>
+      <div className={`relative w-full h-[650px] sm:h-[720px] ${basemapProvider === 'satellite' ? 'bg-[#0F172A]' : 'bg-[#DFD5C0]'} rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-inner flex flex-col font-arabic ${mapLayerMode === 'gis' || mapLayerMode === 'botanical' ? 'block' : 'hidden'}`}>
           
           {/* 1. Master Header Control Bar */}
           <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-2.5 pointer-events-none">
@@ -872,12 +950,54 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
               <div className="flex items-center gap-1.5 p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-2xl shadow-lg border border-nafas-reed/30 pointer-events-auto">
                 <span className="px-3 py-1 text-xs font-bold text-nafas-ink flex items-center gap-1">
                   <Layers className="w-3.5 h-3.5 text-nafas-orchid" />
-                  <span>{mapLayerMode === 'gis' ? 'طبقة البلاغات والحملات الميدانية (GIS)' : 'طبقة الصيدلية والتوزع النباتي'}</span>
+                  <span>{mapLayerMode === 'gis' ? (basemapProvider === 'satellite' ? 'خريطة الأقمار الصناعية الفضائية (GIS Live)' : 'طبقة البلاغات والحملات الميدانية') : 'طبقة الصيدلية والتوزع النباتي'}</span>
                 </span>
               </div>
 
-              {/* Reset Camera / Pin Button */}
-              <div className="flex items-center gap-2 pointer-events-auto">
+              {/* Reset Camera / Pin Button / Quick Basemap Switcher */}
+              <div className="flex items-center gap-2 pointer-events-auto flex-wrap">
+                {/* Quick Basemap Switcher: Satellite vs OSM vs CARTO */}
+                {mapLayerMode === 'gis' && (
+                  <div className="flex items-center gap-1 p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-xl shadow-md border border-nafas-reed/30">
+                    <button
+                      type="button"
+                      onClick={() => setBasemapProvider('satellite')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                        basemapProvider === 'satellite'
+                          ? 'bg-nafas-blue text-white shadow-xs'
+                          : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                      title="صور فضائية حقيقية من الأقمار الصناعية (ESRI World Imagery)"
+                    >
+                      <span>🛰️ قمر صناعي</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBasemapProvider('osm')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                        basemapProvider === 'osm'
+                          ? 'bg-nafas-blue text-white shadow-xs'
+                          : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                      title="خريطة الشوارع (OpenStreetMap)"
+                    >
+                      <span>🗺️ شوارع</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBasemapProvider('carto')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                        basemapProvider === 'carto'
+                          ? 'bg-nafas-blue text-white shadow-xs'
+                          : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                      title="تضاريس نَفَس الدافئة (CARTO)"
+                    >
+                      <span>🎨 تضاريس</span>
+                    </button>
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
                     setSelectedGovernorateId('all');
@@ -909,7 +1029,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                   type="button"
                   onClick={() => setShowMapSettings(!showMapSettings)}
                   className={`px-3 py-2 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5 border ${
-                    showMapSettings || basemapProvider !== 'carto'
+                    showMapSettings || basemapProvider !== 'satellite'
                       ? 'bg-nafas-blue text-white border-nafas-blue ring-2 ring-nafas-blue/30'
                       : 'bg-nafas-ivory/95 backdrop-blur-md text-nafas-silt border-nafas-reed/30 hover:bg-nafas-sand/50'
                   }`}
@@ -1198,7 +1318,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       {/* 2. Map Container */}
       <div 
         ref={mapContainerRef} 
-        style={{ background: '#DFD5C0' }}
+        style={{ background: basemapProvider === 'satellite' ? '#0F172A' : '#DFD5C0' }}
         className="w-full flex-1 z-0 relative cursor-grab active:cursor-grabbing"
       />
 

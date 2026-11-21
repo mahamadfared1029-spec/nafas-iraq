@@ -6,6 +6,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  env: {
+    NEXT_PUBLIC_BASE_PATH: isGhPages ? '/nafas-iraq' : '',
+  },
   ...(isGhPages ? {
     output: 'export',
     basePath: '/nafas-iraq',

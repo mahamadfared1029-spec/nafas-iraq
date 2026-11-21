@@ -128,7 +128,7 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
       alt="شعار نَفَس الرسمي — للبيئة الاجتماعية"
       width={iconSize}
       height={iconSize}
-      className="shrink-0 object-contain transition-transform duration-300 hover:scale-105"
+      className={`shrink-0 object-contain transition-transform duration-300 hover:scale-105 ${variant === 'icon' || variant === 'emblem' ? 'w-full h-full max-w-full max-h-full' : ''}`}
       onError={() => setImageError(true)}
       loading="eager"
     />
