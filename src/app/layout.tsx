@@ -11,18 +11,18 @@ export const metadata: Metadata = {
   keywords: ['العراق', 'بيئة', 'تشجير', 'تطوع', 'دجلة', 'الفرات', 'نَفَس', 'NAFAS', 'Mesopotamia', 'Iraq Environment', 'للبيئة الاجتماعية'],
   authors: [{ name: 'NAFAS Initiative' }],
   icons: {
-    icon: `${BASE_PATH}/icon.svg`,
-    apple: `${BASE_PATH}/icon.svg`,
-    shortcut: `${BASE_PATH}/icon.svg`,
+    icon: `${BASE_PATH}/favicon.png`,
+    apple: `${BASE_PATH}/apple-touch-icon.png`,
+    shortcut: `${BASE_PATH}/favicon.ico`,
   },
   openGraph: {
     title: 'نَفَس | NAFAS — للبيئة الاجتماعية',
     description: 'المنظومة التكنولوجية المجتمعية الميدانية لتوثيق وحماية بيئة العراق.',
     images: [
       {
-        url: `${BASE_PATH}/nafas-logo.svg`,
-        width: 120,
-        height: 120,
+        url: `${BASE_PATH}/brand/nafas-official-logo.png`,
+        width: 1024,
+        height: 1008,
         alt: 'شعار نَفَس الرسمي — للبيئة الاجتماعية',
       },
     ],

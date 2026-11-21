@@ -36,8 +36,13 @@ import {
   Info,
   BookOpen,
   ExternalLink,
-  Box
+  Box,
+  Globe,
+  Key,
+  Settings,
+  Check
 } from 'lucide-react';
+import 'leaflet/dist/leaflet.css';
 import { IraqVectorMap } from './IraqVectorMap';
 import { getAssetUrl } from '@/lib/basePath';
 import { isPointInPolygon } from '@/lib/gisContainment';
@@ -142,10 +147,88 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null);
   const riversLayerRef = useRef<any>(null);
   const boundariesLayerRef = useRef<any>(null);
   const govPolygonsMapRef = useRef<Map<string, any>>(new Map());
+
+  // Basemap & Map API Key State
+  type BasemapProvider = 'carto' | 'osm' | 'satellite' | 'mapbox';
+  const [basemapProvider, setBasemapProvider] = useState<BasemapProvider>('carto');
+  const [mapboxToken, setMapboxToken] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('nafas_mapbox_token') || process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+    }
+    return '';
+  });
+  const [showMapSettings, setShowMapSettings] = useState(false);
+  const [tokenInput, setTokenInput] = useState(mapboxToken);
+  const [tokenSavedToast, setTokenSavedToast] = useState(false);
+
+  // Set up or switch basemap tile layers
+  const applyBasemapLayer = (L: any, map: any, provider: BasemapProvider, token?: string) => {
+    if (!map) return;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+
+    let layer: any = null;
+
+    if (provider === 'satellite') {
+      layer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; National Geographic, Esri, DeLorme, NAVTEQ',
+        maxZoom: 18,
+      });
+    } else if (provider === 'osm') {
+      layer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      });
+    } else if (provider === 'mapbox') {
+      const activeToken = token || mapboxToken;
+      if (activeToken) {
+        layer = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/{z}/{x}/{y}?access_token=${activeToken}`, {
+          attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; OpenStreetMap',
+          maxZoom: 19,
+          tileSize: 512,
+          zoomOffset: -1
+        });
+      } else {
+        layer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',
+          subdomains: 'abcd',
+          maxZoom: 19
+        });
+      }
+    } else {
+      // Default: CartoDB Voyager
+      layer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',
+        subdomains: 'abcd',
+        maxZoom: 19
+      });
+      // Resilience: on network error, fallback to OpenStreetMap
+      layer.on('tileerror', () => {
+        if (tileLayerRef.current === layer && map) {
+          console.warn('CartoDB tile load issue; automatically falling back to OpenStreetMap standard tiles');
+          map.removeLayer(layer);
+          const osmFallback = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+          });
+          osmFallback.addTo(map);
+          tileLayerRef.current = osmFallback;
+        }
+      });
+    }
+
+    if (layer) {
+      layer.addTo(map);
+      tileLayerRef.current = layer;
+    }
+  };
 
   // Combine pins with live reports and campaigns from store
   const allMapPins = useMemo(() => {
@@ -335,12 +418,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       // Zoom control
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      // CartoDB Voyager tiles (warm limestone tones matching Mesopotamian palette)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap',
-        subdomains: 'abcd',
-        maxZoom: 19
-      }).addTo(map);
+      // Initialize basemap provider (CartoDB, OpenStreetMap, ESRI Satellite, or Mapbox)
+      applyBasemapLayer(L, map, basemapProvider, mapboxToken);
 
       // 1. National Border Polyline / Polygon
       L.polygon(IRAQ_BORDER_COORDINATES, {
@@ -477,13 +556,35 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     };
   }, []);
 
-  // Invalidate Leaflet size and trigger tile refresh when switching away from vector mode
+  // Update tile layer whenever basemap provider or token changes
+  useEffect(() => {
+    if (!leafletMapRef.current) return;
+    import('leaflet').then(L => {
+      applyBasemapLayer(L, leafletMapRef.current, basemapProvider, mapboxToken);
+    });
+  }, [basemapProvider, mapboxToken]);
+
+  // ResizeObserver guarantees Leaflet recalculates dimensions on any container/window resizing
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    const ro = new ResizeObserver(() => {
+      leafletMapRef.current?.invalidateSize();
+    });
+    ro.observe(mapContainerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // Multi-staged invalidateSize when switching into GIS/botanical view to prevent grey/blank map
   useEffect(() => {
     if (mapLayerMode !== 'vector' && leafletMapRef.current) {
-      const timer = setTimeout(() => {
-        leafletMapRef.current?.invalidateSize();
-      }, 60);
-      return () => clearTimeout(timer);
+      const t1 = setTimeout(() => leafletMapRef.current?.invalidateSize(), 50);
+      const t2 = setTimeout(() => leafletMapRef.current?.invalidateSize(), 200);
+      const t3 = setTimeout(() => leafletMapRef.current?.invalidateSize(), 500);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
     }
   }, [mapLayerMode]);
 
@@ -803,6 +904,21 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                     <span>{pinModeActive ? 'انقر على موقع المشكلة...' : 'أشّر على الخريطة'}</span>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowMapSettings(!showMapSettings)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5 border ${
+                    showMapSettings || basemapProvider !== 'carto'
+                      ? 'bg-nafas-blue text-white border-nafas-blue ring-2 ring-nafas-blue/30'
+                      : 'bg-nafas-ivory/95 backdrop-blur-md text-nafas-silt border-nafas-reed/30 hover:bg-nafas-sand/50'
+                  }`}
+                  title="إعدادات مزود الخريطة الجغرافية ومفتاح Mapbox API"
+                >
+                  <Globe className="w-3.5 h-3.5 text-amber-500" />
+                  <Key className="w-3 h-3 text-amber-500" />
+                  <span className="hidden sm:inline">مزود ومفتاح الخريطة</span>
+                </button>
               </div>
             </div>
 
@@ -926,6 +1042,129 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
             <span>
               نطاق التوزع: مثبت على مستوى العراق قطرياً في السجلات، دون حصر علمي بمحافظة معينة.
             </span>
+          </div>
+        )}
+
+        {/* Map API Key & Provider Settings Dialog */}
+        {showMapSettings && (
+          <div className="p-4 bg-white/98 backdrop-blur-xl rounded-2xl border border-nafas-reed/40 shadow-2xl space-y-3 font-arabic animate-in fade-in slide-in-from-top-2 pointer-events-auto max-w-md w-full">
+            <div className="flex items-center justify-between pb-2 border-b border-nafas-reed/20">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-nafas-ink">
+                <Globe className="w-4 h-4 text-nafas-blue" />
+                <span>مزود الخرائط الجغرافية ومفتاح الربط (API)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMapSettings(false)}
+                className="text-stone-400 hover:text-stone-700 p-1"
+                aria-label="إغلاق"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Connection Status Badge */}
+            <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] leading-relaxed">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-800 mb-0.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>الخريطة متصلة وتعمل مباشرة (مجاناً 100%)</span>
+              </div>
+              <span>تعمل الخريطة عبر شبكات OpenStreetMap و CARTO و ESRI Satellite دون أي حاجة لمفتاح مدفوع أو اشتراك.</span>
+            </div>
+
+            {/* Provider Chooser */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-stone-700">اختر نمط الخريطة الميدانية:</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { id: 'carto', name: 'تضاريس نَفَس (CARTO)', desc: 'الألوان الدافئة الرسمية' },
+                  { id: 'osm', name: 'الشارع (OpenStreetMap)', desc: 'مفتوحة المصدر ودائمة' },
+                  { id: 'satellite', name: 'الأقمار الصناعية (ESRI)', desc: 'صور فضائية عالية الدقة' },
+                  { id: 'mapbox', name: 'ماب بوكس (Mapbox)', desc: mapboxToken ? 'المفتاح مفعل' : 'يتطلب مفتاح API' },
+                ].map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setBasemapProvider(p.id as BasemapProvider);
+                    }}
+                    className={`p-2 rounded-xl text-right text-xs transition border flex flex-col justify-between ${
+                      basemapProvider === p.id
+                        ? 'bg-nafas-blue text-white border-nafas-blue shadow-xs font-bold'
+                        : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-200'
+                    }`}
+                  >
+                    <span>{p.name}</span>
+                    <span className={`text-[10px] mt-0.5 ${basemapProvider === p.id ? 'text-white/80' : 'text-stone-500'}`}>{p.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mapbox API Key Input */}
+            <div className="pt-2 border-t border-nafas-reed/20 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold text-stone-700 flex items-center gap-1">
+                  <Key className="w-3 h-3 text-amber-600" />
+                  <span>مفتاح Mapbox API (اختياري):</span>
+                </span>
+                {mapboxToken && (
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">مفعل</span>
+                )}
+              </div>
+              <input
+                type="text"
+                value={tokenInput}
+                onChange={e => setTokenInput(e.target.value)}
+                placeholder="pk.eyJ1Ijo..."
+                className="w-full text-xs font-mono px-2.5 py-1.5 rounded-lg border border-stone-300 focus:outline-hidden focus:ring-1 focus:ring-nafas-blue text-stone-800"
+                dir="ltr"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const clean = tokenInput.trim();
+                    setMapboxToken(clean);
+                    if (typeof window !== 'undefined') {
+                      if (clean) {
+                        localStorage.setItem('nafas_mapbox_token', clean);
+                        setBasemapProvider('mapbox');
+                      } else {
+                        localStorage.removeItem('nafas_mapbox_token');
+                        if (basemapProvider === 'mapbox') setBasemapProvider('carto');
+                      }
+                    }
+                    setTokenSavedToast(true);
+                    setTimeout(() => setTokenSavedToast(false), 2500);
+                  }}
+                  className="flex-1 py-1.5 rounded-lg bg-nafas-blue text-white text-xs font-bold hover:bg-nafas-blue/90 transition"
+                >
+                  حفظ المفتاح وتطبيق
+                </button>
+                {mapboxToken && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMapboxToken('');
+                      setTokenInput('');
+                      if (typeof window !== 'undefined') {
+                        localStorage.removeItem('nafas_mapbox_token');
+                      }
+                      if (basemapProvider === 'mapbox') setBasemapProvider('carto');
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg border border-stone-300 text-stone-600 text-xs hover:bg-stone-100"
+                  >
+                    مسح
+                  </button>
+                )}
+              </div>
+              {tokenSavedToast && (
+                <div className="text-[11px] text-emerald-700 font-bold text-center">
+                  ✓ تم حفظ المفتاح وتحديث طبقة الخريطة بنجاح
+                </div>
+              )}
+            </div>
           </div>
         )}
 
