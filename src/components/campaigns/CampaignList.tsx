@@ -109,8 +109,23 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
         </div>
 
         {/* Campaign Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCampaigns.map(campaign => {
+        {filteredCampaigns.length === 0 ? (
+          <div className="bg-nafas-cream/60 rounded-3xl p-10 border border-nafas-walnut/20 text-center space-y-4 max-w-lg mx-auto">
+            <div className="w-16 h-16 rounded-full bg-nafas-walnut/10 text-nafas-walnut flex items-center justify-center mx-auto">
+              <Users className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-nafas-ink">لا توجد حملات ميدانية معلنة حالياً</h3>
+              <p className="text-xs text-nafas-walnut font-medium leading-relaxed">
+                {selectedGovId !== 'all' 
+                  ? 'لم يتم تسجيل حملات معتمدة في هذه المحافظة حتى الآن. يمكنك استعراض كل المحافظات أو اقتراح حملة جديدة.'
+                  : 'باب التطوع مفتوح للجميع. المنصة في مرحلة الانطلاق الميداني، وسيتم إعلان المبادرات التطوعية تباعاً فور اعتمادها رسمياً.'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCampaigns.map(campaign => {
             const govName = IRAQ_GOVERNORATES.find(g => g.id === campaign.governorateId)?.nameAr || 'العراق';
             const spotsLeft = campaign.volunteerCapacity - campaign.registeredCount;
             const isFull = spotsLeft <= 0;
@@ -221,6 +236,7 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
             );
           })}
         </div>
+        )}
 
       </div>
 

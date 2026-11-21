@@ -472,49 +472,56 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {upcomingCampaignsPreview.map(campaign => (
-            <div
-              key={campaign.id}
-              className="bg-nafas-sand/30 border border-nafas-reed/30 rounded-2xl p-4 flex flex-col justify-between hover:border-nafas-reed transition-all"
-            >
-              <div>
-                <div className="flex items-center justify-between text-xs text-nafas-silt/70 mb-1.5">
-                  <span className="flex items-center gap-1 font-semibold text-nafas-clay">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>{campaign.meetingArea}</span>
-                  </span>
-                  <span className="flex items-center gap-1 font-mono font-bold">
-                    <Calendar className="w-3.5 h-3.5 text-nafas-blue" />
-                    <span>{campaign.date}</span>
-                  </span>
+        {upcomingCampaignsPreview.length === 0 ? (
+          <div className="bg-nafas-sand/30 border border-nafas-reed/20 rounded-2xl p-6 text-center space-y-2">
+            <p className="text-xs font-bold text-nafas-ink">لا توجد حملات ميدانية معلنة حالياً</p>
+            <p className="text-[11px] text-nafas-walnut">سيتم الإعلان عن المبادرات الميدانية فور اعتمادها رسمياً من المشرفين.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {upcomingCampaignsPreview.map(campaign => (
+              <div
+                key={campaign.id}
+                className="bg-nafas-sand/30 border border-nafas-reed/30 rounded-2xl p-4 flex flex-col justify-between hover:border-nafas-reed transition-all"
+              >
+                <div>
+                  <div className="flex items-center justify-between text-xs text-nafas-silt/70 mb-1.5">
+                    <span className="flex items-center gap-1 font-semibold text-nafas-clay">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>{campaign.meetingArea}</span>
+                    </span>
+                    <span className="flex items-center gap-1 font-mono font-bold">
+                      <Calendar className="w-3.5 h-3.5 text-nafas-blue" />
+                      <span>{campaign.date}</span>
+                    </span>
+                  </div>
+
+                  <h4 className="text-sm font-bold text-nafas-silt mb-1.5 leading-snug">
+                    {campaign.titleAr}
+                  </h4>
+
+                  <p className="text-xs text-nafas-silt/80 line-clamp-2 leading-relaxed mb-3">
+                    {campaign.descriptionAr}
+                  </p>
                 </div>
 
-                <h4 className="text-sm font-bold text-nafas-silt mb-1.5 leading-snug">
-                  {campaign.titleAr}
-                </h4>
+                <div className="pt-2 border-t border-nafas-reed/20 flex items-center justify-between">
+                  <span className="text-xs text-emerald-800 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{campaign.registeredCount} / {campaign.volunteerCapacity} متطوع</span>
+                  </span>
 
-                <p className="text-xs text-nafas-silt/80 line-clamp-2 leading-relaxed mb-3">
-                  {campaign.descriptionAr}
-                </p>
+                  <button
+                    onClick={() => onNavigate('campaigns')}
+                    className="px-3 py-1.5 rounded-xl bg-nafas-blue text-nafas-ivory text-xs font-bold hover:brightness-110 transition-all shadow-xs"
+                  >
+                    تفاصيل والتسجيل
+                  </button>
+                </div>
               </div>
-
-              <div className="pt-2 border-t border-nafas-reed/20 flex items-center justify-between">
-                <span className="text-xs text-emerald-800 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{campaign.registeredCount} / {campaign.volunteerCapacity} متطوع</span>
-                </span>
-
-                <button
-                  onClick={() => onNavigate('campaigns')}
-                  className="px-3 py-1.5 rounded-xl bg-nafas-blue text-nafas-ivory text-xs font-bold hover:brightness-110 transition-all shadow-xs"
-                >
-                  تفاصيل والتسجيل
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* =========================================================================

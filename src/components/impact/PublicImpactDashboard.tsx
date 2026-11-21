@@ -88,7 +88,11 @@ export const PublicImpactDashboard: React.FC = () => {
               {impactMetrics.totalResolvedCleanups}
             </div>
             <div className="text-xs text-nafas-blue font-bold flex items-center gap-1">
-              <span>نسبة إنجاز 86% من البلاغات المصادقة</span>
+              <span>
+                {impactMetrics.totalVerifiedIssues > 0
+                  ? `نسبة إنجاز ${Math.round((impactMetrics.totalResolvedCleanups / impactMetrics.totalVerifiedIssues) * 100)}% من البلاغات المعتمدة`
+                  : 'سجلات ميدانية موثقة'}
+              </span>
             </div>
           </div>
 
@@ -98,7 +102,7 @@ export const PublicImpactDashboard: React.FC = () => {
               <Sprout className="w-5 h-5 text-nafas-blue" />
             </div>
             <div className="text-4xl font-black font-mono text-nafas-blue">
-              {impactMetrics.totalTreesPlanted}+
+              {impactMetrics.totalTreesPlanted}
             </div>
             <div className="text-xs text-nafas-neutral-slate">
               سدر، نارنج، ونخيل مقاوم للملوحة

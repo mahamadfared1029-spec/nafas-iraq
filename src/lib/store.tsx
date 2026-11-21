@@ -17,8 +17,9 @@ import {
   IRAQ_GOVERNORATES 
 } from './constants';
 import { TRANSLATIONS, TranslationDictionary } from './i18n';
+import { NafasApiClient } from './server/apiClient';
 
-interface UserPassport {
+export interface UserPassport {
   userName: string;
   userPhoneMasked: string;
   governorateId: string;
@@ -31,7 +32,7 @@ interface UserPassport {
   certificates: IssuedCertificate[];
 }
 
-interface NafasContextType {
+export interface NafasContextType {
   role: Role;
   setRole: (role: Role) => void;
   language: Language;
@@ -46,6 +47,9 @@ interface NafasContextType {
   selectedGovernorateId: string;
   setSelectedGovernorateId: (id: string) => void;
   isDemoMode: boolean;
+  setIsDemoMode: (val: boolean) => void;
+  loadDemoFixtures: () => void;
+  resetToCleanProduction: () => void;
   userRegisteredCampaignIds: string[];
   
   // Actions
@@ -60,47 +64,109 @@ interface NafasContextType {
 
 const NafasContext = createContext<NafasContextType | undefined>(undefined);
 
+// Clean launch zero state for authentic production environment
+const CLEAN_ZERO_PASSPORT: UserPassport = {
+  userName: 'مواطن عراقي',
+  userPhoneMasked: '',
+  governorateId: 'baghdad',
+  verifiedHours: 0,
+  completedCampaignsCount: 0,
+  verifiedReportsCount: 0,
+  treesPlantedCount: 0,
+  points: 0,
+  badges: [],
+  certificates: []
+};
+
+// Fixture demo passport strictly reserved for development simulation
+const DEMO_FIXTURE_PASSPORT: UserPassport = {
+  userName: 'حيدر الكرخي (معاينة)',
+  userPhoneMasked: '+964 780 *** 1928',
+  governorateId: 'baghdad',
+  verifiedHours: 14.5,
+  completedCampaignsCount: 3,
+  verifiedReportsCount: 2,
+  treesPlantedCount: 16,
+  points: 230,
+  badges: [
+    { id: 'b-1', nameAr: 'حارس النهرين', nameEn: 'Guardian of the Two Rivers', icon: 'ShieldCheck', earnedDate: '2026-10-15' },
+    { id: 'b-2', nameAr: 'نَفَس أخضر', nameEn: 'Green Breath Pioneer', icon: 'Leaf', earnedDate: '2026-11-04' },
+    { id: 'b-3', nameAr: 'عين الميدان', nameEn: 'Field Watcher', icon: 'Eye', earnedDate: '2026-11-12' },
+  ],
+  certificates: [
+    {
+      id: 'NFS-CERT-2026-091',
+      verificationCode: 'NFS-CERT-2026-091',
+      participantName: 'حيدر الكرخي',
+      campaignTitle: 'حملة تنظيف شاطئ دجلة — الكرادة',
+      governorate: 'بغداد',
+      hoursAwarded: 4.5,
+      issueDate: '2026-11-12',
+      organizerSignature: 'م. مروة الكرخي (منسق نَفَس الميداني)',
+      digitalSealHash: '0x8f2a...c94e',
+      isDemoCertificate: true,
+      watermarkText: 'معاينة تجريبية (Demo Simulator)'
+    }
+  ]
+};
+
 export function NafasProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<Role>('citizen');
   const [language, setLanguage] = useState<Language>('ar');
   const [season, setSeason] = useState<Season>('auto');
   const [selectedGovernorateId, setSelectedGovernorateId] = useState<string>('all');
   
-  const [reports, setReports] = useState<EnvironmentalReport[]>(INITIAL_REPORTS);
-  const [campaigns, setCampaigns] = useState<VolunteerCampaign[]>(INITIAL_CAMPAIGNS);
-  const [userRegisteredCampaignIds, setUserRegisteredCampaignIds] = useState<string[]>([]);
-  const isDemoMode = true; // Frontend demonstration simulator mode
+  // Production default is strictly false: Zero fabricated reports on live public launch
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
 
-  const [passport, setPassport] = useState<UserPassport>({
-    userName: 'حيدر الكرخي',
-    userPhoneMasked: '+964 780 *** 1928',
-    governorateId: 'baghdad',
-    verifiedHours: 14.5,
-    completedCampaignsCount: 3,
-    verifiedReportsCount: 2,
-    treesPlantedCount: 16,
-    points: 230,
-    badges: [
-      { id: 'b-1', nameAr: 'حارس النهرين', nameEn: 'Guardian of the Two Rivers', icon: 'ShieldCheck', earnedDate: '2026-10-15' },
-      { id: 'b-2', nameAr: 'نَفَس أخضر', nameEn: 'Green Breath Pioneer', icon: 'Leaf', earnedDate: '2026-11-04' },
-      { id: 'b-3', nameAr: 'عين الميدان', nameEn: 'Field Watcher', icon: 'Eye', earnedDate: '2026-11-12' },
-    ],
-    certificates: [
-      {
-        id: 'NFS-CERT-2026-091',
-        verificationCode: 'NFS-CERT-2026-091',
-        participantName: 'حيدر الكرخي',
-        campaignTitle: 'حملة تنظيف شاطئ دجلة — الكرادة',
-        governorate: 'بغداد',
-        hoursAwarded: 4.5,
-        issueDate: '2026-11-12',
-        organizerSignature: 'م. مروة الكرخي (منسق نَفَس الميداني)',
-        digitalSealHash: '0x8f2a...c94e',
-        isDemoCertificate: true,
-        watermarkText: 'معاينة تجريبية (Demo Simulator)'
-      }
-    ]
+  // Initialize reports: Clean zero array by default, hydrate from localStorage if existing
+  const [reports, setReports] = useState<EnvironmentalReport[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('nafas_user_reports');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
   });
+
+  const [campaigns, setCampaigns] = useState<VolunteerCampaign[]>([]);
+  const [userRegisteredCampaignIds, setUserRegisteredCampaignIds] = useState<string[]>([]);
+  const [passport, setPassport] = useState<UserPassport>(CLEAN_ZERO_PASSPORT);
+
+  // Synchronize reports to local storage for persistence across reloads
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('nafas_user_reports', JSON.stringify(reports));
+      } catch (e) {}
+    }
+  }, [reports]);
+
+  // Load demo fixtures strictly upon explicit developer/simulator request
+  const loadDemoFixtures = () => {
+    setIsDemoMode(true);
+    setReports(INITIAL_REPORTS);
+    setCampaigns(INITIAL_CAMPAIGNS);
+    setPassport(DEMO_FIXTURE_PASSPORT);
+  };
+
+  // Reset to clean zero-state for production launch
+  const resetToCleanProduction = () => {
+    setIsDemoMode(false);
+    setReports([]);
+    setCampaigns([]);
+    setUserRegisteredCampaignIds([]);
+    setPassport(CLEAN_ZERO_PASSPORT);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('nafas_user_reports');
+      } catch (e) {}
+    }
+  };
 
   const t = useMemo(() => TRANSLATIONS[language], [language]);
 
@@ -114,15 +180,15 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
   }, [language]);
 
   // Dynamically compute real impact metrics from reports and campaigns
-  // Truthful metrics: exclude in_progress, no targetTrees extrapolation, no flora * 5, no Math.max(1, activeVolunteers)
+  // Truthful metrics: 0 when no approved records exist, no forcing Math.max(1, ...)
   const impactMetrics: ImpactMetrics = useMemo(() => {
     const totalReports = reports.length;
-    // Count ONLY verified and resolved issues (exclude in_progress)
+    // Count ONLY verified and resolved issues
     const verifiedReports = reports.filter(r => r.status === 'verified' || r.status === 'resolved').length;
     const resolvedCleanups = reports.filter(r => r.status === 'resolved').length;
     const campaignsCount = campaigns.length;
     
-    // Total trees planted from completed campaigns with actual confirmed planted trees (not future targets, no artificial * 5)
+    // Total trees planted from completed campaigns with actual confirmed planted trees
     const totalTrees = campaigns
       .filter(c => c.status === 'completed')
       .reduce((acc, c) => acc + ((c as any).treesPlanted || 0), 0);
@@ -148,7 +214,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       totalVerifiedIssues: verifiedReports,
       totalResolvedCleanups: resolvedCleanups,
       totalCampaignsHeld: campaignsCount,
-      totalActiveVolunteers: activeVolunteersCount, // No forcing Math.max(1, ...)
+      totalActiveVolunteers: activeVolunteersCount,
       totalVolunteerHours: Number(totalHours.toFixed(1)),
       totalTreesPlanted: totalTrees,
       activeGovernoratesCount: activeGovs,
@@ -156,6 +222,11 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     };
   }, [reports, campaigns, passport.certificates, passport.completedCampaignsCount]);
 
+  /**
+   * Add a new environmental report
+   * STRICT REWARD INTEGRITY: No points are awarded on initial unverified submission.
+   * Reports enter the moderation queue as 'submitted' (بانتظار المراجعة).
+   */
   const addReport = (newReportData: Omit<EnvironmentalReport, 'id' | 'trackingNumber' | 'createdAt' | 'updatedAt' | 'auditLogs' | 'status'>): EnvironmentalReport => {
     // Collision-resistant tracking number
     const randPart = typeof crypto !== 'undefined' && crypto.getRandomValues
@@ -171,7 +242,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       source_layer_version: newReportData.source_layer_version || 'gbOpen-IRQ-ADM1-2022',
       createdAt: now,
       updatedAt: now,
-      status: 'submitted',
+      status: 'submitted', // Enforce 'submitted' default moderation status
       auditLogs: [
         {
           id: `log-${Date.now()}`,
@@ -180,29 +251,39 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
           actorRole: role,
           previousStatus: 'submitted',
           newStatus: 'submitted',
-          notes: `تم استلام البلاغ وتسجيله على الخريطة (المصدر: ${newReportData.location_source || 'ميداني'}، الدقة: ${newReportData.accuracy_m ? '±' + newReportData.accuracy_m + 'م' : 'غير محددة'}).`
+          notes: `تم استلام البلاغ الميداني وإدراجه بانتظار المراجعة (المصدر: ${newReportData.location_source || 'ميداني'}، الدقة: ${newReportData.accuracy_m ? '±' + newReportData.accuracy_m + 'م' : 'غير محددة'}).`
         }
       ]
     };
 
     setReports(prev => [createdReport, ...prev]);
 
-    // Reward points if not anonymous and role is citizen/volunteer
-    if (!newReportData.isAnonymous) {
-      setPassport(prev => ({
-        ...prev,
-        points: prev.points + 25,
-        verifiedReportsCount: prev.verifiedReportsCount + 1
-      }));
-    }
+    // Send to backend API client if configured
+    try {
+      const api = NafasApiClient.getInstance();
+      api.submitReport(createdReport).catch(() => {});
+    } catch (_) {}
+
+    // Note: Points are awarded ONLY after official moderation verification in updateReportStatus,
+    // NEVER immediately upon unverified submission.
 
     return createdReport;
   };
 
+  /**
+   * Update report status (moderator/admin action)
+   * Points are awarded ONLY when transitioning to 'verified' for the first time.
+   */
   const updateReportStatus = (reportId: string, newStatus: ReportStatus, notes: string) => {
     const now = new Date().toISOString();
+    let wasJustVerified = false;
+
     setReports(prev => prev.map(report => {
       if (report.id === reportId) {
+        if (newStatus === 'verified' && report.status !== 'verified' && report.status !== 'resolved') {
+          wasJustVerified = true;
+        }
+
         const newLog = {
           id: `log-${Date.now()}`,
           timestamp: now,
@@ -221,6 +302,15 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       }
       return report;
     }));
+
+    // Award verification reward points upon genuine approval
+    if (wasJustVerified) {
+      setPassport(prev => ({
+        ...prev,
+        points: prev.points + 25,
+        verifiedReportsCount: prev.verifiedReportsCount + 1
+      }));
+    }
   };
 
   const registerForCampaign = (campaignId: string, volunteerName: string): boolean => {
@@ -246,6 +336,7 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
 
     if (success) {
       setUserRegisteredCampaignIds(prev => [...prev, campaignId]);
+      // Small civic engagement incentive on genuine registration
       setPassport(prev => ({
         ...prev,
         points: prev.points + 15,
@@ -292,7 +383,6 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     }
     const digitalSealHash = `0x${h.toString(16).padStart(8, '0')}${Date.now().toString(16).padStart(8, '0')}`;
 
-    // Mark clearly as demo simulator certificate since running without real national server backend
     const newCert: IssuedCertificate = {
       id: certCode,
       verificationCode: certCode,
@@ -304,8 +394,8 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       organizerSignature: campaign?.organizer || 'إدارة منصة نَفَس',
       digitalSealHash,
       revoked: false,
-      isDemoCertificate: true,
-      watermarkText: 'معاينة تجريبية (Demo Simulator) — غير معتمد رسمياً دون مصادقة الخادم الوطني'
+      isDemoCertificate: isDemoMode,
+      watermarkText: isDemoMode ? 'معاينة تجريبية (Demo Simulator) — غير معتمد رسمياً دون مصادقة الخادم الوطني' : undefined
     };
 
     setPassport(prev => ({
@@ -364,6 +454,9 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
         selectedGovernorateId,
         setSelectedGovernorateId,
         isDemoMode,
+        setIsDemoMode,
+        loadDemoFixtures,
+        resetToCleanProduction,
         userRegisteredCampaignIds,
         addReport,
         updateReportStatus,

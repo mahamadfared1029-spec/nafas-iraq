@@ -60,11 +60,13 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     campaigns,
     selectedGovernorateId, 
     setSelectedGovernorateId, 
+    isDemoMode,
     t, 
     language 
   } = useNafas();
 
   // Layer mode: 'vector' | 'gis' | 'botanical' | '3d'
+  // Real Interactive GIS Map is the authoritative default for civic reporting
   const [mapLayerMode, setMapLayerMode] = useState<'vector' | 'gis' | 'botanical' | '3d'>(() => {
     if (initialLayer) return initialLayer;
     if (typeof window !== 'undefined') {
@@ -73,7 +75,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         return '3d';
       }
     }
-    return 'vector';
+    return 'gis';
   });
 
   // Keep layer mode synced when initialLayer changes
@@ -145,7 +147,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   const boundariesLayerRef = useRef<any>(null);
   const govPolygonsMapRef = useRef<Map<string, any>>(new Map());
 
-  // Combine static GIS pins with live reports from store
+  // Combine pins with live reports and campaigns from store
   const allMapPins = useMemo(() => {
     // Convert store reports into pin items
     const storeReportPins: MapPinItem[] = reports.map(r => ({
@@ -166,16 +168,43 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       refId: r.id
     }));
 
-    // Merge without duplicating IDs
-    const merged = [...MASTER_MAP_PINS];
-    storeReportPins.forEach(sp => {
+    // Convert store campaigns into pin items
+    const storeCampaignPins: MapPinItem[] = campaigns.map(c => {
+      const gov = IRAQ_GOVERNORATES.find(g => g.id === c.governorateId);
+      const isPlanting = (c.targetTrees || 0) > 0;
+      return {
+        id: `campaign-${c.id}`,
+        type: isPlanting ? 'planting' : 'cleanup',
+        title: c.titleAr,
+        categoryLabelAr: isPlanting ? 'حملة تشجير وتخضير' : 'حملة تنظيف مسطحات',
+        governorateId: c.governorateId,
+        neighborhood: c.meetingArea,
+        lat: gov ? gov.lat : 33.3152,
+        lng: gov ? gov.lng : 44.3661,
+        status: c.status === 'upcoming' ? 'upcoming' : 'in_progress',
+        statusLabelAr: c.status === 'upcoming' ? 'حملة قادمة' : 'قيد التنفيذ',
+        organizerOrReporter: c.organizer,
+        summary: c.descriptionAr,
+        color: isPlanting ? '#16A34A' : '#2563EB',
+        targetCount: c.targetTrees,
+        volunteerCount: c.registeredCount,
+        dateOrTime: `${c.date} • ${c.startTime || '09:00 ص'}`,
+        refId: c.id
+      };
+    });
+
+    // In demo mode only, include demo fixtures from MASTER_MAP_PINS
+    const basePins: MapPinItem[] = isDemoMode ? [...MASTER_MAP_PINS] : [];
+
+    const merged = [...basePins];
+    [...storeCampaignPins, ...storeReportPins].forEach(sp => {
       if (!merged.some(m => m.refId === sp.refId)) {
         merged.push(sp);
       }
     });
 
     return merged;
-  }, [reports]);
+  }, [reports, campaigns, isDemoMode]);
 
   // Filtered pins
   const filteredPins = useMemo(() => {
@@ -901,6 +930,31 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         )}
 
       </div>
+
+      {/* Zero State Alert Banner when no pins exist in production */}
+      {filteredPins.length === 0 && mapLayerMode === 'gis' && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-md w-[92%] bg-nafas-cream/95 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-nafas-walnut/30 shadow-xl text-center space-y-2.5 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center justify-center gap-2">
+            <OrchidMotif variant="icon" size="sm" />
+            <h4 className="font-arabic font-extrabold text-sm text-nafas-ink">بعدنا بالبداية... وأول تغيير يبدي منك.</h4>
+          </div>
+          <p className="text-xs text-nafas-walnut font-medium leading-relaxed">
+            ماكو بلاغات موثقة حالياً{selectedGovernorateId !== 'all' ? ' في هذه المحافظة' : ''}. إذا شفت مشكلة بيئية، دلّينا على مكانها لنبدأ المعالجة.
+          </p>
+          <button
+            onClick={() => {
+              if (onOpenReportModalWithCoords) {
+                const currentGov = IRAQ_GOVERNORATES.find(g => g.id === selectedGovernorateId) || IRAQ_GOVERNORATES[0];
+                onOpenReportModalWithCoords(currentGov.lat, currentGov.lng, currentGov.id);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-nafas-copper text-white font-bold text-xs shadow hover:bg-nafas-copper/90 transition-colors"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>أضف أول بلاغ</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. Map Container */}
       <div 
