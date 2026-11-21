@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none">
+  <defs>
+    <radialGradient id="nafasCreamBase" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="70%" stop-color="#F7F1E7" />
+      <stop offset="100%" stop-color="#EDE4D4" />
+    </radialGradient>
+    <linearGradient id="nafasOrchidPetals" x1="30" y1="20" x2="90" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8A6AA8" />
+      <stop offset="60%" stop-color="#62467D" />
+      <stop offset="100%" stop-color="#4A3460" />
+    </linearGradient>
+    <linearGradient id="nafasLavenderWings" x1="60" y1="25" x2="60" y2="75" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E2D4EE" />
+      <stop offset="100%" stop-color="#B797D0" />
+    </linearGradient>
+    <linearGradient id="nafasWalnutRing" x1="10" y1="10" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8A5E51" />
+      <stop offset="50%" stop-color="#6B463B" />
+      <stop offset="100%" stop-color="#4F332B" />
+    </linearGradient>
+    <filter id="nafasEmblemShadow" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#222238" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <!-- 1. Warm Cream Base -->
+  <circle cx="60" cy="60" r="56" fill="url(#nafasCreamBase)" filter="url(#nafasEmblemShadow)" />
+
+  <!-- 2. Walnut Framing Ring -->
+  <circle cx="60" cy="60" r="54" stroke="url(#nafasWalnutRing)" stroke-width="2.5" />
+  <circle cx="60" cy="60" r="49.5" stroke="#B797D0" stroke-width="0.8" stroke-dasharray="3 2.5" opacity="0.65" />
+
+  <!-- Outer 4 Cardinal Accents -->
+  <circle cx="60" cy="6" r="2" fill="#C66F50" />
+  <circle cx="60" cy="114" r="2" fill="#C66F50" />
+  <circle cx="6" cy="60" r="2" fill="#C66F50" />
+  <circle cx="114" cy="60" r="2" fill="#C66F50" />
+
+  <!-- 3. Five Stylized Community Figures -->
+  <g id="community-figures" opacity="0.92">
+    <!-- Top 0 deg -->
+    <circle cx="60" cy="19" r="3" fill="#6B463B" />
+    <circle cx="60" cy="15.5" r="4.2" stroke="#6B463B" stroke-width="1.8" stroke-dasharray="9 10" fill="none" />
+    <!-- 72 deg -->
+    <circle cx="98.98" cy="47.33" r="3" fill="#62467D" />
+    <circle cx="102.32" cy="46.24" r="4.2" stroke="#62467D" stroke-width="1.8" stroke-dasharray="9 10" fill="none" />
+    <!-- 144 deg -->
+    <circle cx="84.1" cy="93.17" r="3" fill="#6B463B" />
+    <circle cx="86.16" cy="96" r="4.2" stroke="#6B463B" stroke-width="1.8" stroke-dasharray="9 10" fill="none" />
+    <!-- 216 deg -->
+    <circle cx="35.9" cy="93.17" r="3" fill="#62467D" />
+    <circle cx="33.84" cy="96" r="4.2" stroke="#62467D" stroke-width="1.8" stroke-dasharray="9 10" fill="none" />
+    <!-- 288 deg -->
+    <circle cx="21.02" cy="47.33" r="3" fill="#6B463B" />
+    <circle cx="17.68" cy="46.24" r="4.2" stroke="#6B463B" stroke-width="1.8" stroke-dasharray="9 10" fill="none" />
+  </g>
+
+  <!-- 4. Central Purple Orchid Floral Symbol -->
+  <g id="orchid-core" transform="translate(10, 8) scale(0.83)">
+    <!-- Walnut Stem -->
+    <path d="M60 76 C60 84 59 90 57 94" stroke="#6B463B" stroke-width="3" stroke-linecap="round" />
+    <!-- Dorsal Sepal -->
+    <path d="M60 22 C53 30 54 44 60 50 C66 44 67 30 60 22 Z" fill="url(#nafasLavenderWings)" stroke="#62467D" stroke-width="1.2" />
+    <!-- Left Lateral Sepal -->
+    <path d="M55 49 C41 40 28 46 26 55 C24 64 38 68 53 55 Z" fill="url(#nafasOrchidPetals)" stroke="#4A3460" stroke-width="1.2" />
+    <!-- Right Lateral Sepal -->
+    <path d="M65 49 C79 40 92 46 94 55 C96 64 82 68 67 55 Z" fill="url(#nafasOrchidPetals)" stroke="#4A3460" stroke-width="1.2" />
+    <!-- Left Wing Petal -->
+    <path d="M56 45 C43 30 33 37 37 46 C41 53 52 51 56 45 Z" fill="url(#nafasLavenderWings)" opacity="0.9" />
+    <!-- Right Wing Petal -->
+    <path d="M64 45 C77 30 87 37 83 46 C79 53 68 51 64 45 Z" fill="url(#nafasLavenderWings)" opacity="0.9" />
+    <!-- Orchid Labellum (Lip) -->
+    <path d="M53 53 C47 62 49 73 60 77 C71 73 73 62 67 53 C63 56 57 56 53 53 Z" fill="#62467D" stroke="#B797D0" stroke-width="1.2" />
+    <!-- Terracotta / Golden Heart & Stamen -->
+    <ellipse cx="60" cy="61" rx="4" ry="5" fill="#C66F50" />
+    <circle cx="60" cy="58" r="1.8" fill="#F7F1E7" />
+    <path d="M58 64 C60 68 62 68 62 64" stroke="#D4C0E5" stroke-width="1" stroke-linecap="round" />
+  </g>
+</svg>
