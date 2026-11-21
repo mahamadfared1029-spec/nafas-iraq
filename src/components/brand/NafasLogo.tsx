@@ -42,12 +42,12 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
 
   const { px: iconSize, text: textSize, subtext: subtextSize } = sizeMap[size];
 
-  // Official Authentic Image Asset Paths
-  const imageSrc = getAssetUrl(
-    useTransparent || variant === 'icon'
-      ? '/brand/nafas-logo-transparent.png'
-      : '/brand/nafas-logo.png'
-  );
+  // Official Authentic Image Asset Paths (optimized small size for sm/md to guarantee instant loading)
+  const isSmall = size === 'xs' || size === 'sm' || size === 'md';
+  const rawPath = useTransparent || variant === 'icon'
+    ? (isSmall ? '/brand/nafas-logo-transparent-sm.png' : '/brand/nafas-logo-transparent.png')
+    : (isSmall ? '/brand/nafas-logo-sm.png' : '/brand/nafas-logo.png');
+  const imageSrc = getAssetUrl(rawPath);
 
   // High-fidelity Vector Fallback SVG (matches specifications for seamless scaling & tests)
   const FallbackSvg = (
@@ -60,6 +60,7 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
       className="shrink-0 transition-transform duration-300 hover:scale-105"
       role="img"
       aria-label="شعار نَفَس الرسمي — للبيئة الاجتماعية"
+      style={{ width: iconSize, height: iconSize, minWidth: iconSize, minHeight: iconSize }}
     >
       <defs>
         <radialGradient id="nafasCreamBase" cx="50%" cy="50%" r="50%">
@@ -123,15 +124,21 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
   );
 
   const LogoAsset = !imageError ? (
-    <img
-      src={imageSrc}
-      alt="شعار نَفَس الرسمي — للبيئة الاجتماعية"
-      width={iconSize}
-      height={iconSize}
-      className={`shrink-0 object-contain transition-transform duration-300 hover:scale-105 ${variant === 'icon' || variant === 'emblem' ? 'w-full h-full max-w-full max-h-full' : ''}`}
-      onError={() => setImageError(true)}
-      loading="eager"
-    />
+    <div 
+      className={`shrink-0 relative flex items-center justify-center bg-[#F7F1E7] rounded-full overflow-hidden shadow-xs transition-transform duration-300 hover:scale-105 ${variant === 'icon' || variant === 'emblem' ? 'w-full h-full max-w-full max-h-full' : ''}`}
+      style={{ width: iconSize, height: iconSize, minWidth: iconSize, minHeight: iconSize }}
+    >
+      <img
+        src={imageSrc}
+        alt=""
+        aria-hidden="true"
+        width={iconSize}
+        height={iconSize}
+        className="w-full h-full object-contain block"
+        onError={() => setImageError(true)}
+        loading="eager"
+      />
+    </div>
   ) : (
     FallbackSvg
   );
@@ -172,7 +179,7 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
 
   // Default 'full' variant
   return (
-    <div className={`inline-flex items-center gap-3 select-none ${className}`} dir="rtl">
+    <div className={`inline-flex items-center gap-3 select-none shrink-0 ${className}`} dir="rtl" role="img" aria-label="شعار نَفَس الرسمي — للبيئة الاجتماعية">
       {LogoAsset}
       <div className="flex flex-col text-right justify-center">
         <div className="flex items-baseline gap-2">

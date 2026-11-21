@@ -131,8 +131,8 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-16 sm:h-20">
           
           {/* Brand Logo */}
-          <div className="flex items-center gap-6">
-            <button onClick={() => setActiveTab('home')} className="cursor-pointer text-right flex items-center">
+          <div className="flex items-center gap-6 shrink-0">
+            <button onClick={() => setActiveTab('home')} className="cursor-pointer text-right flex items-center shrink-0" aria-label="الصفحة الرئيسية نَفَس">
               <NafasLogo size="md" />
             </button>
           </div>

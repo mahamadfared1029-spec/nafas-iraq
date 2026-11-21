@@ -158,8 +158,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   const shattRef = useRef<any>(null);
   const govPolygonsMapRef = useRef<Map<string, any>>(new Map());
 
-  // Basemap & Map API Key State — High-Resolution Satellite GIS is the default
-  type BasemapProvider = 'satellite' | 'carto' | 'osm' | 'mapbox';
+  // Basemap & Map API Key State — High-Resolution Satellite GIS is the authoritative default
+  type BasemapProvider = 'satellite' | 'streets' | 'topo' | 'mapbox';
   const [basemapProvider, setBasemapProvider] = useState<BasemapProvider>('satellite');
   const basemapProviderRef = useRef<BasemapProvider>('satellite');
   useEffect(() => {
@@ -176,7 +176,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   const [tokenInput, setTokenInput] = useState(mapboxToken);
   const [tokenSavedToast, setTokenSavedToast] = useState(false);
 
-  // Set up or switch basemap tile layers
+  // Set up or switch basemap tile layers (CartoDB is completely removed to prevent any API Key watermarks)
   const applyBasemapLayer = (L: any, map: any, provider: BasemapProvider, token?: string) => {
     if (!map) return;
     if (tileLayerRef.current) {
@@ -190,32 +190,18 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
     let layer: any = null;
 
-    if (provider === 'satellite') {
-      // 1. High-Resolution ESRI World Imagery (Authentic Satellite Imagery from Space)
-      layer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-        maxZoom: 19,
-        crossOrigin: true
-      });
-
-      // 2. Clear Hybrid Vector Labels Overlay (Governorates, Cities, Places, Borders)
-      const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19,
-        pane: 'overlayPane',
-        opacity: 0.95,
-        crossOrigin: true
-      });
-      labels.addTo(map);
-      labelsLayerRef.current = labels;
-
-      // Resilient fallback on error
-      layer.on('tileerror', () => {
-        console.warn('Satellite tile fetch notice; resilient tile retry');
-      });
-    } else if (provider === 'osm') {
+    if (provider === 'streets') {
+      // 1. OpenStreetMap Free Standard Community Tiles
       layer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
+      });
+    } else if (provider === 'topo') {
+      // 2. High-Resolution ESRI World Topo Map (Free, Elevation, Contours & Terrain)
+      layer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, USGS, Intermap, and the GIS Community',
+        maxZoom: 19,
+        crossOrigin: true
       });
     } else if (provider === 'mapbox') {
       const activeToken = token || mapboxToken;
@@ -228,7 +214,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           zoomOffset: -1
         });
       } else {
-        // High-resolution ESRI Satellite
+        // High-resolution ESRI Satellite fallback
         layer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
           attribution: 'Tiles &copy; Esri &mdash; World Imagery',
           maxZoom: 19,
@@ -236,24 +222,25 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         });
       }
     } else {
-      // Default / fallback: CartoDB Voyager
-      layer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',
-        subdomains: 'abcd',
-        maxZoom: 19
+      // Default: High-Resolution ESRI World Imagery (Authentic Satellite Imagery from Space)
+      layer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+        maxZoom: 19,
+        crossOrigin: true
       });
-      // Resilience: on network error, fallback to OpenStreetMap
+
+      // Clear Hybrid Vector Labels Overlay (Governorates, Cities, Places, Borders)
+      const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        pane: 'overlayPane',
+        opacity: 0.95,
+        crossOrigin: true
+      });
+      labels.addTo(map);
+      labelsLayerRef.current = labels;
+
       layer.on('tileerror', () => {
-        if (tileLayerRef.current === layer && map) {
-          console.warn('CartoDB tile load issue; automatically falling back to OpenStreetMap standard tiles');
-          map.removeLayer(layer);
-          const osmFallback = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors',
-            maxZoom: 19
-          });
-          osmFallback.addTo(map);
-          tileLayerRef.current = osmFallback;
-        }
+        console.warn('Satellite tile fetch notice; resilient tile retry');
       });
     }
 
@@ -473,11 +460,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       GOVERNORATES_GIS_DATA.forEach(gov => {
         const poly = L.polygon(gov.polygon, {
-          color: isSat ? '#F7F1E7' : '#3E2C1E',
-          weight: isSat ? 1.4 : 1.8,
-          opacity: isSat ? 0.8 : 0.75,
+          color: isSat ? 'rgba(255, 255, 255, 0.45)' : '#3E2C1E',
+          weight: isSat ? 1.2 : 1.8,
+          opacity: isSat ? 0.7 : 0.75,
           fillColor: isSat ? '#FFFFFF' : '#DFD5C0',
-          fillOpacity: isSat ? 0.02 : 0.12
+          fillOpacity: isSat ? 0.0 : 0.08
         });
 
         poly.bindTooltip(
@@ -496,11 +483,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           } else {
             const satNow = basemapProviderRef.current === 'satellite' || basemapProviderRef.current === 'mapbox';
             poly.setStyle({
-              opacity: satNow ? 0.8 : 0.75,
-              weight: satNow ? 1.4 : 1.8,
+              opacity: satNow ? 0.7 : 0.75,
+              weight: satNow ? 1.2 : 1.8,
               fillColor: satNow ? '#FFFFFF' : '#DFD5C0',
-              fillOpacity: satNow ? 0.02 : 0.12,
-              color: satNow ? '#F7F1E7' : '#3E2C1E'
+              fillOpacity: satNow ? 0.0 : 0.08,
+              color: satNow ? 'rgba(255, 255, 255, 0.45)' : '#3E2C1E'
             });
           }
         });
@@ -629,11 +616,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         const poly = govPolygonsMapRef.current.get(gov.id);
         if (poly && mapLayerMode !== 'botanical') {
           poly.setStyle({
-            color: isSat ? '#F7F1E7' : '#3E2C1E',
-            weight: isSat ? 1.4 : 1.8,
+            color: isSat ? 'rgba(255, 255, 255, 0.45)' : '#3E2C1E',
+            weight: isSat ? 1.2 : 1.8,
             fillColor: isSat ? '#FFFFFF' : '#DFD5C0',
-            fillOpacity: isSat ? 0.02 : 0.12,
-            opacity: isSat ? 0.8 : 0.75
+            fillOpacity: isSat ? 0.0 : 0.08,
+            opacity: isSat ? 0.7 : 0.75
           });
         }
       });
@@ -956,7 +943,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
               {/* Reset Camera / Pin Button / Quick Basemap Switcher */}
               <div className="flex items-center gap-2 pointer-events-auto flex-wrap">
-                {/* Quick Basemap Switcher: Satellite vs OSM vs CARTO */}
+                {/* Quick Basemap Switcher: Satellite vs Streets vs Topo */}
                 {mapLayerMode === 'gis' && (
                   <div className="flex items-center gap-1 p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-xl shadow-md border border-nafas-reed/30">
                     <button
@@ -973,9 +960,9 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setBasemapProvider('osm')}
+                      onClick={() => setBasemapProvider('streets')}
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                        basemapProvider === 'osm'
+                        basemapProvider === 'streets'
                           ? 'bg-nafas-blue text-white shadow-xs'
                           : 'text-stone-700 hover:bg-stone-100'
                       }`}
@@ -985,15 +972,15 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setBasemapProvider('carto')}
+                      onClick={() => setBasemapProvider('topo')}
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                        basemapProvider === 'carto'
+                        basemapProvider === 'topo'
                           ? 'bg-nafas-blue text-white shadow-xs'
                           : 'text-stone-700 hover:bg-stone-100'
                       }`}
-                      title="تضاريس نَفَس الدافئة (CARTO)"
+                      title="تضاريس وارتفاعات الرافدين (ESRI World Topo Map)"
                     >
-                      <span>🎨 تضاريس</span>
+                      <span>🏔️ تضاريس</span>
                     </button>
                   </div>
                 )}
@@ -1189,7 +1176,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                 <span>الخريطة متصلة وتعمل مباشرة (مجاناً 100%)</span>
               </div>
-              <span>تعمل الخريطة عبر شبكات OpenStreetMap و CARTO و ESRI Satellite دون أي حاجة لمفتاح مدفوع أو اشتراك.</span>
+              <span>تعمل الخريطة عبر شبكات الأقمار الصناعية ESRI Satellite و OpenStreetMap و ESRI Topo دون أي حاجة لمفتاح مدفوع أو اشتراك.</span>
             </div>
 
             {/* Provider Chooser */}
@@ -1197,10 +1184,10 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
               <label className="text-[11px] font-bold text-stone-700">اختر نمط الخريطة الميدانية:</label>
               <div className="grid grid-cols-2 gap-1.5">
                 {[
-                  { id: 'carto', name: 'تضاريس نَفَس (CARTO)', desc: 'الألوان الدافئة الرسمية' },
-                  { id: 'osm', name: 'الشارع (OpenStreetMap)', desc: 'مفتوحة المصدر ودائمة' },
-                  { id: 'satellite', name: 'الأقمار الصناعية (ESRI)', desc: 'صور فضائية عالية الدقة' },
-                  { id: 'mapbox', name: 'ماب بوكس (Mapbox)', desc: mapboxToken ? 'المفتاح مفعل' : 'يتطلب مفتاح API' },
+                  { id: 'satellite', name: 'الأقمار الصناعية (ESRI)', desc: 'صور فضائية مباشرة عالية الدقة' },
+                  { id: 'streets', name: 'الشارع (OpenStreetMap)', desc: 'مفتوحة المصدر ودائمة' },
+                  { id: 'topo', name: 'تضاريس الرافدين (ESRI Topo)', desc: 'تضاريس وارتفاعات طبيعية' },
+                  { id: 'mapbox', name: 'ماب بوكس (Mapbox)', desc: mapboxToken ? 'المفتاح مفعل' : 'يتطلب مفتاح API اختياري' },
                 ].map(p => (
                   <button
                     key={p.id}
@@ -1252,7 +1239,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                         setBasemapProvider('mapbox');
                       } else {
                         localStorage.removeItem('nafas_mapbox_token');
-                        if (basemapProvider === 'mapbox') setBasemapProvider('carto');
+                        if (basemapProvider === 'mapbox') setBasemapProvider('satellite');
                       }
                     }
                     setTokenSavedToast(true);
@@ -1271,7 +1258,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                       if (typeof window !== 'undefined') {
                         localStorage.removeItem('nafas_mapbox_token');
                       }
-                      if (basemapProvider === 'mapbox') setBasemapProvider('carto');
+                      if (basemapProvider === 'mapbox') setBasemapProvider('satellite');
                     }}
                     className="px-2.5 py-1.5 rounded-lg border border-stone-300 text-stone-600 text-xs hover:bg-stone-100"
                   >
