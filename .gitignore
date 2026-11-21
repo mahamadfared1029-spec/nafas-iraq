@@ -1,7 +1,4 @@
-﻿node_modules/
-.next/
-out/
-tsconfig.tsbuildinfo
-next-env.d.ts
-deploy_to_github.py
-data-versions/
+node_modules
+out
+.next
+*.tsbuildinfo
