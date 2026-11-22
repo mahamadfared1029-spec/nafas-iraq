@@ -17,6 +17,8 @@ import { ReportDetailModal } from '@/components/reports/ReportDetailModal';
 import { VolunteerPassport } from '@/components/passport/VolunteerPassport';
 import { RewardsModal } from '@/components/rewards/RewardsModal';
 import { CertificateModal } from '@/components/certificates/CertificateModal';
+import { AuthModal } from '@/components/auth/AuthModal';
+import { FounderCommandCenter } from '@/components/admin/FounderCommandCenter';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
 import { getBasePath } from '@/lib/basePath';
 import { 
@@ -28,7 +30,8 @@ import {
   BookOpen, 
   HeartHandshake,
   Box,
-  Sparkles
+  Sparkles,
+  ShieldCheck
 } from 'lucide-react';
 
 const VALID_VIEWS = [
@@ -40,7 +43,8 @@ const VALID_VIEWS = [
   'planting', 
   'atlas', 
   'clinic', 
-  'orchid-3d'
+  'orchid-3d',
+  'admin'
 ];
 
 function parseViewFromHash(): string {
@@ -59,6 +63,8 @@ export default function HomePage() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const [rewardsModalOpen, setRewardsModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [commandCenterOpen, setCommandCenterOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<EnvironmentalReport | null>(null);
   const [selectedCertificate, setSelectedCertificate] = useState<IssuedCertificate | null>(null);
   const [pinnedCoords, setPinnedCoords] = useState<{ lat: number; lng: number; governorateId: string } | null>(null);
@@ -154,6 +160,11 @@ export default function HomePage() {
       title: 'المجسم التشريحي لزهرة الأوركيد (3D Orchid)',
       subtitle: 'نموذج نباتي تفاعلي ثلاثي الأبعاد لاستكشاف بنية الأزهار والأوراق والجذور ومكافحة الآفات',
       icon: Sparkles
+    },
+    admin: {
+      title: 'مركز القيادة والرقابة البيئية',
+      subtitle: 'لوحة تحكم المشرف العام (Super Admin) وتدقيق البلاغات الميدانية وإدارة الكادر',
+      icon: ShieldCheck
     }
   };
 
@@ -174,6 +185,8 @@ export default function HomePage() {
           setReportModalOpen(true);
         }}
         onOpenPassportModal={() => setPassportModalOpen(true)}
+        onOpenAuthModal={() => setAuthModalOpen(true)}
+        onOpenCommandCenter={() => setCommandCenterOpen(true)}
       />
 
       {/* 2. Main Content Area */}
@@ -330,6 +343,19 @@ export default function HomePage() {
       <CertificateModal
         certificate={selectedCertificate}
         onClose={() => setSelectedCertificate(null)}
+      />
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+      />
+
+      <FounderCommandCenter
+        isOpen={commandCenterOpen || currentView === 'admin'}
+        onClose={() => {
+          setCommandCenterOpen(false);
+          if (currentView === 'admin') navigateTo('home');
+        }}
       />
 
     </div>

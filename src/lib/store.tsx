@@ -18,6 +18,7 @@ import {
 } from './constants';
 import { TRANSLATIONS, TranslationDictionary } from './i18n';
 import { NafasApiClient } from './server/apiClient';
+import { nafasReports } from './reports/reportService';
 
 export interface UserPassport {
   userName: string;
@@ -161,6 +162,9 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     setCampaigns([]);
     setUserRegisteredCampaignIds([]);
     setPassport(CLEAN_ZERO_PASSPORT);
+    try {
+      nafasReports.resetDemoData();
+    } catch (_) {}
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('nafas_user_reports');
@@ -257,6 +261,25 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     };
 
     setReports(prev => [createdReport, ...prev]);
+
+    // Send to central persistent reports store and notification outbox
+    try {
+      nafasReports.submitReport({
+        title: createdReport.title,
+        description: createdReport.description,
+        category: createdReport.category,
+        severity: createdReport.severity,
+        governorateId: createdReport.governorateId,
+        neighborhood: createdReport.neighborhood,
+        lat: createdReport.lat,
+        lng: createdReport.lng,
+        location_source: createdReport.location_source,
+        accuracy_m: createdReport.accuracy_m,
+        imageBeforeUrl: createdReport.imageBeforeUrl,
+        isAnonymous: createdReport.isAnonymous,
+        isHazardous: createdReport.isHazardous
+      }).catch(() => {});
+    } catch (_) {}
 
     // Send to backend API client if configured
     try {

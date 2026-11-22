@@ -4,7 +4,8 @@ export type Role =
   | 'volunteer' 
   | 'organizer' 
   | 'moderator' 
-  | 'admin';
+  | 'admin'
+  | 'super_admin';
 
 export type Language = 'ar' | 'ku' | 'en';
 
@@ -25,12 +26,14 @@ export type ReportStatus =
   | 'submitted' 
   | 'under_review' 
   | 'verified' 
+  | 'assigned'
   | 'in_progress' 
   | 'pending_verification'
   | 'resolved' 
   | 'duplicate' 
   | 'rejected'
-  | 'reopened';
+  | 'reopened'
+  | 'archived';
 
 export interface Governorate {
   id: string;
@@ -78,11 +81,59 @@ export interface EnvironmentalReport {
   createdAt: string;
   updatedAt: string;
   reportedBy: string;
+  reporterDisplayName?: string;
   isAnonymous: boolean;
   isHazardous: boolean;
+  isArchived?: boolean;
+  assignedModeratorId?: string;
   assignedEntity?: string;
   verificationEvidence?: string;
+  imageBeforeStoragePath?: string;
+  imageAfterStoragePath?: string;
   auditLogs: ReportAuditLog[];
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName: string;
+  role: Role;
+  governorateId: string;
+  phoneMasked?: string;
+  isVerifiedVolunteer?: boolean;
+  points?: number;
+  mfaEnabled?: boolean;
+  isSuspended?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationOutboxItem {
+  id: string;
+  eventId: string;
+  reportId: string;
+  eventType: string;
+  recipientMasked: string;
+  deliveryStatus: 'pending' | 'queued' | 'sent' | 'failed' | 'retry_scheduled' | 'unconfigured';
+  provider: string;
+  attemptCount: number;
+  lastAttemptAt?: string;
+  externalMessageId?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAuditLogItem {
+  id: string;
+  actorId: string;
+  actorEmail: string;
+  action: string;
+  targetType: string;
+  targetId?: string;
+  details?: Record<string, any>;
+  ipHash?: string;
+  createdAt: string;
 }
 
 export interface VolunteerCampaign {

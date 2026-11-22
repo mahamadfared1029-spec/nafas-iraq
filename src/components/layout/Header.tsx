@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NafasLogo } from '@/components/brand/NafasLogo';
 import { useNafas } from '@/lib/store';
-import { Role } from '@/types';
+import { Role, UserProfile } from '@/types';
+import { nafasAuth } from '@/lib/auth/authService';
 import { 
   Home,
   MapPin, 
@@ -18,12 +19,17 @@ import {
   UserCircle,
   PlayCircle,
   Box,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 
 interface HeaderProps {
   onOpenReportModal: () => void;
   onOpenPassportModal: () => void;
+  onOpenAuthModal?: () => void;
+  onOpenCommandCenter?: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }
@@ -31,12 +37,22 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onOpenReportModal,
   onOpenPassportModal,
+  onOpenAuthModal,
+  onOpenCommandCenter,
   activeTab,
   setActiveTab
 }) => {
   const { role, setRole, language, t, passport } = useNafas();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [authUser, setAuthUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const unsub = nafasAuth.onAuthStateChange((session) => {
+      setAuthUser(session?.user || null);
+    });
+    return unsub;
+  }, []);
 
   const rolesList: { id: Role; labelAr: string; labelEn: string; badgeColor: string }[] = [
     { id: 'citizen', labelAr: 'مواطن (إبلاغ ومتابعة)', labelEn: 'Citizen (Report & Track)', badgeColor: 'bg-nafas-misty text-nafas-silt' },
@@ -44,6 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'organizer', labelAr: 'منسق حملة (تحضير وحضور)', labelEn: 'Organizer (Events & Check-in)', badgeColor: 'bg-amber-100 text-amber-900' },
     { id: 'moderator', labelAr: 'مشرف بيئي (مراجعة واعتماد)', labelEn: 'Moderator (Review & Verify)', badgeColor: 'bg-nafas-misty text-nafas-blue font-bold' },
     { id: 'admin', labelAr: 'إدارة النظام (تحكم شامل)', labelEn: 'Administrator (Full Access)', badgeColor: 'bg-purple-100 text-purple-900' },
+    { id: 'super_admin', labelAr: 'المشرف العام (المؤسس)', labelEn: 'Super Admin (Founder)', badgeColor: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold' },
     { id: 'guest', labelAr: 'زائر عام', labelEn: 'Guest Visitor', badgeColor: 'bg-stone-200 text-stone-800' }
   ];
 
@@ -160,18 +177,52 @@ export const Header: React.FC<HeaderProps> = ({
           </nav>
 
           {/* Action CTAs */}
-          <div className="hidden sm:flex items-center gap-3">
-            <button
-              onClick={onOpenPassportModal}
-              className="px-3.5 py-2.5 rounded-xl border border-nafas-blue text-nafas-blue hover:bg-nafas-misty/30 text-sm font-bold flex items-center gap-2 transition-all duration-200 shadow-sm"
-            >
-              <UserCircle className="w-4 h-4" />
-              <span>{t.passportNav}</span>
-              <span className="bg-nafas-misty text-nafas-silt px-2 py-0.5 rounded-full text-xs font-mono font-bold">
-                {passport.points}ن
-              </span>
-            </button>
+          <div className="hidden sm:flex items-center gap-2.5">
+            {/* Command Center for Super Admin & Staff */}
+            {authUser && (authUser.role === 'super_admin' || authUser.role === 'moderator' || authUser.role === 'admin') && onOpenCommandCenter && (
+              <button
+                onClick={onOpenCommandCenter}
+                className="px-3.5 py-2 rounded-xl bg-[#62467D] hover:bg-[#52386A] text-white text-xs font-bold flex items-center gap-1.5 transition-all duration-200 shadow-sm border border-[#B797D0]/30"
+                title="فتح مركز القيادة والرقابة البيئية"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                <span>مركز القيادة</span>
+              </button>
+            )}
 
+            {/* Auth Account / Login */}
+            {authUser ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={onOpenPassportModal}
+                  className="px-3 py-2 rounded-xl border border-nafas-blue/30 text-nafas-silt hover:bg-nafas-misty/30 text-xs font-bold flex items-center gap-1.5 transition-all"
+                  title="جواز نَفَس للمواطن"
+                >
+                  <UserCircle className="w-4 h-4 text-nafas-blue" />
+                  <span className="max-w-[100px] truncate">{authUser.fullName.split(' ')[0]}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-nafas-misty text-nafas-silt font-mono">
+                    {passport.points}ن
+                  </span>
+                </button>
+                <button
+                  onClick={() => nafasAuth.signOut()}
+                  className="p-2 text-stone-500 hover:text-stone-800 rounded-lg hover:bg-stone-100 transition-colors"
+                  title="تسجيل الخروج"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onOpenAuthModal}
+                className="px-3 py-2 rounded-xl border border-[#6B463B]/40 text-[#6B463B] hover:bg-[#F7F1E7] text-xs font-bold flex items-center gap-1.5 transition-all"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>دخول / تسجيل</span>
+              </button>
+            )}
+
+            {/* Report CTA */}
             <button
               onClick={onOpenReportModal}
               className="px-4 py-2.5 rounded-xl bg-nafas-blue hover:bg-nafas-blue-dark text-nafas-ivory text-sm font-bold flex items-center gap-2 transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
@@ -229,6 +280,32 @@ export const Header: React.FC<HeaderProps> = ({
           })}
 
           <div className="pt-3 border-t border-nafas-reed/30 flex flex-col gap-2">
+            {authUser && (authUser.role === 'super_admin' || authUser.role === 'moderator' || authUser.role === 'admin') && onOpenCommandCenter && (
+              <button
+                onClick={() => {
+                  onOpenCommandCenter();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full py-2.5 rounded-xl bg-[#62467D] text-white font-bold text-xs flex items-center justify-center gap-2 shadow"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                <span>فتح مركز القيادة والرقابة البيئية</span>
+              </button>
+            )}
+
+            {!authUser && onOpenAuthModal && (
+              <button
+                onClick={() => {
+                  onOpenAuthModal();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full py-2.5 rounded-xl border border-[#6B463B] text-[#6B463B] font-bold text-xs flex items-center justify-center gap-2 bg-white"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>تسجيل الدخول / إنشاء حساب</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 onOpenPassportModal();
