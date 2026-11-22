@@ -478,8 +478,9 @@ class NafasAuthService {
       throw new Error(`فشل تعيين كلمة المرور: ${error.message}`);
     }
 
-    if (data.session) {
-      await this.syncSessionFromSupabase(data.session);
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session) {
+      await this.syncSessionFromSupabase(sessionData.session);
     }
 
     return {
