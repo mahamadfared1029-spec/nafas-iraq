@@ -62,18 +62,19 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   // Load and refresh data
-  const loadData = () => {
+  const loadData = async () => {
     const user = nafasAuth.getCurrentUser();
     setCurrentUser(user);
 
     if (user && (user.role === 'moderator' || user.role === 'admin' || user.role === 'super_admin')) {
       try {
-        const rep = nafasReports.getAllReportsForStaff();
+        const rep = await nafasReports.getAllReportsForStaff();
         setReports(rep);
       } catch (_) {}
 
       try {
-        setOutbox(nafasReports.getOutbox());
+        const out = await nafasReports.getOutbox();
+        setOutbox(out);
       } catch (_) {}
 
       if (user.role === 'super_admin' || user.role === 'admin') {
@@ -185,11 +186,15 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
   };
 
   // Handle Safe Demo Reset
-  const handleResetDemoData = () => {
-    if (confirm('تأكيد: هل أنت متأكد من مسح البيانات والتقارير التجريبية فقط مع الإبقاء التام على البلاغات الحقيقية؟')) {
-      const res = nafasReports.resetDemoData();
-      alert(`تم تنظيف ${res.clearedCount} تقرير تجريبي بنجاح.`);
-      loadData();
+  const handleResetDemoData = async () => {
+    if (confirm('تأكيد: هل أنت متأكد من أرشفة التقارير التجريبية فقط مع الإبقاء التام على البلاغات الحقيقية؟')) {
+      try {
+        const res = await nafasReports.resetDemoData();
+        alert(res.messageAr || `تم أرشفة ${res.clearedCount} تقرير تجريبي بنجاح.`);
+        loadData();
+      } catch (err: any) {
+        alert(err?.message || 'فشلت عملية التنظيف');
+      }
     }
   };
 
@@ -232,6 +237,16 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
             </button>
           </div>
         </div>
+
+        {!nafasReports.isConfigured() && (
+          <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-xs text-amber-900 font-bold shrink-0">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>حالة البنية التحتية السحابية: Supabase غير متصل (BLOCKED BY EXTERNAL CONFIGURATION). يرجى تزويد متغيرات البيئة NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY.</span>
+            </div>
+            <span className="text-[10px] bg-amber-200/80 px-2 py-0.5 rounded text-amber-900 font-mono">وضع الاستعداد الأمني</span>
+          </div>
+        )}
 
         {/* Navigation Tabs */}
         <div className="bg-[#F7F1E7] px-6 py-2 border-b border-[#E5DCCD] flex items-center gap-2 overflow-x-auto shrink-0">

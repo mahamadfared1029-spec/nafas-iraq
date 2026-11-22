@@ -153,11 +153,11 @@ CREATE POLICY "Only super admin can view notification outbox"
     USING (public.current_user_role() = 'super_admin');
 
 -- -----------------------------------------------------------------------------
--- SYSTEM SETTINGS
+-- SYSTEM SETTINGS (Secrets & Private Settings Isolated)
 -- -----------------------------------------------------------------------------
 CREATE POLICY "Public can view public settings"
     ON public.system_settings FOR SELECT
-    USING (true);
+    USING (is_public = TRUE);
 
 CREATE POLICY "Only super admin can update settings"
     ON public.system_settings FOR ALL

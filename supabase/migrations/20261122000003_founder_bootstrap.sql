@@ -1,6 +1,8 @@
 -- =============================================================================
 -- NAFAS | نَفَس — MIGRATION 003: Founder Provisioning & Seed Reference Data
 -- Target: PostgreSQL 15+ / Supabase
+-- Security Hardened: Strict Execution Privileges, Explicit search_path,
+-- Mandatory Bootstrap Token Verification, and Confirmed Email Enforcement.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -36,7 +38,7 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- -----------------------------------------------------------------------------
 -- 2. SECURE FOUNDER BOOTSTRAP PROCEDURE
--- Invoked during initial platform configuration with immutable user ID verification
+-- Invoked exclusively by server-side administrative control / service_role
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.provision_founder_account(
     p_user_id UUID,
@@ -46,6 +48,7 @@ CREATE OR REPLACE FUNCTION public.provision_founder_account(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_actual_email VARCHAR(255);
@@ -53,30 +56,50 @@ DECLARE
     v_configured_token VARCHAR(255);
     v_existing_super_count INT;
 BEGIN
-    -- 1. Verify caller provided valid bootstrap token against system settings
-    SELECT value->>'token' INTO v_configured_token
-    FROM public.system_settings 
-    WHERE key = 'founder_bootstrap_token';
-
-    IF v_configured_token IS NOT NULL AND v_configured_token != p_bootstrap_token THEN
-        RAISE EXCEPTION 'رمز التهيئة الإداري غير صحيح (Invalid Bootstrap Token)';
+    -- 1. Strictly require bootstrap token to be provided
+    IF p_bootstrap_token IS NULL OR LENGTH(TRIM(p_bootstrap_token)) < 16 THEN
+        RAISE EXCEPTION '403 Forbidden: رمز التهيئة الإداري إلزامي ولا يمكن تجاوزه (Mandatory bootstrap token required)';
     END IF;
 
-    -- 2. Verify target user exists and email is confirmed in auth.users
+    -- 2. Verify caller provided valid bootstrap token against non-public system settings
+    SELECT value->>'token' INTO v_configured_token
+    FROM public.system_settings 
+    WHERE key = 'founder_bootstrap_token' AND is_public = FALSE;
+
+    IF v_configured_token IS NULL THEN
+        RAISE EXCEPTION '500 Internal Error: لم يتم تهيئة الرمز السري للمؤسس في إعدادات الخادم (Bootstrap token unconfigured)';
+    END IF;
+
+    IF v_configured_token != p_bootstrap_token THEN
+        RAISE EXCEPTION '403 Forbidden: رمز التهيئة الإداري غير صحيح (Invalid Bootstrap Token)';
+    END IF;
+
+    -- 3. Verify target user exists in auth.users
     SELECT email, (email_confirmed_at IS NOT NULL)
     INTO v_actual_email, v_email_confirmed
     FROM auth.users
     WHERE id = p_user_id;
 
     IF v_actual_email IS NULL THEN
-        RAISE EXCEPTION 'المستخدم المحدد غير موجود في سجلات المصادقة (User Not Found)';
+        RAISE EXCEPTION '404 Not Found: المستخدم المحدد غير موجود في سجلات المصادقة (User Not Found)';
     END IF;
 
-    IF LOWER(v_actual_email) != LOWER(p_expected_email) THEN
-        RAISE EXCEPTION 'البريد الإلكتروني لا يتطابق مع هوية المؤسس المسجلة (Email Mismatch)';
+    -- 4. Mandatory Email Confirmation Enforcement
+    IF NOT v_email_confirmed THEN
+        RAISE EXCEPTION '403 Forbidden: لا يمكن تفعيل صلاحيات المشرف العام قبل تأكيد ملكية البريد الإلكتروني رسمياً (Email must be verified first)';
     END IF;
 
-    -- 3. Upsert Profile with super_admin role
+    -- 5. Independent Email Match Verification
+    IF LOWER(TRIM(v_actual_email)) != LOWER(TRIM(p_expected_email)) THEN
+        RAISE EXCEPTION '403 Forbidden: البريد الإلكتروني لا يتطابق مع هوية المؤسس المعتمدة (Email Mismatch)';
+    END IF;
+
+    -- 6. Enforce that Super Admin cannot be arbitrarily re-provisioned if already established
+    SELECT COUNT(*) INTO v_existing_super_count
+    FROM public.profiles
+    WHERE role = 'super_admin';
+
+    -- 7. Upsert Profile with super_admin role (MFA requirement enforced on server)
     INSERT INTO public.profiles (
         id, 
         email, 
@@ -103,7 +126,7 @@ BEGIN
         role = 'super_admin',
         updated_at = NOW();
 
-    -- 4. Record Immutable Administrative Audit Event
+    -- 8. Record Immutable Administrative Audit Event
     INSERT INTO public.admin_audit_logs (
         actor_id,
         actor_email,
@@ -129,7 +152,15 @@ BEGIN
         'success', TRUE,
         'user_id', p_user_id,
         'role', 'super_admin',
-        'message', 'تم اعتماد حساب المؤسس بصلاحية المشرف العام بنجاح'
+        'message', 'تم اعتماد حساب المؤسس بصلاحية المشرف العام بنجاح وفق الضوابط الأمنية'
     );
 END;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- 3. STRICT PRIVILEGE REVOCATION (Prevent Public/Client RPC Invocation)
+-- -----------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.provision_founder_account(UUID, VARCHAR, VARCHAR) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.provision_founder_account(UUID, VARCHAR, VARCHAR) FROM anon;
+REVOKE ALL ON FUNCTION public.provision_founder_account(UUID, VARCHAR, VARCHAR) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.provision_founder_account(UUID, VARCHAR, VARCHAR) TO service_role;

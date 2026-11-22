@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useNafas } from '@/lib/store';
 import { IRAQ_GOVERNORATES, CATEGORY_INFO } from '@/lib/constants';
 import { PollutionCategory, SeverityLevel } from '@/types';
+import { nafasReports } from '@/lib/reports/reportService';
 import { 
   X, 
   MapPin, 
@@ -60,7 +61,9 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
   const [imagePreview, setImagePreview] = useState<string>('');
   const [imageFileName, setImageFileName] = useState<string>('');
   const [imageFileSize, setImageFileSize] = useState<number>(0);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   const [isHazardousDetected, setIsHazardousDetected] = useState<boolean>(false);
   const [submittedTracking, setSubmittedTracking] = useState<string | null>(null);
@@ -211,18 +214,20 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
       return;
     }
 
-    // Size limit: 5 MB
-    const maxSize = 5 * 1024 * 1024;
+    // Size limit: 10 MB
+    const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      setImageError('حجم الصورة يتجاوز الحد المسموح به (5 ميغابايت). يرجى تقليل حجمها.');
+      setImageError('حجم الصورة يتجاوز الحد المسموح به (10 ميغابايت). يرجى تقليل حجمها.');
       return;
     }
+
+    setImageFile(file);
+    setImageFileName(file.name);
+    setImageFileSize(file.size);
 
     const reader = new FileReader();
     reader.onload = (event) => {
       setImagePreview(event.target?.result as string);
-      setImageFileName(file.name);
-      setImageFileSize(file.size);
     };
     reader.onerror = () => {
       setImageError('فشلت قراءة ملف الصورة. يرجى المحاولة مجدداً.');
@@ -234,10 +239,11 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
     setImagePreview('');
     setImageFileName('');
     setImageFileSize(0);
+    setImageFile(null);
     setImageError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -257,38 +263,75 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
       return;
     }
 
+    if (!nafasReports.isConfigured()) {
+      setFormError('قاعدة البيانات المركزية (Supabase) غير متصلة. تم تعطيل الإرسال منعاً لفقدان البيانات، ولا يُسمح بالحفظ الوهمي.');
+      return;
+    }
+
     const selectedGov = IRAQ_GOVERNORATES.find(g => g.id === governorateId) || IRAQ_GOVERNORATES[0];
 
-    const report = addReport({
-      title: title || `${CATEGORY_INFO[category].labelAr} في ${neighborhood || selectedGov.nameAr}`,
-      description: description || 'تم تسجيل البلاغ الميداني مع إحداثيات الموقع وصور الحالة الأولية.',
-      category,
-      severity,
-      governorateId,
-      neighborhood: neighborhood || selectedGov.nameAr,
-      lat: coords.lat,
-      lng: coords.lng,
-      location_source: locationSource || 'manual_picker',
-      accuracy_m: accuracyM,
-      source_layer_version: 'gbOpen-IRQ-ADM1-2022',
-      imageBeforeUrl: imagePreview, // Genuine uploaded image or empty string - strictly NO stock photos
-      imageBeforeName: imageFileName || undefined,
-      imageBeforeSize: imageFileSize || undefined,
-      reportedBy: isAnonymous ? 'مواطن مجهول' : reportedBy,
-      isAnonymous,
-      isHazardous: isHazardousDetected
-    });
-
-    setSubmittedTracking(report.trackingNumber);
-    setStep(3);
-
+    setSubmitting(true);
     try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 }
+      // Direct call to authoritative server service
+      const res = await nafasReports.submitReport({
+        title: title || `${CATEGORY_INFO[category].labelAr} في ${neighborhood || selectedGov.nameAr}`,
+        description: description || 'تم تسجيل البلاغ الميداني مع إحداثيات الموقع وصور الحالة الأولية.',
+        category,
+        severity,
+        governorateId,
+        neighborhood: neighborhood || selectedGov.nameAr,
+        lat: coords.lat,
+        lng: coords.lng,
+        location_source: locationSource || 'manual_picker',
+        accuracy_m: accuracyM,
+        imageFile: imageFile,
+        imageBeforeUrl: imagePreview,
+        isAnonymous,
+        isHazardous: isHazardousDetected
       });
-    } catch (_) {}
+
+      if (!res.success || !res.report) {
+        setFormError(res.messageAr || 'فشل استلام البلاغ وتوثيقه في الخادم المركزي.');
+        setSubmitting(false);
+        return;
+      }
+
+      // Add to client store only after authoritative server confirmation
+      addReport({
+        title: res.report.title,
+        description: res.report.description,
+        category: res.report.category,
+        severity: res.report.severity,
+        governorateId: res.report.governorateId,
+        neighborhood: res.report.neighborhood,
+        lat: res.report.lat,
+        lng: res.report.lng,
+        location_source: res.report.location_source,
+        accuracy_m: res.report.accuracy_m,
+        source_layer_version: res.report.source_layer_version,
+        imageBeforeUrl: res.report.imageBeforeUrl,
+        imageBeforeName: imageFileName || undefined,
+        imageBeforeSize: imageFileSize || undefined,
+        reportedBy: isAnonymous ? 'مواطن مجهول' : reportedBy,
+        isAnonymous,
+        isHazardous: isHazardousDetected
+      });
+
+      setSubmittedTracking(res.report.trackingNumber);
+      setStep(3);
+
+      try {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      } catch (_) {}
+    } catch (err: any) {
+      setFormError(err.message || 'حدث خطأ أثناء التواصل مع خادم قاعدة البيانات.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const copyTrackingToClipboard = () => {
@@ -690,6 +733,18 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                 />
               </div>
 
+              {!nafasReports.isConfigured() && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs">
+                  <p className="font-bold flex items-center gap-1.5 mb-1">
+                    <ShieldAlert className="w-4 h-4 text-amber-700" />
+                    <span>تنبيه الاتصال بقاعدة البيانات:</span>
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    لم يتم ضبط مفاتيح Supabase السحابية في بيئة التشغيل الحالية. تم إيقاف استقبال البلاغات الحية منعاً لفقدانها، والتزاماً بمعايير الأمان المعتمدة.
+                  </p>
+                </div>
+              )}
+
               {formError && (
                 <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-bold">
                   {formError}
@@ -699,9 +754,17 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-2xl bg-nafas-blue hover:bg-nafas-blue text-nafas-ivory font-bold text-sm shadow-md hover:shadow-lg transition-all"
+                disabled={submitting || !nafasReports.isConfigured()}
+                className="w-full py-3.5 rounded-2xl bg-nafas-blue hover:bg-nafas-blue/90 text-nafas-ivory font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                تأكيد وإرسال البلاغ الميداني
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>جارٍ الإرسال والتوثيق في الخادم...</span>
+                  </>
+                ) : (
+                  <span>تأكيد وإرسال البلاغ الميداني</span>
+                )}
               </button>
 
             </form>

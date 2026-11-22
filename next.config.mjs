@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const isGhPages = process.env.DEPLOY_TARGET === 'gh-pages';
+const isGhPages = process.env.DEPLOY_TARGET?.trim() === 'gh-pages';
 
 const nextConfig = {
   reactStrictMode: true,

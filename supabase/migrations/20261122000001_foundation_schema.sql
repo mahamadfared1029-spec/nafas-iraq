@@ -281,6 +281,7 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
     key VARCHAR(64) PRIMARY KEY,
     value JSONB NOT NULL,
     description TEXT,
+    is_public BOOLEAN NOT NULL DEFAULT FALSE,
     updated_by UUID REFERENCES auth.users(id),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
