@@ -30,6 +30,7 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
   showSlogan = true,
   useTransparent = false,
 }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   const sizeMap = {
@@ -123,24 +124,29 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
     </svg>
   );
 
-  const LogoAsset = !imageError ? (
+  const LogoAsset = (
     <div 
       className={`shrink-0 relative flex items-center justify-center bg-[#F7F1E7] rounded-full overflow-hidden shadow-xs transition-transform duration-300 hover:scale-105 ${variant === 'icon' || variant === 'emblem' ? 'w-full h-full max-w-full max-h-full' : ''}`}
       style={{ width: iconSize, height: iconSize, minWidth: iconSize, minHeight: iconSize }}
     >
-      <img
-        src={imageSrc}
-        alt=""
-        aria-hidden="true"
-        width={iconSize}
-        height={iconSize}
-        className="w-full h-full object-contain block"
-        onError={() => setImageError(true)}
-        loading="eager"
-      />
+      {/* 1. Instant Crisp Vector Artwork Base (0ms latency, always perfectly rendered) */}
+      {(!imageLoaded || imageError) && FallbackSvg}
+
+      {/* 2. Official High-Fidelity Artwork Overlay (smooth fade-in on load) */}
+      {!imageError && (
+        <img
+          src={imageSrc}
+          alt=""
+          aria-hidden="true"
+          width={iconSize}
+          height={iconSize}
+          className={`w-full h-full object-contain ${imageLoaded ? 'block opacity-100' : 'opacity-0 absolute inset-0'}`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageError(true)}
+          loading="eager"
+        />
+      )}
     </div>
-  ) : (
-    FallbackSvg
   );
 
   if (variant === 'icon' || variant === 'emblem') {

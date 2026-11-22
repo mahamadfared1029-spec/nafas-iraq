@@ -23,10 +23,23 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env*
 .env*.local
 .env
 deploy_to_github.py
 data-versions/
+
+# supabase temp
+supabase/.temp/
+.temp/
+
+# credentials and test scripts
+scripts/*live*
+scripts/*test*
+scripts/*verify*
+scripts/*supabase*
+*.secret
+*.key
 
 # typescript
 *.tsbuildinfo
