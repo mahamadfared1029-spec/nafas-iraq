@@ -81,7 +81,7 @@ serve(async (req) => {
       );
     }
 
-    // 5. Require actual MFA enrollment (factors check)
+    // 5. Unconditionally require verified MFA enrollment (factors check)
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false }
     });
@@ -91,9 +91,28 @@ serve(async (req) => {
     });
 
     const hasVerifiedMfa = factorsData?.factors && factorsData.factors.some((f: any) => f.status === 'verified');
-    if (!hasVerifiedMfa && Deno.env.get('ENFORCE_MFA_AT_BOOTSTRAP') === 'true') {
+    if (!hasVerifiedMfa) {
       return new Response(
         JSON.stringify({ error: '403 Forbidden: يتطلب حساب المشرف العام تفعيل التحقق الثنائي (MFA) وتأكيده أولاً.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Unconditionally require Authenticator Assurance Level (AAL2) in current session
+    let aal = 'aal1';
+    try {
+      const jwtParts = token.split('.');
+      if (jwtParts.length >= 2) {
+        const payload = JSON.parse(atob(jwtParts[1]));
+        aal = payload.aal || user.app_metadata?.aal || 'aal1';
+      }
+    } catch (_) {
+      aal = user.app_metadata?.aal || 'aal1';
+    }
+
+    if (aal !== 'aal2') {
+      return new Response(
+        JSON.stringify({ error: '403 Forbidden: يتطلب حساب المشرف العام تسجيل الدخول بمستوى الأمان الثنائي الفعلي (AAL2 Required).' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

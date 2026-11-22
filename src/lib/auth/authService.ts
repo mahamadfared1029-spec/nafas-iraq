@@ -463,17 +463,8 @@ class NafasAuthService {
       body: { bootstrapToken: secretToken.trim() }
     });
 
-    if (edgeError) {
-      // If edge function returned error or in direct RPC test environments
-      const { error: rpcError } = await supabase.rpc('provision_founder_account', {
-        p_user_id: session.user.id,
-        p_expected_email: session.user.email,
-        p_bootstrap_token: secretToken.trim()
-      });
-
-      if (rpcError) {
-        throw new Error(`فشل اعتماد صلاحية المشرف العام من الخادم: ${edgeError.message || rpcError.message}`);
-      }
+    if (edgeError || edgeData?.error) {
+      throw new Error(`فشل اعتماد صلاحية المشرف العام من الخادم: ${edgeError?.message || edgeData?.error || 'Edge Function Failed'}`);
     }
 
     // 2. Refresh user profile from database
@@ -515,12 +506,32 @@ class NafasAuthService {
   }
 
   /**
+   * Verify whether the current user session has Authenticator Assurance Level 2 (AAL2)
+   */
+  public async verifyAal2Assurance(): Promise<boolean> {
+    if (!this.isConfigured()) return true;
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (error || !data) return false;
+      return data.currentLevel === 'aal2';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
    * Role Management (Server Enforced by Row Level Security)
    */
   public async updateUserRole(targetUserId: string, newRole: Role): Promise<{ success: boolean; messageAr: string }> {
     const caller = this.getCurrentUser();
     if (!caller || caller.role !== 'super_admin' || caller.isSuspended) {
       throw new Error('403 Forbidden: تعديل صلاحيات الكادر محصور حصراً بالمشرف العام (Super Admin Required).');
+    }
+
+    const hasAal2 = await this.verifyAal2Assurance();
+    if (!hasAal2 && caller.mfaEnabled) {
+      throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
     }
 
     if (!this.isConfigured()) {
@@ -550,6 +561,11 @@ class NafasAuthService {
     const caller = this.getCurrentUser();
     if (!caller || caller.role !== 'super_admin' || caller.isSuspended) {
       throw new Error('403 Forbidden: تجميد الحسابات مخصص للمشرف العام فقط.');
+    }
+
+    const hasAal2 = await this.verifyAal2Assurance();
+    if (!hasAal2 && caller.mfaEnabled) {
+      throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
     }
 
     if (!this.isConfigured()) {
@@ -617,6 +633,11 @@ class NafasAuthService {
     const caller = this.getCurrentUser();
     if (!caller || caller.role !== 'super_admin' || caller.isSuspended) {
       throw new Error('403 Forbidden: الاطلاع على سجلات الرقابة الإدارية مخصص للمشرف العام فقط.');
+    }
+
+    const hasAal2 = await this.verifyAal2Assurance();
+    if (!hasAal2 && caller.mfaEnabled) {
+      throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
     }
 
     if (!this.isConfigured()) {

@@ -295,6 +295,11 @@ vi.mock('@supabase/supabase-js', () => {
             return { data: { success: true, role: 'super_admin' }, error: null };
           }
           if (funcName === 'process-notifications') {
+            // Require caller authorization: only staff with AAL2 or server-role can invoke
+            const activeProfile = mockCentralProfiles.find(p => p.id === mockActiveUser?.id);
+            if (!activeProfile || !['admin', 'super_admin'].includes(activeProfile.role)) {
+              return { data: null, error: { message: '401 Unauthorized: Privileged notification worker invocation requires authorization.' } };
+            }
             // Simulates server-side Edge Function worker updating outbox
             mockCentralOutbox.forEach(item => {
               if (item.delivery_status === 'pending') {
@@ -311,6 +316,12 @@ vi.mock('@supabase/supabase-js', () => {
       storage: {
         from: vi.fn((bucket: string) => ({
           upload: vi.fn(async (path, file) => {
+            // Enforce storage RLS on upload: user namespace isolation
+            const segments = path.split('/');
+            const currentUid = mockActiveUser?.id || 'anonymous';
+            if (segments[0] !== 'reports' || (segments[1] !== currentUid && currentUid !== 'anonymous')) {
+              return { data: null, error: { message: '403 Forbidden: لا يمكنك الرفع في مسار يخص مستخدماً آخر' } };
+            }
             mockPrivateStorageObjects.set(path, {
               bytes: new Uint8Array([1, 2, 3]),
               mimeType: file?.type || 'image/jpeg',
@@ -421,7 +432,10 @@ describe('PHASE 1 FINAL INTEGRATION & SECURITY GATE ACCEPTANCE', () => {
 
     const savedReport = mockCentralReports.find(r => r.id === submissionResult.report.id);
     expect(savedReport).toBeDefined();
-    expect(savedReport.image_before_storage_path).toContain('reports/basra/');
+    // Verification: storage path is user-isolated in citizen's namespace
+    expect(savedReport.image_before_storage_path).toContain(`reports/${citizenUser!.id}/basra/`);
+    // Verification: expiring signed URLs are NOT stored in the database record
+    expect(savedReport.image_before_url).toBeNull();
 
     // Verification 2: Evidence stored in private bucket and accessible by owner
     const ownerSignedUrl = await nafasReports.getEvidenceSignedUrl(savedReport.image_before_storage_path);
@@ -442,19 +456,36 @@ describe('PHASE 1 FINAL INTEGRATION & SECURITY GATE ACCEPTANCE', () => {
     // SESSION C: UNRELATED CITIZEN ATTEMPTS PRIVILEGED & PRIVATE DATA ACCESS
     // -------------------------------------------------------------------------
     await nafasAuth.signOut();
-    await nafasAuth.signUp({
+    const unrelatedReg = await nafasAuth.signUp({
       email: 'unrelated_citizen@example.com',
       password: 'OtherPassword123!',
       fullName: 'مواطن غريب',
       governorateId: 'erbil'
     });
+    const unrelatedUser = nafasAuth.getCurrentUser();
+    expect(unrelatedUser?.id).toBeDefined();
 
-    // Unrelated citizen CANNOT read Session A's private evidence photo
+    // 1. Unrelated citizen CANNOT read Session A's private evidence photo
     const unauthorizedSignedUrl = await nafasReports.getEvidenceSignedUrl(savedReport.image_before_storage_path);
     expect(unauthorizedSignedUrl).toBe(''); // Denied by storage object policy
 
-    // Unrelated citizen cannot see staff reports
+    // 2. Unrelated citizen cannot see staff reports
     await expect(nafasReports.getAllReportsForStaff()).rejects.toThrow(/403 Forbidden/i);
+
+    // 3. Unrelated citizen cannot change report moderation status
+    await expect(
+      nafasReports.updateReportStatus(savedReport.id, 'verified', 'اختراق غير مصرح به')
+    ).rejects.toThrow(/403 Forbidden/i);
+
+    // 4. Unrelated citizen upload is strictly isolated to their own user namespace
+    const unrelatedUpload = await nafasReports.uploadEvidenceImage(testImageFile, 'erbil');
+    expect(unrelatedUpload.storagePath).toContain(`reports/${unrelatedUser!.id}/erbil/`);
+    expect(unrelatedUpload.storagePath).not.toContain(citizenUser!.id);
+
+    // 5. Unrelated citizen cannot invoke privileged notification worker
+    const unauthorizedWorker = await nafasReports.triggerServerNotificationProcessor();
+    expect(unauthorizedWorker.success).toBe(false);
+    expect(unauthorizedWorker.messageAr).toContain('403 Forbidden');
 
     // -------------------------------------------------------------------------
     // SESSION B: FOUNDER LOGIN WITH VERIFIED MFA (AAL2) & MODERATION REVIEW

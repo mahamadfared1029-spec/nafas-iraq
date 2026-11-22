@@ -24,6 +24,47 @@ serve(async (req) => {
       );
     }
 
+    // 0. Explicit Server-to-Server / Privileged Authorization Check
+    const authHeader = req.headers.get('Authorization') || '';
+    const workerSecretHeader = req.headers.get('x-worker-secret') || '';
+    const configuredWorkerSecret = Deno.env.get('WORKER_SECRET_KEY') || Deno.env.get('CRON_SECRET') || '';
+
+    const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
+    const isValidWorkerSecret = Boolean(configuredWorkerSecret && workerSecretHeader === configuredWorkerSecret);
+    let isSuperAdminAal2 = false;
+
+    if (!isServiceRole && !isValidWorkerSecret && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '').trim();
+      try {
+        const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') || '', {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+          auth: { persistSession: false }
+        });
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          let aal = 'aal1';
+          const jwtParts = token.split('.');
+          if (jwtParts.length >= 2) {
+            const payload = JSON.parse(atob(jwtParts[1]));
+            aal = payload.aal || user.app_metadata?.aal || 'aal1';
+          }
+          const { data: profile } = await userClient.from('profiles').select('role').eq('id', user.id).single();
+          if (profile?.role === 'super_admin' && aal === 'aal2') {
+            isSuperAdminAal2 = true;
+          }
+        }
+      } catch (_) {
+        isSuperAdminAal2 = false;
+      }
+    }
+
+    if (!isServiceRole && !isValidWorkerSecret && !isSuperAdminAal2) {
+      return new Response(
+        JSON.stringify({ error: '401 Unauthorized: Privileged notification worker invocation requires service_role key, valid worker secret, or authenticated super_admin with AAL2.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false }
     });

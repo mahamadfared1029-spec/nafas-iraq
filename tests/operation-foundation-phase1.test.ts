@@ -110,12 +110,18 @@ vi.mock('@supabase/supabase-js', () => {
         const builder: any = {
           insert: vi.fn((payload) => {
             const records = Array.isArray(payload) ? payload : [payload];
-            const inserted = records.map(r => ({
-              id: r.id || `id_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              ...r
-            }));
+            const inserted = records.map(r => {
+              const row = {
+                id: r.id || `id_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                ...r
+              };
+              if (table === 'reports' && !row.tracking_number) {
+                row.tracking_number = `NFS-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+              }
+              return row;
+            });
             currentData.push(...inserted);
             builder._lastInserted = inserted;
 
@@ -624,11 +630,13 @@ describe('OPERATION FOUNDATION — PHASE 1 ACCEPTANCE SUITE', () => {
       expect(val.valid).toBe(true);
     });
 
-    it('D4: Uploads to private storage bucket and returns signed URL for authorized viewing', async () => {
+    it('D4: Uploads to private storage bucket and generates signed URL on demand for authorized viewing', async () => {
       const file = new File(['image-bytes'], 'field-photo.jpg', { type: 'image/jpeg' });
-      const res = await nafasReports.uploadEvidenceImage(file, 'NFS-2026-9999', 'baghdad');
-      expect(res.storagePath).toContain('reports/baghdad/NFS-2026-9999/');
-      expect(res.signedUrl).toContain('mock-storage.supabase.co/signed');
+      const res = await nafasReports.uploadEvidenceImage(file, 'baghdad');
+      expect(res.storagePath).toContain('reports/');
+      expect(res.storagePath).toContain('/baghdad/');
+      const signedUrl = await nafasReports.getEvidenceSignedUrl(res.storagePath);
+      expect(signedUrl).toContain('mock-storage.supabase.co/signed');
     });
   });
 

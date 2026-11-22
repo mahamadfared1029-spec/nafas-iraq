@@ -174,7 +174,7 @@ CREATE POLICY "Only super admin can update settings"
     USING (public.current_user_role() = 'super_admin');
 
 -- -----------------------------------------------------------------------------
--- 8. STORAGE OBJECT POLICIES (Private Evidence Bucket Security)
+-- 8. STORAGE OBJECT POLICIES (Private Evidence Bucket Security & User Isolation)
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Authenticated users can upload report evidence" ON storage.objects;
 CREATE POLICY "Authenticated users can upload report evidence"
@@ -182,6 +182,8 @@ CREATE POLICY "Authenticated users can upload report evidence"
     WITH CHECK (
         bucket_id = 'report-evidence-private'
         AND (storage.extension(name) IN ('jpg', 'jpeg', 'png', 'webp'))
+        AND (storage.foldername(name))[1] = 'reports'
+        AND (storage.foldername(name))[2] = auth.uid()::text
     );
 
 DROP POLICY IF EXISTS "Authorized users can read report evidence" ON storage.objects;
@@ -192,7 +194,10 @@ CREATE POLICY "Authorized users can read report evidence"
             -- Staff members can inspect evidence for verification
             public.is_moderator_or_higher()
             OR
-            -- Citizen owner can view their own uploaded evidence
+            -- Citizen can access their own uploaded namespace
+            ((storage.foldername(name))[1] = 'reports' AND (storage.foldername(name))[2] = auth.uid()::text)
+            OR
+            -- Confirmed report owner
             EXISTS (
                 SELECT 1 FROM public.reports r
                 WHERE r.reported_by = auth.uid()
@@ -200,3 +205,8 @@ CREATE POLICY "Authorized users can read report evidence"
             )
         )
     );
+
+-- -----------------------------------------------------------------------------
+-- 9. PUBLIC PROJECTION VIEW ACCESS
+-- -----------------------------------------------------------------------------
+GRANT SELECT ON public.public_reports TO anon, authenticated;
