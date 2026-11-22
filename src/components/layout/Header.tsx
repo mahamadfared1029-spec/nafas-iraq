@@ -21,6 +21,7 @@ import {
   Box,
   Sparkles,
   ShieldCheck,
+  ShieldAlert,
   LogIn,
   LogOut
 } from 'lucide-react';
@@ -28,7 +29,7 @@ import {
 interface HeaderProps {
   onOpenReportModal: () => void;
   onOpenPassportModal: () => void;
-  onOpenAuthModal?: () => void;
+  onOpenAuthModal?: (mode?: any) => void;
   onOpenCommandCenter?: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -193,6 +194,27 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Auth Account / Login */}
             {authUser ? (
               <div className="flex items-center gap-1.5">
+                {/* MFA Security Status / Setup Pill */}
+                {authUser.mfaEnabled ? (
+                  <button
+                    onClick={() => onOpenAuthModal && onOpenAuthModal('mfa-enroll')}
+                    className="px-2 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors text-[11px] font-bold flex items-center gap-1"
+                    title="المصادقة الثنائية نشطة (AAL2 Secured) — انقر لإدارة العوامل"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="hidden sm:inline">MFA مؤكد</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onOpenAuthModal && onOpenAuthModal('mfa-enroll')}
+                    className="px-2 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors text-[11px] font-bold flex items-center gap-1 shadow-sm"
+                    title="تفعيل المصادقة متعددة العوامل لحماية حسابك"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                    <span>تفعيل MFA</span>
+                  </button>
+                )}
+
                 <button
                   onClick={onOpenPassportModal}
                   className="px-3 py-2 rounded-xl border border-nafas-blue/30 text-nafas-silt hover:bg-nafas-misty/30 text-xs font-bold flex items-center gap-1.5 transition-all"
@@ -214,7 +236,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             ) : (
               <button
-                onClick={onOpenAuthModal}
+                onClick={() => onOpenAuthModal && onOpenAuthModal('login')}
                 className="px-3 py-2 rounded-xl border border-[#6B463B]/40 text-[#6B463B] hover:bg-[#F7F1E7] text-xs font-bold flex items-center gap-1.5 transition-all"
               >
                 <LogIn className="w-3.5 h-3.5" />

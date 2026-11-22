@@ -19,7 +19,11 @@ export function getSupabaseUrl(): string | null {
 }
 
 export function getSupabaseAnonKey(): string | null {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || null;
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    null
+  );
 }
 
 export function isSupabaseConfigured(): boolean {
@@ -34,7 +38,7 @@ export function getSupabaseClient(): SupabaseClient {
 
   if (!url || !key) {
     throw new Error(
-      'بوابة Supabase غير مهيأة: يرجى ضبط المتغيرين NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY في بيئة التشغيل.'
+      'بوابة Supabase غير مهيأة: يرجى ضبط المتغيرات البيئية (NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY أو NEXT_PUBLIC_SUPABASE_ANON_KEY) في بيئة التشغيل.'
     );
   }
 

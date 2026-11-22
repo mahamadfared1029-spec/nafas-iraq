@@ -17,7 +17,7 @@ import { ReportDetailModal } from '@/components/reports/ReportDetailModal';
 import { VolunteerPassport } from '@/components/passport/VolunteerPassport';
 import { RewardsModal } from '@/components/rewards/RewardsModal';
 import { CertificateModal } from '@/components/certificates/CertificateModal';
-import { AuthModal } from '@/components/auth/AuthModal';
+import { AuthModal, AuthModalMode } from '@/components/auth/AuthModal';
 import { FounderCommandCenter } from '@/components/admin/FounderCommandCenter';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
 import { getBasePath } from '@/lib/basePath';
@@ -64,6 +64,7 @@ export default function HomePage() {
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const [rewardsModalOpen, setRewardsModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('login');
   const [commandCenterOpen, setCommandCenterOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<EnvironmentalReport | null>(null);
   const [selectedCertificate, setSelectedCertificate] = useState<IssuedCertificate | null>(null);
@@ -185,7 +186,10 @@ export default function HomePage() {
           setReportModalOpen(true);
         }}
         onOpenPassportModal={() => setPassportModalOpen(true)}
-        onOpenAuthModal={() => setAuthModalOpen(true)}
+        onOpenAuthModal={(mode?: AuthModalMode) => {
+          setAuthModalMode(mode || 'login');
+          setAuthModalOpen(true);
+        }}
         onOpenCommandCenter={() => setCommandCenterOpen(true)}
       />
 
@@ -348,6 +352,7 @@ export default function HomePage() {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+        initialMode={authModalMode}
       />
 
       <FounderCommandCenter

@@ -1,0 +1,44 @@
+# NAFAS — Gitleaks Configuration
+# Enforces strict secret scanning and push protection across all branches and commits.
+
+title = "NAFAS Gitleaks Security Policy"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supabase-legacy-service-key"
+description = "Supabase Legacy Service Role JWT Key"
+regex = '''eyJhbGciOi[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*service_role[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+'''
+tags = ["supabase", "key", "service_role"]
+keywords = ["service_role", "eyJhbGciOi"]
+
+[[rules]]
+id = "supabase-modern-secret-key"
+description = "Supabase Modern Secret API Key"
+regex = '''sb_secret_[a-zA-Z0-9_-]{20,}'''
+tags = ["supabase", "key", "secret"]
+keywords = ["sb_secret_"]
+
+[[rules]]
+id = "resend-api-key"
+description = "Resend Email Delivery API Key"
+regex = '''re_[a-zA-Z0-9_]{20,}'''
+tags = ["resend", "api_key"]
+keywords = ["re_"]
+
+[[rules]]
+id = "worker-secret-key-assignment"
+description = "Hardcoded Worker Authorization Secret Key"
+regex = '''(?i)(worker_secret_key|worker_secret)\s*[:=]\s*['"][^'"]{16,}['"]'''
+tags = ["worker", "secret"]
+keywords = ["worker_secret"]
+
+[allowlist]
+description = "Global Allowlist for documentation templates and test files"
+paths = [
+  '''^\.env\.example$''',
+  '''^scripts/secret-scan\.mjs$''',
+  '''^\.gitleaks\.toml$''',
+  '''^tests/.*test\.ts$'''
+]

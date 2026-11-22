@@ -23,18 +23,27 @@ const SECRET_PATTERNS = [
 
 const ALLOWED_FILES = [
   'scripts/secret-scan.mjs',
-  '.env.example'
+  '.env.example',
+  '.gitleaks.toml'
 ];
 
 try {
-  const stagedFiles = execSync('git diff --cached --name-only', { cwd: REPO_ROOT, encoding: 'utf8' })
+  let targetFiles = execSync('git diff --cached --name-only', { cwd: REPO_ROOT, encoding: 'utf8' })
     .split('\n')
     .map(f => f.trim())
     .filter(f => f.length > 0);
 
+  // If no staged files, scan tracked source files (CI or manual test run)
+  if (targetFiles.length === 0) {
+    targetFiles = execSync('git ls-files', { cwd: REPO_ROOT, encoding: 'utf8' })
+      .split('\n')
+      .map(f => f.trim())
+      .filter(f => f.length > 0 && !f.startsWith('node_modules') && !f.startsWith('.git'));
+  }
+
   let violations = [];
 
-  for (const relFile of stagedFiles) {
+  for (const relFile of targetFiles) {
     if (ALLOWED_FILES.some(allowed => relFile.endsWith(allowed))) continue;
     const fullPath = path.resolve(REPO_ROOT, relFile);
     if (!fs.existsSync(fullPath)) continue;
@@ -52,13 +61,13 @@ try {
   }
 
   if (violations.length > 0) {
-    console.error('\n🚨 [PRE-COMMIT BLOCKED] Potential secrets detected in staged files:');
+    console.error('\n🚨 [SECRET SCAN BLOCKED] Potential secrets detected:');
     violations.forEach(v => console.error(`  - ${v.file}: ${v.rule}`));
     console.error('\nPlease remove hardcoded credentials, use environment variables, and ensure .env* is gitignored.\n');
     process.exit(1);
   }
 
-  console.log('✅ Secret scanning passed: No hardcoded credentials detected in staged files.');
+  console.log(`✅ Secret scanning passed: ${targetFiles.length} files scanned, no hardcoded credentials detected.`);
   process.exit(0);
 } catch (e) {
   if (e.status === 1) process.exit(1);

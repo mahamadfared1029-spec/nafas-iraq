@@ -38,6 +38,13 @@ export interface MfaVerificationResult {
   challengeId?: string;
 }
 
+export interface MfaEnrollmentResult {
+  factorId: string;
+  qrCodeSvg: string;
+  secret: string;
+  uri: string;
+}
+
 type AuthStateListener = (session: AuthSession | null) => void;
 
 class NafasAuthService {
@@ -361,16 +368,31 @@ class NafasAuthService {
       throw new Error('تم تجميد هذا الحساب لمخالفة ضوابط النزاهة البيئية. يرجى التواصل مع إدارة المنصة.');
     }
 
-    // Check MFA requirements for privileged accounts
+    // Check MFA requirements
     let mfaStatus: MfaVerificationResult = { requiresMfa: false };
-    if (profile.role === 'super_admin' || profile.role === 'admin') {
-      try {
-        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (aalData && aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') {
-          mfaStatus = { requiresMfa: true };
+    try {
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if ((aalData && aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') || profile.mfa_enabled) {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const verifiedFactor = 
+          factors?.totp?.find(f => f.status === 'verified') || 
+          factors?.all?.find(f => f.status === 'verified');
+
+        if (verifiedFactor) {
+          const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+            factorId: verifiedFactor.id
+          });
+
+          if (!challengeError && challenge) {
+            mfaStatus = {
+              requiresMfa: true,
+              factorId: verifiedFactor.id,
+              challengeId: challenge.id
+            };
+          }
         }
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
 
     const userProfile: UserProfile = {
       id: profile.id,
@@ -394,6 +416,199 @@ class NafasAuthService {
     this.notifyListeners();
 
     return { success: true, user: userProfile, mfaStatus };
+  }
+
+  /**
+   * Verify TOTP code during Sign In challenge
+   */
+  public async verifyMfaLogin(factorId: string, challengeId: string, code: string): Promise<{ success: boolean; user: UserProfile }> {
+    const cleanCode = code ? code.trim() : '';
+    if (!cleanCode || cleanCode.length !== 6) {
+      throw new Error('يرجى إدخال رمز التحقق المكون من 6 أرقام من تطبيق المصادقة.');
+    }
+
+    if (!this.isConfigured()) {
+      throw new Error('التحقق من الرمز يتطلب اتصالاً نشطاً بـ Supabase.');
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId,
+      code: cleanCode
+    });
+
+    if (error || !data) {
+      throw new Error(`رمز المصادقة غير صحيح أو انتهت صلاحيته: ${error?.message || 'فشل التحقق من الرمز'}`);
+    }
+
+    // Refresh session to update assurance level to AAL2
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session) {
+      await this.syncSessionFromSupabase(sessionData.session);
+    }
+
+    const user = this.getCurrentUser();
+    if (!user) {
+      throw new Error('تعذر تحميل بيانات المستخدم بعد التحقق من الرمز.');
+    }
+
+    return {
+      success: true,
+      user
+    };
+  }
+
+  /**
+   * Update Password (for Password Reset flow or User Profile update)
+   */
+  public async updatePassword(newPassword: string): Promise<{ success: boolean; messageAr: string }> {
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('كلمة المرور يجب أن لا تقل عن 8 أحرف وأرقام.');
+    }
+
+    if (!this.isConfigured()) {
+      throw new Error('تحديث كلمة المرور يتطلب اتصالاً نشطاً بـ Supabase Auth.');
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      throw new Error(`فشل تعيين كلمة المرور: ${error.message}`);
+    }
+
+    if (data.session) {
+      await this.syncSessionFromSupabase(data.session);
+    }
+
+    return {
+      success: true,
+      messageAr: 'تم تعيين كلمة المرور الجديدة وتأمين الحساب بنجاح!'
+    };
+  }
+
+  /**
+   * Enroll a new TOTP factor for user-facing MFA setup
+   */
+  public async enrollMfaFactor(): Promise<MfaEnrollmentResult> {
+    if (!this.isAuthenticated()) {
+      throw new Error('يجب تسجيل الدخول أولاً لإعداد المصادقة متعددة العوامل.');
+    }
+
+    if (!this.isConfigured()) {
+      throw new Error('إعداد المصادقة متعددة العوامل يتطلب ربط Supabase Auth.');
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      issuer: 'NAFAS (نَفَس)'
+    });
+
+    if (error || !data || !data.totp) {
+      throw new Error(`فشل تهيئة المصادقة الثنائية: ${error?.message || 'خطأ غير معروف'}`);
+    }
+
+    return {
+      factorId: data.id,
+      qrCodeSvg: data.totp.qr_code,
+      secret: data.totp.secret,
+      uri: data.totp.uri
+    };
+  }
+
+  /**
+   * Verify and activate TOTP factor enrollment with a 6-digit code
+   */
+  public async verifyMfaEnrollment(factorId: string, code: string): Promise<{ success: boolean; messageAr: string }> {
+    const cleanCode = code ? code.trim() : '';
+    if (!factorId || cleanCode.length !== 6) {
+      throw new Error('يرجى إدخال رمز التحقق المكون من 6 أرقام من تطبيق المصادقة.');
+    }
+
+    if (!this.isConfigured()) {
+      throw new Error('التحقق من الرمز يتطلب اتصالاً نشطاً بـ Supabase.');
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.mfa.challengeAndVerify({
+      factorId,
+      code: cleanCode
+    });
+
+    if (error) {
+      throw new Error(`رمز المصادقة غير صحيح أو منتهي الصلاحية: ${error.message}`);
+    }
+
+    const currentUser = this.getCurrentUser();
+    if (currentUser) {
+      await supabase
+        .from('profiles')
+        .update({ mfa_enabled: true, updated_at: new Date().toISOString() })
+        .eq('id', currentUser.id);
+
+      if (this.currentSession) {
+        this.currentSession.user.mfaEnabled = true;
+        this.notifyListeners();
+      }
+    }
+
+    return {
+      success: true,
+      messageAr: 'تم تفعيل المصادقة متعددة العوامل (TOTP MFA) بنجاح وحسابك محمي الآن بمستوى AAL2!'
+    };
+  }
+
+  /**
+   * List all registered MFA factors for current user
+   */
+  public async listMfaFactors(): Promise<{ all: any[]; totp: any[] }> {
+    if (!this.isConfigured() || !this.isAuthenticated()) {
+      return { all: [], totp: [] };
+    }
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error || !data) return { all: [], totp: [] };
+    return {
+      all: data.all || [],
+      totp: data.totp || []
+    };
+  }
+
+  /**
+   * Unenroll an existing MFA factor
+   */
+  public async unenrollMfaFactor(factorId: string): Promise<{ success: boolean; messageAr: string }> {
+    if (!this.isConfigured() || !this.isAuthenticated()) {
+      throw new Error('يجب تسجيل الدخول لإلغاء عامل المصادقة.');
+    }
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.mfa.unenroll({ factorId });
+    if (error) {
+      throw new Error(`فشل إلغاء عامل المصادقة: ${error.message}`);
+    }
+
+    const { data: remaining } = await supabase.auth.mfa.listFactors();
+    const hasRemaining = (remaining?.totp?.length || 0) > 0;
+
+    const currentUser = this.getCurrentUser();
+    if (currentUser && !hasRemaining) {
+      await supabase
+        .from('profiles')
+        .update({ mfa_enabled: false, updated_at: new Date().toISOString() })
+        .eq('id', currentUser.id);
+
+      if (this.currentSession) {
+        this.currentSession.user.mfaEnabled = false;
+        this.notifyListeners();
+      }
+    }
+
+    return {
+      success: true,
+      messageAr: 'تم إلغاء عامل المصادقة بنجاح.'
+    };
   }
 
   /**
