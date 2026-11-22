@@ -40,6 +40,8 @@ scripts/*verify*
 scripts/*supabase*
 *.secret
 *.key
+security-review-bundle.md
+*.audit.md
 
 # typescript
 *.tsbuildinfo

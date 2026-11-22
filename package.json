@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "secret-scan": "node scripts/secret-scan.mjs",
     "import:plants": "node scripts/import-plants.mjs"
   },
   "dependencies": {
