@@ -102,6 +102,7 @@ vi.mock('@supabase/supabase-js', () => {
       from: vi.fn((table: string) => {
         let currentData: any[] = [];
         if (table === 'reports') currentData = mockDbReports;
+        else if (table === 'public_reports') currentData = mockDbReports.filter(r => ['verified', 'in_progress', 'pending_verification', 'resolved'].includes(r.status) && !r.is_archived);
         else if (table === 'profiles') currentData = mockDbProfiles;
         else if (table === 'report_audit_logs') currentData = mockDbLogs;
         else if (table === 'notification_outbox') currentData = mockDbOutbox;
@@ -117,6 +118,24 @@ vi.mock('@supabase/supabase-js', () => {
             }));
             currentData.push(...inserted);
             builder._lastInserted = inserted;
+
+            // Simulate DB Trigger trg_reports_notification: auto-enqueue in notification_outbox
+            if (table === 'reports') {
+              inserted.forEach(rep => {
+                mockDbOutbox.push({
+                  id: `outbox_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                  event_id: `EVT-${rep.tracking_number}-SUBMIT`,
+                  report_id: rep.id,
+                  event_type: (rep.is_hazardous || rep.severity === 'critical') ? 'REPORT_HAZARDOUS_ALERT' : 'REPORT_SUBMITTED',
+                  recipient_masked: 'adm***@nafas-iraq.org',
+                  delivery_status: 'pending',
+                  provider: 'resend',
+                  attempt_count: 0,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+              });
+            }
             return builder;
           }),
           upsert: vi.fn((payload) => {
@@ -218,6 +237,29 @@ vi.mock('@supabase/supabase-js', () => {
         }
         return { data: null, error: null };
       }),
+      functions: {
+        invoke: vi.fn(async (funcName, options) => {
+          if (funcName === 'provision-founder') {
+            const token = options?.body?.bootstrapToken;
+            if (!token || token.length < 16) {
+              return { data: null, error: { message: 'رمز التهيئة الإداري إلزامي ومكون من 16 محرفاً على الأقل.' } };
+            }
+            if (mockCurrentUserAuth?.email !== (process.env.NAFAS_ALERT_EMAIL || 'founder_secure_test@nafas-iraq.org')) {
+              return { data: null, error: { message: 'Unauthorized Founder Identity' } };
+            }
+            const prof = mockDbProfiles.find(p => p.email === mockCurrentUserAuth.email);
+            if (prof) {
+              prof.role = 'super_admin';
+              prof.mfa_enabled = true;
+            }
+            return { data: { success: true, role: 'super_admin' }, error: null };
+          }
+          if (funcName === 'process-notifications') {
+            return { data: { success: true, processedCount: mockDbOutbox.length }, error: null };
+          }
+          return { data: null, error: null };
+        })
+      },
       storage: {
         from: vi.fn((bucket: string) => ({
           upload: vi.fn(async (path, file) => {

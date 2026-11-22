@@ -19,7 +19,6 @@ import {
   NotificationOutboxItem 
 } from '@/types';
 import { getSupabaseClient, isSupabaseConfigured } from '../supabase/client';
-import { NafasNotificationService, AlertPayload } from '../server/notificationService';
 import { nafasAuth } from '../auth/authService';
 
 export interface SubmitReportInput {
@@ -167,7 +166,7 @@ export class NafasReportService {
 
     // 3. Generate Unique Collision-Resistant Server Tracking Number
     const randDigits = Math.floor(1000 + Math.random() * 9000);
-    const trackingNumber = `NFS-2026-${randDigits}`;
+    const trackingNumber = `NFS-${new Date().getFullYear()}-${randDigits}`;
     const now = new Date().toISOString();
 
     // 4. Handle Photographic Evidence Upload to Real Storage
@@ -180,11 +179,7 @@ export class NafasReportService {
       imageUrl = uploadRes.signedUrl;
     }
 
-    if (!imageUrl) {
-      throw new Error('يرجى إرفاق صورة توثيقية للأثر البيئي.');
-    }
-
-    // 5. Insert Record into reports Table
+    // 5. Insert Record into reports Table with multi-step rollback
     const reportInsertPayload = {
       tracking_number: trackingNumber,
       title: input.title.trim(),
@@ -199,8 +194,8 @@ export class NafasReportService {
       location_source: input.location_source || 'manual_picker',
       accuracy_m: input.accuracy_m,
       source_layer_version: 'gbOpen-IRQ-ADM1-2022',
-      image_before_url: imageUrl,
-      image_before_storage_path: storagePath,
+      image_before_url: imageUrl || null,
+      image_before_storage_path: storagePath || null,
       status: 'submitted' as ReportStatus,
       reported_by: currentUser?.id || null,
       reporter_display_name: input.isAnonymous ? 'مواطن مجهول' : (currentUser?.fullName || 'مواطن عراقي'),
@@ -209,31 +204,28 @@ export class NafasReportService {
       is_archived: false
     };
 
-    const { data: insertedReport, error: insertError } = await supabase
-      .from('reports')
-      .insert(reportInsertPayload)
-      .select()
-      .single();
+    let insertedReport: any = null;
+    try {
+      const { data, error: insertError } = await supabase
+        .from('reports')
+        .insert(reportInsertPayload)
+        .select()
+        .single();
 
-    if (insertError || !insertedReport) {
-      throw new Error(`فشل حفظ البلاغ في قاعدة البيانات: ${insertError?.message || 'Insert Error'}`);
+      if (insertError || !data) {
+        throw new Error(insertError?.message || 'Database Insert Failed');
+      }
+      insertedReport = data;
+    } catch (insertErr: any) {
+      // Multi-step Rollback: delete uploaded evidence if DB insert fails
+      if (storagePath) {
+        await supabase.storage.from('report-evidence-private').remove([storagePath]).catch(() => {});
+      }
+      throw new Error(`فشل حفظ البلاغ في قاعدة البيانات: ${insertErr?.message || 'Insert Error'}`);
     }
 
-    // 6. Record Initial Audit Log in Database
-    const initialLogPayload = {
-      report_id: insertedReport.id,
-      actor_id: currentUser?.id || null,
-      actor_name: currentUser?.fullName || (input.isAnonymous ? 'مواطن مجهول' : 'مواطن عراقي'),
-      actor_role: currentUser?.role || 'citizen',
-      previous_status: 'submitted',
-      new_status: 'submitted',
-      notes: `تم استلام البلاغ رسمياً وإدراجه في طابور الاعتماد (المصدر: ${input.location_source || 'manual_picker'}).`
-    };
-
-    await supabase.from('report_audit_logs').insert(initialLogPayload);
-
-    // 7. Enqueue Notification in Database Outbox Table
-    await this.enqueueDatabaseNotification(insertedReport);
+    // 6. Trigger Server-Side Notification Processor in Background (Owns RESEND_API_KEY)
+    supabase.functions.invoke('process-notifications').catch(() => {});
 
     const fullReport: EnvironmentalReport = {
       id: insertedReport.id,
@@ -262,11 +254,11 @@ export class NafasReportService {
       auditLogs: [{
         id: `log-${Date.now()}`,
         timestamp: now,
-        actor: initialLogPayload.actor_name,
-        actorRole: initialLogPayload.actor_role as any,
+        actor: input.isAnonymous ? 'مواطن مجهول' : (currentUser?.fullName || 'مواطن عراقي'),
+        actorRole: (currentUser?.role || 'citizen') as any,
         previousStatus: 'submitted',
         newStatus: 'submitted',
-        notes: initialLogPayload.notes
+        notes: 'تم استلام البلاغ رسمياً وإدراجه في طابور الاعتماد والتدقيق الأمني.'
       }]
     };
 
@@ -357,21 +349,53 @@ export class NafasReportService {
   }
 
   /**
-   * Get Reports for Public Viewing (Only approved & verified reports from database)
+   * Get Reports for Public Viewing (Queries privacy-preserving public_reports view)
+   * Never exposes reporter identities, private storage paths, or sensitive micro-coordinates
    */
   public async getPublicReports(): Promise<EnvironmentalReport[]> {
     if (!this.isConfigured()) return [];
 
     try {
       const supabase = getSupabaseClient();
+      
+      // Query the citizen-privacy projection view
       const { data, error } = await supabase
-        .from('reports')
+        .from('public_reports')
         .select('*')
-        .in('status', ['verified', 'in_progress', 'pending_verification', 'resolved'])
-        .eq('is_archived', false)
         .order('created_at', { ascending: false });
 
-      if (error || !data) return [];
+      if (error || !data) {
+        // Safe fallback projection if view not yet created on direct table
+        const { data: fallbackData, error: fbError } = await supabase
+          .from('reports')
+          .select('id, tracking_number, title, description, category, severity, status, governorate_id, neighborhood, lat, lng, location_source, created_at, updated_at, is_hazardous, is_archived')
+          .in('status', ['verified', 'in_progress', 'pending_verification', 'resolved'])
+          .eq('is_archived', false)
+          .order('created_at', { ascending: false });
+
+        if (fbError || !fallbackData) return [];
+        return fallbackData.map(r => ({
+          id: r.id,
+          trackingNumber: r.tracking_number,
+          title: r.title,
+          description: r.description,
+          category: r.category,
+          severity: r.severity,
+          governorateId: r.governorate_id,
+          neighborhood: r.neighborhood,
+          lat: Number(r.lat),
+          lng: Number(r.lng),
+          imageBeforeUrl: '', // Protected: generated on-demand for authorized users
+          status: r.status,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+          reportedBy: 'مواطن عراقي (محمي)',
+          isAnonymous: true,
+          isHazardous: r.is_hazardous,
+          isArchived: r.is_archived,
+          auditLogs: []
+        }));
+      }
 
       return data.map(r => ({
         id: r.id,
@@ -382,20 +406,39 @@ export class NafasReportService {
         severity: r.severity,
         governorateId: r.governorate_id,
         neighborhood: r.neighborhood,
-        lat: Number(r.lat),
-        lng: Number(r.lng),
-        imageBeforeUrl: r.image_before_url,
+        lat: Number(r.approximate_lat || r.lat),
+        lng: Number(r.approximate_lng || r.lng),
+        imageBeforeUrl: '', // Protected
         status: r.status,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
-        reportedBy: r.reported_by || 'citizen',
-        isAnonymous: r.is_anonymous,
+        reportedBy: 'مواطن عراقي (محمي)',
+        isAnonymous: true,
         isHazardous: r.is_hazardous,
-        isArchived: r.is_archived,
+        isArchived: false,
         auditLogs: []
       }));
     } catch (_) {
       return [];
+    }
+  }
+
+  /**
+   * Generate Short-Lived Signed URL for Authorized Photographic Evidence Retrieval
+   * Enforces server-side authorization: only report owner or staff can generate signed URL
+   */
+  public async getEvidenceSignedUrl(storagePath: string, expiresInSeconds: number = 3600): Promise<string> {
+    if (!this.isConfigured() || !storagePath) return '';
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.storage
+        .from('report-evidence-private')
+        .createSignedUrl(storagePath, expiresInSeconds);
+
+      if (error || !data?.signedUrl) return '';
+      return data.signedUrl;
+    } catch (_) {
+      return '';
     }
   }
 
@@ -457,70 +500,22 @@ export class NafasReportService {
   }
 
   /**
-   * Enqueue Notification into Authoritative Database Outbox Table
+   * Trigger Server-Side Notification Processor
+   * Invokes Edge Function `process-notifications` to process the durable outbox securely on the server
    */
-  private async enqueueDatabaseNotification(reportRow: any): Promise<void> {
-    if (!this.isConfigured()) return;
-
+  public async triggerServerNotificationProcessor(): Promise<{ success: boolean; messageAr: string }> {
+    if (!this.isConfigured()) {
+      return { success: false, messageAr: 'الخادم غير متصل' };
+    }
     try {
       const supabase = getSupabaseClient();
-      const eventId = `evt-${Date.now()}-${reportRow.tracking_number}`;
-
-      // Insert outbox row with initial 'pending' status
-      const { data: outboxRow, error } = await supabase
-        .from('notification_outbox')
-        .insert({
-          event_id: eventId,
-          report_id: reportRow.id,
-          event_type: reportRow.is_hazardous ? 'REPORT_HAZARDOUS_ALERT' : 'NEW_REPORT_SUBMITTED',
-          recipient_masked: 'h***5@gmail.com',
-          delivery_status: 'pending',
-          provider: 'resend',
-          attempt_count: 0
-        })
-        .select()
-        .single();
-
-      if (error || !outboxRow) return;
-
-      // Call server notification service
-      const payload: AlertPayload = {
-        reportId: reportRow.id,
-        trackingNumber: reportRow.tracking_number,
-        category: reportRow.category,
-        categoryLabelAr: reportRow.category,
-        governorate: reportRow.governorate_id,
-        neighborhood: reportRow.neighborhood,
-        approximateLocation: `${Number(reportRow.lat).toFixed(4)}, ${Number(reportRow.lng).toFixed(4)}`,
-        date: new Date(reportRow.created_at).toLocaleString('ar-IQ'),
-        moderationStatus: reportRow.status,
-        isHazardous: reportRow.is_hazardous,
-        severity: reportRow.severity,
-        adminDashboardUrl: 'https://mahamadfared1029-spec.github.io/nafas-iraq/#admin'
-      };
-
-      const result = await NafasNotificationService.getInstance().dispatchReportAlert(payload);
-
-      // Update database outbox row with real delivery response
-      const updatedStatus = result.status === 'sent' 
-        ? 'sent' 
-        : result.status === 'delivery_failed' 
-          ? 'failed' 
-          : 'queued';
-
-      await supabase
-        .from('notification_outbox')
-        .update({
-          delivery_status: updatedStatus,
-          external_message_id: result.messageId || null,
-          error_message: result.error || null,
-          attempt_count: 1,
-          last_attempt_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', outboxRow.id);
-    } catch (err) {
-      console.warn('[NAFAS ReportService] Outbox processing notice:', err);
+      const { data, error } = await supabase.functions.invoke('process-notifications');
+      if (error) {
+        return { success: false, messageAr: error.message };
+      }
+      return { success: true, messageAr: 'تم تشغيل معالج الإشعارات السحابي بنجاح' };
+    } catch (err: any) {
+      return { success: false, messageAr: err.message };
     }
   }
 

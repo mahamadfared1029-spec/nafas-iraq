@@ -121,8 +121,8 @@ CREATE TABLE IF NOT EXISTS public.reports (
     accuracy_m NUMERIC(8, 2),
     source_layer_version VARCHAR(64) DEFAULT 'gbOpen-IRQ-ADM1-2022',
     
-    -- Evidence
-    image_before_url TEXT NOT NULL,
+    -- Evidence (Authoritative Storage Key + Optional Display URL)
+    image_before_url TEXT,
     image_before_storage_path TEXT,
     image_after_url TEXT,
     image_after_storage_path TEXT,
@@ -210,6 +210,7 @@ CREATE TABLE IF NOT EXISTS public.notification_outbox (
     report_id UUID REFERENCES public.reports(id) ON DELETE CASCADE,
     event_type VARCHAR(64) NOT NULL,
     recipient_masked VARCHAR(64) NOT NULL,
+    payload JSONB DEFAULT '{}'::jsonb,
     delivery_status notification_delivery_status NOT NULL DEFAULT 'pending',
     provider VARCHAR(64) NOT NULL DEFAULT 'resend',
     attempt_count INT NOT NULL DEFAULT 0,
@@ -285,3 +286,194 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
     updated_by UUID REFERENCES auth.users(id),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- -----------------------------------------------------------------------------
+-- 11. SERVER-CONTROLLED COLLISION-RESISTANT TRACKING NUMBER GENERATOR
+-- -----------------------------------------------------------------------------
+CREATE SEQUENCE IF NOT EXISTS public.report_tracking_seq START WITH 1000 INCREMENT BY 1;
+
+CREATE OR REPLACE FUNCTION public.trg_fn_generate_tracking_number()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF NEW.tracking_number IS NULL OR TRIM(NEW.tracking_number) = '' THEN
+        NEW.tracking_number := 'NFS-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(NEXTVAL('public.report_tracking_seq')::TEXT, 6, '0');
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_reports_tracking_number ON public.reports;
+CREATE TRIGGER trg_reports_tracking_number
+BEFORE INSERT ON public.reports
+FOR EACH ROW
+EXECUTE FUNCTION public.trg_fn_generate_tracking_number();
+
+-- -----------------------------------------------------------------------------
+-- 12. PROVISION PRIVATE EVIDENCE STORAGE BUCKET
+-- -----------------------------------------------------------------------------
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'report-evidence-private',
+    'report-evidence-private',
+    FALSE, -- Strictly private
+    10485760, -- 10MB maximum file size
+    ARRAY['image/jpeg', 'image/png', 'image/webp']::text[]
+)
+ON CONFLICT (id) DO UPDATE SET
+    public = FALSE,
+    file_size_limit = 10485760,
+    allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp']::text[];
+
+-- -----------------------------------------------------------------------------
+-- 13. AUTOMATED NOTIFICATION OUTBOX TRIGGER (Server-Enforced)
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.trg_fn_enqueue_report_notification()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_is_urgent BOOLEAN;
+    v_event_type VARCHAR(64);
+BEGIN
+    v_is_urgent := NEW.is_hazardous OR NEW.severity IN ('high', 'critical');
+    
+    IF (TG_OP = 'INSERT') THEN
+        v_event_type := CASE WHEN v_is_urgent THEN 'REPORT_HAZARDOUS_ALERT' ELSE 'REPORT_SUBMITTED' END;
+        
+        INSERT INTO public.notification_outbox (
+            event_id,
+            report_id,
+            event_type,
+            recipient_masked,
+            payload,
+            delivery_status,
+            provider,
+            attempt_count
+        ) VALUES (
+            'EVT-' || NEW.tracking_number || '-SUBMIT',
+            NEW.id,
+            v_event_type,
+            'adm***@nafas-iraq.org',
+            jsonb_build_object(
+                'trackingNumber', NEW.tracking_number,
+                'title', NEW.title,
+                'category', NEW.category,
+                'severity', NEW.severity,
+                'governorateId', NEW.governorate_id,
+                'neighborhood', NEW.neighborhood,
+                'isHazardous', NEW.is_hazardous,
+                'lat', NEW.lat,
+                'lng', NEW.lng,
+                'createdAt', NEW.created_at
+            ),
+            'pending',
+            'resend',
+            0
+        );
+    ELSIF (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
+        INSERT INTO public.notification_outbox (
+            event_id,
+            report_id,
+            event_type,
+            recipient_masked,
+            payload,
+            delivery_status,
+            provider,
+            attempt_count
+        ) VALUES (
+            'EVT-' || NEW.tracking_number || '-STAT-' || NEW.status || '-' || EXTRACT(EPOCH FROM NOW())::INT,
+            NEW.id,
+            'REPORT_STATUS_CHANGE',
+            'adm***@nafas-iraq.org',
+            jsonb_build_object(
+                'trackingNumber', NEW.tracking_number,
+                'previousStatus', OLD.status,
+                'newStatus', NEW.status,
+                'updatedAt', NEW.updated_at
+            ),
+            'pending',
+            'resend',
+            0
+        );
+    END IF;
+    
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_reports_notification ON public.reports;
+CREATE TRIGGER trg_reports_notification
+AFTER INSERT OR UPDATE ON public.reports
+FOR EACH ROW
+EXECUTE FUNCTION public.trg_fn_enqueue_report_notification();
+
+-- -----------------------------------------------------------------------------
+-- 14. AUTOMATED AUDIT LOG TRIGGER (Tamper-Proof Traceability)
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.trg_fn_log_report_status_transition()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
+        INSERT INTO public.report_audit_logs (
+            report_id,
+            actor_id,
+            actor_name,
+            actor_role,
+            previous_status,
+            new_status,
+            notes
+        ) VALUES (
+            NEW.id,
+            auth.uid(),
+            COALESCE((SELECT full_name FROM public.profiles WHERE id = auth.uid()), 'إشراف المنصة المعتمد'),
+            COALESCE((SELECT role FROM public.profiles WHERE id = auth.uid()), 'moderator'),
+            OLD.status,
+            NEW.status,
+            COALESCE(NEW.verification_evidence, 'تحديث الحالة عبر بوابة الإشراف الرسمية')
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_reports_audit_transition ON public.reports;
+CREATE TRIGGER trg_reports_audit_transition
+AFTER UPDATE ON public.reports
+FOR EACH ROW
+EXECUTE FUNCTION public.trg_fn_log_report_status_transition();
+
+-- -----------------------------------------------------------------------------
+-- 15. CITIZEN PRIVACY SAFE PROJECTION VIEW (Excludes Identifiers & Private Evidence)
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE VIEW public.public_reports AS
+SELECT
+    r.id,
+    r.tracking_number,
+    r.title,
+    r.description,
+    r.category,
+    r.severity,
+    r.status,
+    r.governorate_id,
+    r.neighborhood,
+    -- Obfuscate exact coordinates to protect reporter privacy (~1.1km grid)
+    ROUND(r.lat::numeric, 2) AS approximate_lat,
+    ROUND(r.lng::numeric, 2) AS approximate_lng,
+    r.location_source,
+    r.is_hazardous,
+    r.created_at,
+    r.updated_at
+FROM public.reports r
+WHERE r.status IN ('verified', 'in_progress', 'pending_verification', 'resolved')
+  AND r.is_archived = FALSE;
+

@@ -99,54 +99,81 @@ BEGIN
     FROM public.profiles
     WHERE role = 'super_admin';
 
-    -- 7. Upsert Profile with super_admin role (MFA requirement enforced on server)
-    INSERT INTO public.profiles (
-        id, 
-        email, 
-        full_name, 
-        role, 
-        governorate_id, 
-        mfa_enabled, 
-        is_verified_volunteer, 
-        created_at, 
-        updated_at
-    )
-    VALUES (
-        p_user_id,
-        v_actual_email,
-        'المشرف العام — مؤسس نَفَس',
-        'super_admin',
-        'baghdad',
-        TRUE,
-        TRUE,
-        NOW(),
-        NOW()
-    )
-    ON CONFLICT (id) DO UPDATE SET
-        role = 'super_admin',
-        updated_at = NOW();
+    -- 7. Determine actual MFA enrollment status (never fabricate boolean)
+    SELECT EXISTS (
+        SELECT 1 FROM auth.mfa_factors 
+        WHERE user_id = p_user_id AND status = 'verified'
+    ) INTO v_email_confirmed; -- Reusing variable for MFA active check
+    -- Alternatively define explicitly:
+    DECLARE
+        v_mfa_active BOOLEAN := FALSE;
+    BEGIN
+        BEGIN
+            SELECT EXISTS (
+                SELECT 1 FROM auth.mfa_factors 
+                WHERE user_id = p_user_id AND status = 'verified'
+            ) INTO v_mfa_active;
+        EXCEPTION
+            WHEN undefined_table THEN
+                v_mfa_active := FALSE;
+        END;
 
-    -- 8. Record Immutable Administrative Audit Event
-    INSERT INTO public.admin_audit_logs (
-        actor_id,
-        actor_email,
-        action,
-        target_type,
-        target_id,
-        details
-    )
-    VALUES (
-        p_user_id,
-        v_actual_email,
-        'FOUNDER_PROVISIONED',
-        'PROFILE',
-        p_user_id::TEXT,
-        jsonb_build_object(
-            'role', 'super_admin',
-            'email_confirmed', v_email_confirmed,
-            'timestamp', NOW()
+        -- 8. Upsert Profile with super_admin role (Real MFA status derived from auth.mfa_factors)
+        INSERT INTO public.profiles (
+            id, 
+            email, 
+            full_name, 
+            role, 
+            governorate_id, 
+            mfa_enabled, 
+            is_verified_volunteer, 
+            created_at, 
+            updated_at
         )
-    );
+        VALUES (
+            p_user_id,
+            v_actual_email,
+            'المشرف العام — مؤسس نَفَس',
+            'super_admin',
+            'baghdad',
+            v_mfa_active,
+            TRUE,
+            NOW(),
+            NOW()
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            role = 'super_admin',
+            mfa_enabled = v_mfa_active,
+            updated_at = NOW();
+
+        -- 9. Single-Use Enforcement: Invalidate bootstrap token immediately
+        DELETE FROM public.system_settings 
+        WHERE key = 'founder_bootstrap_token';
+
+        -- 10. Record Immutable Administrative Audit Event
+        INSERT INTO public.admin_audit_logs (
+            actor_id,
+            actor_email,
+            action,
+            target_type,
+            target_id,
+            details
+        )
+        VALUES (
+            p_user_id,
+            v_actual_email,
+            'FOUNDER_PROVISIONED',
+            'PROFILE',
+            p_user_id::TEXT,
+            jsonb_build_object(
+                'role', 'super_admin',
+                'email_confirmed', TRUE,
+                'mfa_active', v_mfa_active,
+                'token_invalidated', TRUE,
+                'timestamp', NOW()
+            )
+        );
+    END;
 
     RETURN jsonb_build_object(
         'success', TRUE,

@@ -1,10 +1,11 @@
 -- =============================================================================
 -- NAFAS | نَفَس — MIGRATION 002: Row Level Security & Cybersecurity Policies
 -- Target: PostgreSQL 15+ / Supabase
--- Complies with OWASP ASVS: Vertical & Horizontal Privilege Escalation Prevention
+-- Complies with OWASP ASVS: Vertical & Horizontal Privilege Escalation Prevention,
+-- Strict Citizen Privacy Projections, AAL2 Assurance, and Protected Storage Objects
 -- =============================================================================
 
--- Enable RLS across all tables
+-- Enable RLS across all application tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.report_media ENABLE ROW LEVEL SECURITY;
@@ -17,12 +18,20 @@ ALTER TABLE public.certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
 -- -----------------------------------------------------------------------------
--- Helper Functions for Role Verification (Security Definer)
+-- 1. Helper Functions for Role & AAL2 MFA Verification (Security Definer)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.current_user_role()
 RETURNS user_role_type AS $$
     SELECT role FROM public.profiles WHERE id = auth.uid();
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION public.has_aal2_assurance()
+RETURNS BOOLEAN AS $$
+    SELECT COALESCE(
+        (auth.jwt() ->> 'aal') = 'aal2',
+        FALSE
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 CREATE OR REPLACE FUNCTION public.is_admin_or_super()
 RETURNS BOOLEAN AS $$
@@ -32,7 +41,7 @@ RETURNS BOOLEAN AS $$
         AND role IN ('admin', 'super_admin')
         AND is_suspended = FALSE
     );
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 CREATE OR REPLACE FUNCTION public.is_moderator_or_higher()
 RETURNS BOOLEAN AS $$
@@ -42,22 +51,22 @@ RETURNS BOOLEAN AS $$
         AND role IN ('moderator', 'admin', 'super_admin')
         AND is_suspended = FALSE
     );
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- -----------------------------------------------------------------------------
--- PROFILES POLICIES
+-- 2. PROFILES POLICIES
 -- -----------------------------------------------------------------------------
--- 1. Users can view their own profile
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
     ON public.profiles FOR SELECT
     USING (id = auth.uid() OR public.is_admin_or_super());
 
--- 2. Users can insert their initial profile upon registration
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
     ON public.profiles FOR INSERT
     WITH CHECK (id = auth.uid() AND role = 'citizen');
 
--- 3. Users can update only their display details; role/points/suspended are protected
+DROP POLICY IF EXISTS "Users can update own safe profile details" ON public.profiles;
 CREATE POLICY "Users can update own safe profile details"
     ON public.profiles FOR UPDATE
     USING (id = auth.uid())
@@ -68,24 +77,26 @@ CREATE POLICY "Users can update own safe profile details"
         AND points = (SELECT points FROM public.profiles WHERE id = auth.uid())
     );
 
--- 4. Super Admin can manage all profiles and assign roles
+DROP POLICY IF EXISTS "Super admin can update any profile" ON public.profiles;
 CREATE POLICY "Super admin can update any profile"
     ON public.profiles FOR ALL
     USING (public.current_user_role() = 'super_admin');
 
 -- -----------------------------------------------------------------------------
--- REPORTS POLICIES (Privacy & Moderation Protection)
+-- 3. REPORTS POLICIES (Raw Table Protected; Citizens View Own Only; Staff Inspect All)
 -- -----------------------------------------------------------------------------
--- 1. Public can ONLY view verified or resolved reports (protects unreviewed submissions)
-CREATE POLICY "Public can view approved public reports"
+-- Privacy Guard: Public queries go through `public_reports` view.
+-- Direct queries on `reports` table are restricted to report owners or authorized staff.
+DROP POLICY IF EXISTS "Public can view approved public reports" ON public.reports;
+DROP POLICY IF EXISTS "Authorized access to raw reports table" ON public.reports;
+CREATE POLICY "Authorized access to raw reports table"
     ON public.reports FOR SELECT
     USING (
-        (status IN ('verified', 'in_progress', 'pending_verification', 'resolved') AND is_archived = FALSE)
-        OR (reported_by = auth.uid())
+        reported_by = auth.uid()
         OR public.is_moderator_or_higher()
     );
 
--- 2. Authenticated users can insert reports with default 'submitted' status
+DROP POLICY IF EXISTS "Authenticated users can submit reports" ON public.reports;
 CREATE POLICY "Authenticated users can submit reports"
     ON public.reports FOR INSERT
     WITH CHECK (
@@ -94,71 +105,98 @@ CREATE POLICY "Authenticated users can submit reports"
         AND reported_by = auth.uid()
     );
 
--- 3. Only moderators, admins, and super admins can update reports
+DROP POLICY IF EXISTS "Staff can update report moderation status" ON public.reports;
 CREATE POLICY "Staff can update report moderation status"
     ON public.reports FOR UPDATE
     USING (public.is_moderator_or_higher());
 
--- 4. Only Super Admin can delete or hard-archive reports
+DROP POLICY IF EXISTS "Super admin can delete reports" ON public.reports;
 CREATE POLICY "Super admin can delete reports"
     ON public.reports FOR DELETE
     USING (public.current_user_role() = 'super_admin');
 
 -- -----------------------------------------------------------------------------
--- REPORT MEDIA POLICIES
+-- 4. REPORT MEDIA POLICIES
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "View report media" ON public.report_media;
 CREATE POLICY "View report media"
     ON public.report_media FOR SELECT
     USING (
-        EXISTS (
-            SELECT 1 FROM public.reports r
-            WHERE r.id = report_id
-            AND (
-                r.status IN ('verified', 'resolved') 
-                OR r.reported_by = auth.uid() 
-                OR public.is_moderator_or_higher()
-            )
-        )
+        uploaded_by = auth.uid() 
+        OR public.is_moderator_or_higher()
     );
 
+DROP POLICY IF EXISTS "Insert report media on submission" ON public.report_media;
 CREATE POLICY "Insert report media on submission"
     ON public.report_media FOR INSERT
     WITH CHECK (uploaded_by = auth.uid() OR public.is_moderator_or_higher());
 
 -- -----------------------------------------------------------------------------
--- REPORT & ADMIN AUDIT LOGS (Immutable Traceability)
+-- 5. REPORT & ADMIN AUDIT LOGS (Immutable; Inserts Handled by Database Triggers/RPC)
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Moderators and admins can view report audit logs" ON public.report_audit_logs;
 CREATE POLICY "Moderators and admins can view report audit logs"
     ON public.report_audit_logs FOR SELECT
     USING (public.is_moderator_or_higher());
 
-CREATE POLICY "Staff can insert report audit logs"
-    ON public.report_audit_logs FOR INSERT
-    WITH CHECK (public.is_moderator_or_higher() OR auth.uid() IS NOT NULL);
+-- Revoke direct user insert on audit logs; populated exclusively by triggers / service_role
+REVOKE INSERT, UPDATE, DELETE ON public.report_audit_logs FROM anon, authenticated;
 
--- Admin audit logs: strictly readable by Super Admin
+DROP POLICY IF EXISTS "Super admin can view admin audit logs" ON public.admin_audit_logs;
 CREATE POLICY "Super admin can view admin audit logs"
     ON public.admin_audit_logs FOR SELECT
     USING (public.current_user_role() = 'super_admin');
 
-CREATE POLICY "System and staff can insert admin audit logs"
-    ON public.admin_audit_logs FOR INSERT
-    WITH CHECK (auth.uid() IS NOT NULL);
+REVOKE INSERT, UPDATE, DELETE ON public.admin_audit_logs FROM anon, authenticated;
 
 -- -----------------------------------------------------------------------------
--- NOTIFICATION OUTBOX
+-- 6. NOTIFICATION OUTBOX (Server-Controlled Outbox; Populated by Triggers)
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Only super admin can view notification outbox" ON public.notification_outbox;
 CREATE POLICY "Only super admin can view notification outbox"
     ON public.notification_outbox FOR SELECT
     USING (public.current_user_role() = 'super_admin');
 
+-- Revoke direct user insert and update on notification outbox
+REVOKE INSERT, UPDATE, DELETE ON public.notification_outbox FROM anon, authenticated;
+
 -- -----------------------------------------------------------------------------
--- SYSTEM SETTINGS (Secrets & Private Settings Isolated)
+-- 7. SYSTEM SETTINGS (Secrets & Private Settings Isolated)
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Public can view public settings" ON public.system_settings;
 CREATE POLICY "Public can view public settings"
     ON public.system_settings FOR SELECT
     USING (is_public = TRUE);
 
+DROP POLICY IF EXISTS "Only super admin can update settings" ON public.system_settings;
 CREATE POLICY "Only super admin can update settings"
     ON public.system_settings FOR ALL
     USING (public.current_user_role() = 'super_admin');
+
+-- -----------------------------------------------------------------------------
+-- 8. STORAGE OBJECT POLICIES (Private Evidence Bucket Security)
+-- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Authenticated users can upload report evidence" ON storage.objects;
+CREATE POLICY "Authenticated users can upload report evidence"
+    ON storage.objects FOR INSERT TO authenticated
+    WITH CHECK (
+        bucket_id = 'report-evidence-private'
+        AND (storage.extension(name) IN ('jpg', 'jpeg', 'png', 'webp'))
+    );
+
+DROP POLICY IF EXISTS "Authorized users can read report evidence" ON storage.objects;
+CREATE POLICY "Authorized users can read report evidence"
+    ON storage.objects FOR SELECT TO authenticated
+    USING (
+        bucket_id = 'report-evidence-private' AND (
+            -- Staff members can inspect evidence for verification
+            public.is_moderator_or_higher()
+            OR
+            -- Citizen owner can view their own uploaded evidence
+            EXISTS (
+                SELECT 1 FROM public.reports r
+                WHERE r.reported_by = auth.uid()
+                  AND (r.image_before_storage_path = name OR r.image_after_storage_path = name)
+            )
+        )
+    );

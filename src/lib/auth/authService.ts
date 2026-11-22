@@ -458,18 +458,25 @@ class NafasAuthService {
 
     const supabase = getSupabaseClient();
 
-    // Call server-side protected RPC function
-    const { data, error } = await supabase.rpc('provision_founder_account', {
-      p_user_id: session.user.id,
-      p_expected_email: session.user.email,
-      p_bootstrap_token: secretToken.trim()
+    // 1. Invoke protected server Edge Function (executes with service_role securely on server)
+    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('provision-founder', {
+      body: { bootstrapToken: secretToken.trim() }
     });
 
-    if (error) {
-      throw new Error(`فشل اعتماد صلاحية المشرف العام من الخادم: ${error.message}`);
+    if (edgeError) {
+      // If edge function returned error or in direct RPC test environments
+      const { error: rpcError } = await supabase.rpc('provision_founder_account', {
+        p_user_id: session.user.id,
+        p_expected_email: session.user.email,
+        p_bootstrap_token: secretToken.trim()
+      });
+
+      if (rpcError) {
+        throw new Error(`فشل اعتماد صلاحية المشرف العام من الخادم: ${edgeError.message || rpcError.message}`);
+      }
     }
 
-    // Refresh user profile from database
+    // 2. Refresh user profile from database
     const { data: updatedProfile } = await supabase
       .from('profiles')
       .select('*')
