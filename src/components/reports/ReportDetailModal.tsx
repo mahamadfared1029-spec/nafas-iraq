@@ -43,14 +43,14 @@ export const ReportDetailModal: React.FC<DetailModalProps> = ({ report, onClose 
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-silt/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-silt/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
       <div 
-        className="relative bg-nafas-ivory w-full max-w-3xl rounded-3xl shadow-2xl border border-nafas-reed/15 overflow-hidden animate-in fade-in zoom-in-95 text-right font-arabic"
+        className="relative bg-nafas-ivory w-full max-w-3xl rounded-2xl sm:rounded-3xl shadow-2xl border border-nafas-reed/15 overflow-hidden animate-in fade-in zoom-in-95 text-right font-arabic my-auto"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="bg-nafas-sand px-6 py-4 border-b border-nafas-reed/10 flex items-center justify-between">
+        <div className="bg-nafas-sand px-4 py-3 sm:px-6 sm:py-4 border-b border-nafas-reed/10 flex items-center justify-between">
           <button
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-nafas-misty/50 text-nafas-silt transition-colors"
@@ -63,14 +63,14 @@ export const ReportDetailModal: React.FC<DetailModalProps> = ({ report, onClose 
             <span className="text-xs font-mono font-bold text-nafas-blue bg-nafas-blue/10 px-2.5 py-1 rounded-md">
               {report.trackingNumber}
             </span>
-            <span className="font-bold text-nafas-silt text-sm">
+            <span className="font-bold text-nafas-silt text-xs sm:text-sm">
               تفاصيل البلاغ وسجل التحقق
             </span>
           </div>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-h-[80vh] overflow-y-auto">
           
           {/* Main Title & Status Badge */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-nafas-reed/20 pb-4">

@@ -435,8 +435,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       leafletMapRef.current = map;
 
-      // Zoom control
-      L.control.zoom({ position: 'topright' }).addTo(map);
+      // Zoom control: positioned at bottomright to avoid obscuring top controls or markers
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
 
       // Initialize basemap provider (CartoDB, OpenStreetMap, ESRI Satellite, or Mapbox)
       applyBasemapLayer(L, map, basemapProvider, mapboxToken);
@@ -930,38 +930,39 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       <div className={`relative w-full h-[650px] sm:h-[720px] ${basemapProvider === 'satellite' ? 'bg-[#0F172A]' : 'bg-[#DFD5C0]'} rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-inner flex flex-col font-arabic ${mapLayerMode === 'gis' || mapLayerMode === 'botanical' ? 'block' : 'hidden'}`}>
           
           {/* 1. Master Header Control Bar */}
-          <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-2.5 pointer-events-none">
+          <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-20 flex flex-col gap-2 sm:gap-2.5 pointer-events-none">
             
             {/* Row 1: Quick Camera */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-2xl shadow-lg border border-nafas-reed/30 pointer-events-auto">
-                <span className="px-3 py-1 text-xs font-bold text-nafas-ink flex items-center gap-1">
-                  <Layers className="w-3.5 h-3.5 text-nafas-orchid" />
-                  <span>{mapLayerMode === 'gis' ? (basemapProvider === 'satellite' ? 'خريطة الأقمار الصناعية الفضائية (GIS Live)' : 'طبقة البلاغات والحملات الميدانية') : 'طبقة الصيدلية والتوزع النباتي'}</span>
+            <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1 p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-md border border-nafas-reed/30 pointer-events-auto">
+                <span className="px-2 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-bold text-nafas-ink flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-nafas-orchid shrink-0" />
+                  <span className="hidden xs:inline">{mapLayerMode === 'gis' ? (basemapProvider === 'satellite' ? 'أقمار صناعية (GIS)' : 'بلاغات ميدانية') : 'توزع نباتي'}</span>
+                  <span className="xs:hidden">{mapLayerMode === 'gis' ? 'GIS' : 'نباتي'}</span>
                 </span>
               </div>
 
               {/* Reset Camera / Pin Button / Quick Basemap Switcher */}
-              <div className="flex items-center gap-2 pointer-events-auto flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap">
                 {/* Quick Basemap Switcher: Satellite vs Streets vs Topo */}
                 {mapLayerMode === 'gis' && (
-                  <div className="flex items-center gap-1 p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-xl shadow-md border border-nafas-reed/30">
+                  <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-nafas-ivory/95 backdrop-blur-md rounded-xl shadow-md border border-nafas-reed/30">
                     <button
                       type="button"
                       onClick={() => setBasemapProvider('satellite')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                      className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                         basemapProvider === 'satellite'
                           ? 'bg-nafas-blue text-white shadow-xs'
                           : 'text-stone-700 hover:bg-stone-100'
                       }`}
                       title="صور فضائية حقيقية من الأقمار الصناعية (ESRI World Imagery)"
                     >
-                      <span>🛰️ قمر صناعي</span>
+                      <span>🛰️ فضائي</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setBasemapProvider('streets')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                      className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                         basemapProvider === 'streets'
                           ? 'bg-nafas-blue text-white shadow-xs'
                           : 'text-stone-700 hover:bg-stone-100'
@@ -973,7 +974,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                     <button
                       type="button"
                       onClick={() => setBasemapProvider('topo')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                      className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                         basemapProvider === 'topo'
                           ? 'bg-nafas-blue text-white shadow-xs'
                           : 'text-stone-700 hover:bg-stone-100'
@@ -990,25 +991,25 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                     setSelectedGovernorateId('all');
                     setSelectedType('all');
                   }}
-                  className="px-3 py-2 bg-nafas-ivory/95 backdrop-blur-md rounded-xl text-xs font-bold text-nafas-silt shadow-md border border-nafas-reed/30 hover:bg-nafas-sand/50 transition-all flex items-center gap-1.5"
+                  className="px-2 py-1 sm:px-3 sm:py-2 bg-nafas-ivory/95 backdrop-blur-md rounded-xl text-[11px] sm:text-xs font-bold text-nafas-silt shadow-md border border-nafas-reed/30 hover:bg-nafas-sand/50 transition-all flex items-center gap-1"
                   title="إعادة ضبط عرض العراق الشامل"
                 >
-                  <Compass className="w-3.5 h-3.5 text-nafas-blue" />
+                  <Compass className="w-3.5 h-3.5 text-nafas-blue shrink-0" />
                   <span className="hidden sm:inline">عموم العراق</span>
                 </button>
 
                 {mapLayerMode === 'gis' && (
                   <button
                     onClick={() => setPinModeActive(!pinModeActive)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5 border ${
+                    className={`px-2.5 py-1 sm:px-3 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold shadow-md transition-all flex items-center gap-1 border ${
                       pinModeActive
                         ? 'bg-nafas-clay text-white border-nafas-clay animate-pulse'
                         : 'bg-nafas-ivory/95 backdrop-blur-md text-nafas-silt border-nafas-reed/30 hover:bg-nafas-sand/50'
                     }`}
                     title="انقر على الخريطة لتحديد موقع بلاغ بيئي"
                   >
-                    <PlusCircle className="w-3.5 h-3.5 text-nafas-clay" />
-                    <span>{pinModeActive ? 'انقر على موقع المشكلة...' : 'أشّر على الخريطة'}</span>
+                    <PlusCircle className="w-3.5 h-3.5 text-nafas-clay shrink-0" />
+                    <span>{pinModeActive ? 'انقر...' : 'أشّر'}</span>
                   </button>
                 )}
 
@@ -1279,12 +1280,12 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       {/* Zero State Alert Banner when no pins exist in production */}
       {filteredPins.length === 0 && mapLayerMode === 'gis' && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-md w-[92%] bg-nafas-cream/95 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-nafas-walnut/30 shadow-xl text-center space-y-2.5 animate-in fade-in slide-in-from-top-2">
+        <div className="absolute top-28 sm:top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-sm w-[90%] bg-nafas-cream/95 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-nafas-walnut/30 shadow-xl text-center space-y-2 animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center justify-center gap-2">
             <OrchidMotif variant="icon" size="sm" />
-            <h4 className="font-arabic font-extrabold text-sm text-nafas-ink">بعدنا بالبداية... وأول تغيير يبدي منك.</h4>
+            <h4 className="font-arabic font-extrabold text-xs sm:text-sm text-nafas-ink">بعدنا بالبداية... وأول تغيير يبدي منك.</h4>
           </div>
-          <p className="text-xs text-nafas-walnut font-medium leading-relaxed">
+          <p className="text-[11px] sm:text-xs text-nafas-walnut font-medium leading-relaxed">
             ماكو بلاغات موثقة حالياً{selectedGovernorateId !== 'all' ? ' في هذه المحافظة' : ''}. إذا شفت مشكلة بيئية، دلّينا على مكانها لنبدأ المعالجة.
           </p>
           <button
@@ -1294,9 +1295,9 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                 onOpenReportModalWithCoords(currentGov.lat, currentGov.lng, currentGov.id);
               }
             }}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-nafas-copper text-white font-bold text-xs shadow hover:bg-nafas-copper/90 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-nafas-copper text-white font-bold text-xs shadow hover:bg-nafas-copper/90 transition-colors"
           >
-            <PlusCircle className="w-4 h-4" />
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>أضف أول بلاغ</span>
           </button>
         </div>

@@ -501,11 +501,12 @@ describe('OPERATION FOUNDATION — PHASE 1 ACCEPTANCE SUITE', () => {
         isHazardous: true
       });
 
-      // 2. Sign in as Founder
+      // 2. Sign in as Founder with verified AAL2 assurance
       await nafasAuth.signIn({
         email: TEST_FOUNDER_EMAIL,
         password: 'AdminPassword123!'
       });
+      vi.spyOn(nafasAuth, 'verifyAal2Assurance').mockResolvedValue(true);
 
       // 3. Approve report
       const modRes = await nafasReports.updateReportStatus(
@@ -540,6 +541,7 @@ describe('OPERATION FOUNDATION — PHASE 1 ACCEPTANCE SUITE', () => {
         email: TEST_FOUNDER_EMAIL,
         password: 'AdminPassword123!'
       });
+      vi.spyOn(nafasAuth, 'verifyAal2Assurance').mockResolvedValue(true);
 
       await nafasReports.updateReportStatus(
         submitRes.report.id,

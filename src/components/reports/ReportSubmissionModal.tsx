@@ -343,14 +343,14 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-silt/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-nafas-silt/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
       <div 
-        className="relative bg-nafas-ivory w-full max-w-2xl rounded-3xl shadow-2xl border border-nafas-reed/15 overflow-hidden animate-in fade-in zoom-in-95 text-right font-arabic"
+        className="relative bg-nafas-ivory w-full max-w-2xl rounded-2xl sm:rounded-3xl shadow-2xl border border-nafas-reed/15 overflow-hidden animate-in fade-in zoom-in-95 text-right font-arabic my-auto"
         role="dialog"
         aria-modal="true"
       >
         {/* Modal Top Header */}
-        <div className="bg-nafas-sand px-6 py-4 border-b border-nafas-reed/10 flex items-center justify-between">
+        <div className="bg-nafas-sand px-4 py-3 sm:px-6 sm:py-4 border-b border-nafas-reed/10 flex items-center justify-between">
           <button
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-nafas-misty/50 text-nafas-silt transition-colors"
@@ -360,15 +360,15 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="font-black text-nafas-silt text-lg">
+            <span className="font-black text-nafas-silt text-base sm:text-lg">
               {step === 3 ? 'تم تأكيد البلاغ بنجاح' : 'تسجيل بلاغ بيئي ميداني'}
             </span>
-            <AlertTriangle className="w-5 h-5 text-nafas-blue" />
+            <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-nafas-blue shrink-0" />
           </div>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {step === 3 ? (
             /* Step 3: Success Screen */
             <div className="space-y-6 text-center py-4">
@@ -501,13 +501,13 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
               </div>
 
               {/* Geolocation Section: Genuine User Confirmation Required */}
-              <div className="bg-nafas-sand/50 p-4 rounded-2xl border border-nafas-reed/20 space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="bg-nafas-sand/50 p-3.5 sm:p-4 rounded-2xl border border-nafas-reed/20 space-y-2.5 sm:space-y-3 max-w-full overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <label className="text-xs font-bold text-nafas-silt flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-nafas-blue" />
+                    <MapPin className="w-3.5 h-3.5 text-nafas-blue shrink-0" />
                     <span>موقع المخالفة الميداني:</span>
                   </label>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
                     coords 
                       ? (locationSource === 'gps' ? 'bg-emerald-100 text-emerald-800' : locationSource === 'initial_coords' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')
                       : 'bg-red-100 text-red-800 animate-pulse'
@@ -519,41 +519,57 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                   </span>
                 </div>
 
-                {/* Status Box */}
-                <div className={`p-3 rounded-xl border text-xs font-mono flex items-center justify-between ${
+                {/* Status Box: fully responsive, wrap text gracefully, allow copy or inspection */}
+                <div className={`p-2.5 sm:p-3 rounded-xl border text-xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 max-w-full overflow-hidden ${
                   coords ? 'bg-white border-nafas-reed/30 text-nafas-silt' : 'bg-red-50/60 border-red-200 text-red-800'
                 }`}>
-                  <span>
-                    {coords 
-                      ? `${coords.lat.toFixed(5)}°N, ${coords.lng.toFixed(5)}°E`
-                      : 'لم يتم تحديد موقع البلاغ بعد. اختر إحدى الطرق أدناه لتأكيد الموقع:'
-                    }
-                  </span>
+                  <div className="flex-1 min-w-0">
+                    {coords ? (
+                      <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs text-nafas-silt truncate" dir="ltr" title={`${coords.lat.toFixed(6)}°N, ${coords.lng.toFixed(6)}°E`}>
+                        <span className="font-bold text-nafas-blue shrink-0">📍</span>
+                        <span className="truncate">{coords.lat.toFixed(5)}°N, {coords.lng.toFixed(5)}°E</span>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] sm:text-xs leading-snug">
+                        لم يتم تحديد موقع البلاغ بعد. اختر إحدى الطرق أدناه لتأكيد الموقع:
+                      </p>
+                    )}
+                  </div>
                   {coords && (
-                    <span className="text-[11px] font-sans font-bold text-emerald-700 flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>مؤكد</span>
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setManualMode(!manualMode)}
+                        className="text-[11px] text-nafas-blue hover:underline flex items-center gap-1 font-sans font-medium"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>تعديل</span>
+                      </button>
+                      <span className="text-[11px] font-sans font-bold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>مؤكد</span>
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                {/* Action Buttons: GPS, Manual Input, Approximate Center */}
-                <div className="flex flex-wrap gap-2 pt-1">
+                {/* Action Buttons: Responsive Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                   <button
                     type="button"
                     onClick={handleAcquireGPS}
                     disabled={gpsLoading}
-                    className="px-3 py-2 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-white text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    className="w-full px-2.5 py-2 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 text-center"
                   >
                     {gpsLoading ? (
                       <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>جارٍ الاتصال بـ GPS...</span>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                        <span>جارٍ الاتصال...</span>
                       </>
                     ) : (
                       <>
-                        <Navigation className="w-3.5 h-3.5" />
-                        <span>التقاط GPS من جهازي</span>
+                        <Navigation className="w-3.5 h-3.5 shrink-0" />
+                        <span>GPS من جهازي</span>
                       </>
                     )}
                   </button>
@@ -561,49 +577,49 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setManualMode(!manualMode)}
-                    className="px-3 py-2 rounded-xl bg-nafas-sand hover:bg-nafas-sand/80 text-nafas-silt border border-nafas-reed/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    className="w-full px-2.5 py-2 rounded-xl bg-nafas-sand hover:bg-nafas-sand/80 text-nafas-silt border border-nafas-reed/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-nafas-walnut" />
-                    <span>إدخال إحداثيات يدوياً</span>
+                    <Edit3 className="w-3.5 h-3.5 text-nafas-walnut shrink-0" />
+                    <span>إدخال إحداثيات</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleUseApproximateGovernorateCenter}
-                    className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium border border-stone-300 transition-colors"
+                    className="w-full px-2.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium border border-stone-300 transition-colors text-center"
                   >
-                    <span>استخدام مركز المحافظة كتقريب</span>
+                    <span>مركز المحافظة</span>
                   </button>
                 </div>
 
                 {/* Manual Input Drawer */}
                 {manualMode && (
-                  <div className="p-3 bg-white rounded-xl border border-nafas-reed/30 space-y-2 animate-in fade-in">
+                  <div className="p-3 bg-white rounded-xl border border-nafas-reed/30 space-y-2.5 animate-in fade-in">
                     <p className="text-[11px] text-nafas-neutral-slate">
                       أدخل إحداثيات WGS84 الدقيقة لموقع البلاغ:
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-nafas-silt font-bold block mb-1">خط العرض (Latitude: 29.0–38.0):</label>
+                        <label className="text-[10px] text-nafas-silt font-bold block mb-1">خط العرض (29.0–38.0):</label>
                         <input
                           type="number"
                           step="0.00001"
                           value={manualLat}
                           onChange={(e) => setManualLat(e.target.value)}
-                          placeholder="مثال: 33.31520"
-                          className="w-full text-xs font-mono bg-nafas-sand border border-nafas-reed/20 rounded-lg px-2.5 py-1.5 text-left"
+                          placeholder="33.31520"
+                          className="w-full max-w-full text-xs font-mono bg-nafas-sand border border-nafas-reed/20 rounded-lg px-2.5 py-2 text-left"
                           dir="ltr"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-nafas-silt font-bold block mb-1">خط الطول (Longitude: 38.0–49.0):</label>
+                        <label className="text-[10px] text-nafas-silt font-bold block mb-1">خط الطول (38.0–49.0):</label>
                         <input
                           type="number"
                           step="0.00001"
                           value={manualLng}
                           onChange={(e) => setManualLng(e.target.value)}
-                          placeholder="مثال: 44.36610"
-                          className="w-full text-xs font-mono bg-nafas-sand border border-nafas-reed/20 rounded-lg px-2.5 py-1.5 text-left"
+                          placeholder="44.36610"
+                          className="w-full max-w-full text-xs font-mono bg-nafas-sand border border-nafas-reed/20 rounded-lg px-2.5 py-2 text-left"
                           dir="ltr"
                         />
                       </div>
@@ -611,7 +627,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                     <button
                       type="button"
                       onClick={handleApplyManualCoordinates}
-                      className="w-full py-1.5 rounded-lg bg-nafas-silt text-nafas-ivory text-xs font-bold hover:bg-nafas-silt/90 transition-colors"
+                      className="w-full py-2 rounded-lg bg-nafas-silt text-nafas-ivory text-xs font-bold hover:bg-nafas-silt/90 transition-colors"
                     >
                       تطبيق ومراجعة الإحداثيات
                     </button>

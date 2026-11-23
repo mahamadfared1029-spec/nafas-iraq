@@ -20,9 +20,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   return (
     <nav 
       aria-label="شريط التنقل السفلي"
-      className="fixed bottom-0 inset-x-0 z-40 bg-nafas-ivory/95 backdrop-blur-lg border-t border-nafas-reed/30 shadow-[0_-4px_20px_rgba(34,34,56,0.08)] sm:hidden transition-all duration-300"
+      className="fixed bottom-0 inset-x-0 z-40 bg-nafas-ivory/95 backdrop-blur-lg border-t border-nafas-reed/30 shadow-[0_-4px_20px_rgba(34,34,56,0.08)] sm:hidden transition-all duration-300 pb-[env(safe-area-inset-bottom,0px)]"
     >
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2 relative">
+      <div className="flex items-center justify-around h-15 max-w-lg mx-auto px-2 relative">
         
         {/* 1. الرئيسية */}
         <button
@@ -50,16 +50,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <span className="text-[10px]">الخريطة</span>
         </button>
 
-        {/* 3. بلّغ (Prominent Center Button) */}
-        <div className="flex-1 flex flex-col items-center justify-center relative -top-3">
+        {/* 3. بلّغ (Prominent Center Button with compact mobile footprint) */}
+        <div className="flex-1 flex flex-col items-center justify-center relative -top-2">
           <button
             onClick={onOpenReportModal}
             aria-label="بلّغ عن مشكلة بيئية"
-            className="w-13 h-13 rounded-full bg-gradient-to-tr from-nafas-clay to-[#d87d5e] text-white flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all border-4 border-nafas-ivory ring-2 ring-nafas-clay/20"
+            className="w-11 h-11 rounded-full bg-gradient-to-tr from-nafas-clay to-[#d87d5e] text-white flex items-center justify-center shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all border-2 border-nafas-ivory ring-2 ring-nafas-clay/20"
           >
-            <Plus className="w-6 h-6 stroke-[3]" />
+            <Plus className="w-5 h-5 stroke-[2.5]" />
           </button>
-          <span className="text-[10px] font-bold text-nafas-clay mt-0.5">بلّغ</span>
+          <span className="text-[9px] font-bold text-nafas-clay mt-0.5">بلّغ</span>
         </div>
 
         {/* 4. الحملات */}

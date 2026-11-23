@@ -278,6 +278,11 @@ export class NafasReportService {
       throw new Error('403 Forbidden: تحديث حالة البلاغات البيئية محصور بمشرفي المنصة المعتمدين.');
     }
 
+    const hasAal2 = await nafasAuth.verifyAal2Assurance();
+    if (!hasAal2) {
+      throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
+    }
+
     if (!this.isConfigured()) {
       throw new Error('تحديث حالة البلاغ يتطلب اتصالاً نشطاً بقاعدة البيانات.');
     }
@@ -443,6 +448,11 @@ export class NafasReportService {
     const caller = nafasAuth.getCurrentUser();
     if (!caller || (caller.role !== 'moderator' && caller.role !== 'admin' && caller.role !== 'super_admin') || caller.isSuspended) {
       throw new Error('403 Forbidden: الوصول إلى لوحة البلاغات الكاملة يتطلب اعتماداً إدارياً.');
+    }
+
+    const hasAal2 = await nafasAuth.verifyAal2Assurance();
+    if (!hasAal2) {
+      throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
     }
 
     if (!this.isConfigured()) return [];
