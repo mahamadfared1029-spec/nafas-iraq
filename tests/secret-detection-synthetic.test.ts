@@ -6,12 +6,12 @@ describe('NAFAS — Secret Scanning Synthetic Token Detection Tests', () => {
   const resendKeyPattern = /re_[a-zA-Z0-9_]{20,}/;
 
   it('should detect synthetic legacy service_role JWT fixture with base64 encoded payload', () => {
-    // Construct synthetic token dynamically with base64url payload containing service_role claim
+    // Low-entropy repeating characters for zero-entropy synthetic test token
     const payloadB64 = Buffer.from('{"iss":"supabase","ref":"testproj","role":"service_role","iat":123}').toString('base64url');
     const syntheticJwt = [
       'eyJhbGciOi' + 'JIUzI1NiIsInR5cCI6IkpXVCJ9',
       payloadB64,
-      'SYNTHETIC_TEST_SIG_ONLY_DO_NOT_USE'
+      '00000000000000000000000000000000'
     ].join('.');
     expect(legacyJwtPattern.test(syntheticJwt)).toBe(true);
   });
@@ -20,7 +20,7 @@ describe('NAFAS — Secret Scanning Synthetic Token Detection Tests', () => {
     const syntheticJwt = [
       'eyJhbGciOi' + 'JIUzI1NiIsInR5cCI6IkpXVCJ9',
       'payload_with_literal_service_role_keyword',
-      'SYNTHETIC_SIG'
+      '00000000000000000000000000000000'
     ].join('.');
     expect(legacyJwtPattern.test(syntheticJwt)).toBe(true);
   });
@@ -30,18 +30,18 @@ describe('NAFAS — Secret Scanning Synthetic Token Detection Tests', () => {
     const benignJwt = [
       'eyJhbGciOi' + 'JIUzI1NiIsInR5cCI6IkpXVCJ9',
       payloadB64,
-      'SYNTHETIC_ANON_SIG'
+      '00000000000000000000000000000000'
     ].join('.');
     expect(legacyJwtPattern.test(benignJwt)).toBe(false);
   });
 
   it('should detect synthetic modern secret key fixture', () => {
-    const syntheticModernSecret = ['sb', 'secret', 'synthetic_test_fixture_1234567890'].join('_');
+    const syntheticModernSecret = 'sb_' + 'secret_' + '000000000000000000000000';
     expect(modernSecretPattern.test(syntheticModernSecret)).toBe(true);
   });
 
   it('should detect synthetic resend api key fixture', () => {
-    const syntheticResend = ['re', 'synthetic_test_api_key_fixture_12345'].join('_');
+    const syntheticResend = 're_' + '000000000000000000000000';
     expect(resendKeyPattern.test(syntheticResend)).toBe(true);
   });
 });
