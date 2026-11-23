@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 const SECRET_PATTERNS = [
-  { name: 'Supabase Service Role Key (Legacy)', regex: /eyJhbGciOi[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*service_role[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+/ },
+  { name: 'Supabase Service Role Key (Legacy)', regex: /eyJhbGciOi[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*(NlcnZpY2Vfcm9sZ|c2VydmljZV9yb2xl|service_role)[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+/ },
   { name: 'Supabase Secret Key (Modern)', regex: /sb_secret_[a-zA-Z0-9_-]{20,}/ },
   { name: 'Resend API Key', regex: /re_[a-zA-Z0-9_]{20,}/ },
   { name: 'Private Key Block', regex: /-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/ },

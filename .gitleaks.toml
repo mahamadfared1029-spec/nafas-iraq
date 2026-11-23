@@ -9,9 +9,9 @@ useDefault = true
 [[rules]]
 id = "supabase-legacy-service-key"
 description = "Supabase Legacy Service Role JWT Key"
-regex = '''eyJhbGciOi[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*service_role[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+'''
+regex = '''eyJhbGciOi[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*(NlcnZpY2Vfcm9sZ|c2VydmljZV9yb2xl|service_role)[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+'''
 tags = ["supabase", "key", "service_role"]
-keywords = ["service_role", "eyJhbGciOi"]
+keywords = ["NlcnZpY2Vfcm9sZ", "c2VydmljZV9yb2xl", "service_role", "eyJhbGciOi"]
 
 [[rules]]
 id = "supabase-modern-secret-key"
@@ -35,10 +35,9 @@ tags = ["worker", "secret"]
 keywords = ["worker_secret"]
 
 [allowlist]
-description = "Global Allowlist for documentation templates and test files"
+description = "Global Allowlist for documentation templates and scanner configuration"
 paths = [
   '''^\.env\.example$''',
   '''^scripts/secret-scan\.mjs$''',
-  '''^\.gitleaks\.toml$''',
-  '''^tests/.*test\.ts$'''
+  '''^\.gitleaks\.toml$'''
 ]

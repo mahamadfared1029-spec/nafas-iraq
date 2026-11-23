@@ -750,7 +750,7 @@ class NafasAuthService {
     }
 
     const hasAal2 = await this.verifyAal2Assurance();
-    if (!hasAal2 && caller.mfaEnabled) {
+    if (!hasAal2) {
       throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
     }
 
@@ -784,7 +784,7 @@ class NafasAuthService {
     }
 
     const hasAal2 = await this.verifyAal2Assurance();
-    if (!hasAal2 && caller.mfaEnabled) {
+    if (!hasAal2) {
       throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
     }
 
@@ -856,7 +856,7 @@ class NafasAuthService {
     }
 
     const hasAal2 = await this.verifyAal2Assurance();
-    if (!hasAal2 && caller.mfaEnabled) {
+    if (!hasAal2) {
       throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
     }
 
