@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useNafas } from '@/lib/store';
 import { IRAQ_GOVERNORATES } from '@/lib/constants';
 import { VolunteerCampaign, IssuedCertificate } from '@/types';
+import { nafasAuth } from '@/lib/auth/authService';
 import { 
   Users, 
   Calendar, 
@@ -21,9 +22,10 @@ import {
 
 interface CampaignListProps {
   onViewCertificate?: (cert: IssuedCertificate) => void;
+  onRequireAuth?: (notice?: string) => void;
 }
 
-export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate }) => {
+export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate, onRequireAuth }) => {
   const { 
     campaigns, 
     role, 
@@ -209,7 +211,15 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate })
                 <div className="pt-4 mt-2 space-y-2">
                   <button
                     disabled={isFull}
-                    onClick={() => setRegisterModalCampaign(campaign)}
+                    onClick={() => {
+                      if (!nafasAuth.isAuthenticated()) {
+                        if (onRequireAuth) {
+                          onRequireAuth('تسجيل التطوع في الحملات الميدانية يتطلب حساباً موثقاً لاحتساب ساعاتك البيئية وإصدار الشهادات.');
+                        }
+                        return;
+                      }
+                      setRegisterModalCampaign(campaign);
+                    }}
                     className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow transition-all ${
                       isFull
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'

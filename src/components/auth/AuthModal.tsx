@@ -8,17 +8,17 @@ import {
   User, 
   MapPin, 
   ShieldCheck, 
-  KeyRound, 
   AlertCircle, 
   CheckCircle2, 
   ArrowRight,
   Sparkles,
   Loader2,
-  QrCode,
   Copy,
   Check,
   Smartphone,
-  RefreshCw
+  Eye,
+  EyeOff,
+  Info
 } from 'lucide-react';
 import { nafasAuth, MfaEnrollmentResult } from '@/lib/auth/authService';
 import { IRAQ_GOVERNORATES } from '@/lib/constants';
@@ -30,16 +30,16 @@ export type AuthModalMode =
   | 'forgot' 
   | 'reset-password' 
   | 'mfa-challenge' 
-  | 'mfa-enroll' 
-  | 'bootstrap';
+  | 'mfa-enroll';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode?: AuthModalMode;
+  notice?: string | null;
 }
 
-export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: AuthModalProps) {
   const [mode, setMode] = useState<AuthModalMode>(initialMode);
   
   // Form fields
@@ -47,8 +47,12 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [governorateId, setGovernorateId] = useState('baghdad');
-  const [bootstrapToken, setBootstrapToken] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
+
+  // Show/Hide password toggles
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Password reset fields
   const [newPassword, setNewPassword] = useState('');
@@ -69,6 +73,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
 
   // General States
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -119,7 +124,6 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
     try {
       const res = await nafasAuth.signIn({ email, password });
       
-      // Check if privileged user or account requires MFA verification (AAL2)
       if (res.mfaStatus?.requiresMfa && res.mfaStatus.factorId && res.mfaStatus.challengeId) {
         setMfaFactorId(res.mfaStatus.factorId);
         setMfaChallengeId(res.mfaStatus.challengeId);
@@ -136,6 +140,17 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
       setError(err?.message || 'فشل تسجيل الدخول. يرجى التحقق من البيانات.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await nafasAuth.signInWithGoogle();
+    } catch (err: any) {
+      setError(err?.message || 'فشل الاتصال بخدمة Google. يرجى المحاولة لاحقاً.');
+      setGoogleLoading(false);
     }
   };
 
@@ -247,27 +262,10 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
     }
   };
 
-  const handleFounderBootstrap = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await nafasAuth.bootstrapFounder(bootstrapToken);
-      setSuccessMessage(res.messageAr);
-      setTimeout(() => {
-        onClose();
-      }, 1000);
-    } catch (err: any) {
-      setError(err?.message || 'فشل اعتماد حساب المؤسس.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#222238]/70 backdrop-blur-sm animate-fade-in">
       <div 
-        className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-[#E5DCCD] overflow-hidden max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-[#E5DCCD] overflow-hidden max-h-[92vh] flex flex-col"
         dir="rtl"
       >
         {/* Header Ribbon */}
@@ -275,7 +273,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
           <button
             onClick={onClose}
             className="absolute top-4 left-4 p-2 text-white/80 hover:text-white rounded-full hover:bg-white/10 transition-colors"
-            aria-label="إغلاق"
+            aria-label="إغلاق النافذة"
           >
             <X className="w-5 h-5" />
           </button>
@@ -293,7 +291,6 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
             {mode === 'forgot' && 'استعادة كلمة المرور'}
             {mode === 'reset-password' && 'تعيين كلمة مرور جديدة'}
             {mode === 'mfa-enroll' && 'إعداد المصادقة متعددة العوامل (TOTP)'}
-            {mode === 'bootstrap' && 'تهيئة حساب المؤسس — المشرف العام'}
           </h2>
           <p className="text-xs text-white/80 mt-1">
             خلّي العراق يتنفس — منصة العمل البيئي والمجتمعي
@@ -302,6 +299,14 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto flex-1">
+          {/* Guest Action Prompt Notice (if provided) */}
+          {notice && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed shadow-sm">
+              <Info className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>{notice}</span>
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
@@ -316,7 +321,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
             </div>
           )}
 
-          {/* Mode Switcher Tabs for normal states */}
+          {/* Mode Switcher Tabs */}
           {(mode === 'login' || mode === 'register') && (
             <div className="flex border-b border-[#E5DCCD] mb-5">
               <button
@@ -346,59 +351,110 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
 
           {/* 1. LOGIN FORM */}
           {mode === 'login' && (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#6B463B] mb-1.5">
-                  البريد الإلكتروني
-                </label>
-                <div className="relative">
-                  <Mail className="absolute right-3.5 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="w-full pr-10 pl-3.5 py-2.5 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-bold text-[#6B463B]">
-                    كلمة المرور
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => { setMode('forgot'); setError(null); }}
-                    className="text-xs text-[#62467D] hover:underline"
-                  >
-                    نسيت كلمة المرور؟
-                  </button>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute right-3.5 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pr-10 pl-3.5 py-2.5 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
-                  />
-                </div>
-              </div>
-
+            <div className="space-y-4">
+              {/* Google OAuth Button */}
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-[#62467D] hover:bg-[#52386A] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading || loading}
+                className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm rounded-xl border border-gray-300 shadow-sm transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                <span>تسجيل الدخول</span>
+                {googleLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-[#62467D]" />
+                ) : (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                )}
+                <span>المتابعة باستخدام Google</span>
               </button>
-            </form>
+
+              <div className="relative my-3">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[#E5DCCD]"></div>
+                </div>
+                <div className="relative flex justify-center text-[11px]">
+                  <span className="bg-white px-3 text-gray-500 font-medium">أو عبر البريد الإلكتروني</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#6B463B] mb-1.5">
+                    البريد الإلكتروني
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute right-3.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full pr-10 pl-3.5 py-2.5 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-[#6B463B]">
+                      كلمة المرور
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => { setMode('forgot'); setError(null); }}
+                      className="text-xs text-[#62467D] hover:underline"
+                    >
+                      نسيت كلمة المرور؟
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute right-3.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pr-10 pl-11 py-2.5 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-700 transition-colors focus:outline-none"
+                      aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-[#62467D] hover:bg-[#52386A] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  <span>تسجيل الدخول</span>
+                </button>
+              </form>
+            </div>
           )}
 
           {/* 2. MFA CHALLENGE FORM (AAL2 Step) */}
@@ -407,7 +463,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
               <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-2xl flex items-center gap-3 text-xs text-purple-900">
                 <Smartphone className="w-6 h-6 text-[#62467D] shrink-0" />
                 <p>
-                  هذا الحساب محمي بالتحقق الثنائي (MFA). يرجى فتح تطبيق المصادقة (Google Authenticator أو 1Password) وإدخال الرمز المكون من 6 أرقام.
+                  هذا الحساب محمي بالتحقق الثنائي المشدد (MFA). افتح تطبيق المصادقة (Google Authenticator أو 1Password) على هاتفك وأدخل الرمز المكون من 6 أرقام.
                 </p>
               </div>
 
@@ -419,6 +475,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                   <input
                     type="text"
                     required
+                    inputMode="numeric"
                     maxLength={6}
                     autoFocus
                     value={mfaCode}
@@ -452,101 +509,152 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
 
           {/* 3. REGISTER FORM */}
           {mode === 'register' && (
-            <form onSubmit={handleRegister} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-[#6B463B] mb-1">
-                  الاسم الكامل
-                </label>
-                <div className="relative">
-                  <User className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="الاسم الثلاثي"
-                    className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#6B463B] mb-1">
-                  البريد الإلكتروني
-                </label>
-                <div className="relative">
-                  <Mail className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#6B463B] mb-1">
-                  المحافظة
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400" />
-                  <select
-                    value={governorateId}
-                    onChange={(e) => setGovernorateId(e.target.value)}
-                    className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
-                  >
-                    {IRAQ_GOVERNORATES.map((gov) => (
-                      <option key={gov.id} value={gov.id}>
-                        {gov.nameAr}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#6B463B] mb-1">
-                  كلمة المرور (8 رموز على الأقل)
-                </label>
-                <div className="relative">
-                  <Lock className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400" />
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="agree-terms"
-                  checked={agreeTerms}
-                  onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="rounded text-[#62467D] focus:ring-[#62467D]"
-                />
-                <label htmlFor="agree-terms" className="text-xs text-gray-600">
-                  أوافق على ميثاق حماية بيئة العراق ومشاركة البيانات الميدانية
-                </label>
-              </div>
-
+            <div className="space-y-4">
+              {/* Google OAuth Quick Register Button */}
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 bg-[#62467D] hover:bg-[#52386A] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading || loading}
+                className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm rounded-xl border border-gray-300 shadow-sm transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>إنشاء حساب مواطن بيئي</span>
+                {googleLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-[#62467D]" />
+                ) : (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                )}
+                <span>إنشاء حساب سريع باستخدام Google</span>
               </button>
-            </form>
+
+              <div className="relative my-3">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[#E5DCCD]"></div>
+                </div>
+                <div className="relative flex justify-center text-[11px]">
+                  <span className="bg-white px-3 text-gray-500 font-medium">أو بالتسجيل المباشر</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleRegister} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#6B463B] mb-1">
+                    الاسم الكامل
+                  </label>
+                  <div className="relative">
+                    <User className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="الاسم الثلاثي"
+                      className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#6B463B] mb-1">
+                    البريد الإلكتروني
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#6B463B] mb-1">
+                    المحافظة
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <select
+                      value={governorateId}
+                      onChange={(e) => setGovernorateId(e.target.value)}
+                      className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    >
+                      {IRAQ_GOVERNORATES.map((gov) => (
+                        <option key={gov.id} value={gov.id}>
+                          {gov.nameAr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#6B463B] mb-1">
+                    كلمة المرور (8 رموز على الأقل)
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={8}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pr-10 pl-11 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-700 transition-colors focus:outline-none"
+                      aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="agree-terms"
+                    checked={agreeTerms}
+                    onChange={(e) => setAgreeTerms(e.target.checked)}
+                    className="rounded text-[#62467D] focus:ring-[#62467D]"
+                  />
+                  <label htmlFor="agree-terms" className="text-xs text-gray-600">
+                    أوافق على ميثاق حماية بيئة العراق ومشاركة البيانات الميدانية
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 bg-[#62467D] hover:bg-[#52386A] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  <span>إنشاء حساب مواطن بيئي</span>
+                </button>
+              </form>
+            </div>
           )}
 
           {/* 4. FORGOT PASSWORD (REQUEST RECOVERY) */}
@@ -560,7 +668,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                   البريد الإلكتروني
                 </label>
                 <div className="relative">
-                  <Mail className="absolute right-3.5 top-3 w-4 h-4 text-gray-400" />
+                  <Mail className="absolute right-3.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="email"
                     required
@@ -608,16 +716,24 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                   كلمة المرور الجديدة (8 أحرف وأرقام على الأقل)
                 </label>
                 <div className="relative">
-                  <Lock className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400" />
+                  <Lock className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showNewPassword ? 'text' : 'password'}
                     required
                     minLength={8}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    className="w-full pr-10 pl-11 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-700 transition-colors focus:outline-none"
+                    aria-label={showNewPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -626,16 +742,24 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                   تأكيد كلمة المرور الجديدة
                 </label>
                 <div className="relative">
-                  <Lock className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400" />
+                  <Lock className="absolute right-3.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     required
                     minLength={8}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pr-10 pl-3.5 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    className="w-full pr-10 pl-11 py-2 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-700 transition-colors focus:outline-none"
+                    aria-label={showConfirmPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -656,10 +780,10 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
               <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 leading-relaxed">
                 <p className="font-bold mb-1 flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-[#62467D]" />
-                  <span>تفعيل المصادقة متعددة العوامل (TOTP Multi-Factor Authentication):</span>
+                  <span>تفعيل المصادقة متعددة العوامل (TOTP MFA):</span>
                 </p>
                 <p>
-                  امسح رمز الاستجابة السريعة (QR) أدناه باستخدام تطبيق المصادقة على هاتفك (Google Authenticator, Apple Passwords, أو 1Password)، ثم أدخل رمز التحقق.
+                  امسح رمز الاستجابة السريعة (QR) أدناه باستخدام تطبيق المصادقة على هاتفك (Google Authenticator أو 1Password)، ثم أدخل رمز التحقق لتأكيد التفعيل.
                 </p>
               </div>
 
@@ -683,22 +807,23 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                   {/* Secret Key Manual Copy */}
                   <div>
                     <label className="block text-[11px] font-bold text-gray-500 mb-1">
-                      المفتاح السري (في حال تعذر مسح الرمز):
+                      المفتاح السري (في حال تعذر مسح الرمز من شاشة الهاتف):
                     </label>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         readOnly
                         value={totpSecret}
-                        className="flex-1 font-mono text-xs px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700"
+                        className="flex-1 font-mono text-xs px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 select-all"
                       />
                       <button
                         type="button"
                         onClick={handleCopySecret}
-                        className="p-2 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
-                        title="نسخ المفتاح"
+                        className="p-2 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors flex items-center gap-1 text-xs"
+                        title="نسخ المفتاح السري"
                       >
                         {copiedSecret ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                        <span className="hidden sm:inline">{copiedSecret ? 'تم النسخ' : 'نسخ'}</span>
                       </button>
                     </div>
                   </div>
@@ -713,6 +838,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
                         <input
                           type="text"
                           required
+                          inputMode="numeric"
                           maxLength={6}
                           value={enrollCode}
                           onChange={(e) => setEnrollCode(e.target.value.replace(/[^0-9]/g, ''))}
@@ -745,69 +871,13 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
               </div>
             </div>
           )}
-
-          {/* 7. FOUNDER BOOTSTRAP PROVISIONING */}
-          {mode === 'bootstrap' && (
-            <form onSubmit={handleFounderBootstrap} className="space-y-4">
-              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
-                <p className="font-bold mb-1">إجراء إداري لتهيئة حساب المشرف العام (Super Admin):</p>
-                <p>
-                  يتم التحقق من هوية صاحب المنصة وربطه تلقائياً بصلاحيات الإشراف الشامل والمصادقة متعددة العوامل (MFA) وتوثيق الحدث في سجل الرقابة المشفر.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#6B463B] mb-1.5">
-                  رمز التحقق الإداري
-                </label>
-                <div className="relative">
-                  <KeyRound className="absolute right-3.5 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="password"
-                    value={bootstrapToken}
-                    onChange={(e) => setBootstrapToken(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full pr-10 pl-3.5 py-2.5 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-[#6B463B] hover:bg-[#55362E] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                <span>تأكيد اعتماد صلاحية المشرف العام</span>
-              </button>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setMode('login')}
-                  className="text-xs text-gray-500 hover:underline"
-                >
-                  العودة للوضع العادي
-                </button>
-              </div>
-            </form>
-          )}
         </div>
 
         {/* Footer info */}
-        <div className="p-4 bg-[#F7F1E7]/60 border-t border-[#E5DCCD] text-center flex items-center justify-between px-6 shrink-0">
+        <div className="p-4 bg-[#F7F1E7]/60 border-t border-[#E5DCCD] text-center flex items-center justify-center px-6 shrink-0">
           <span className="text-[11px] text-gray-500">
-            حماية وهوية مشفرة ببروتوكول الأمان العالي
+            حماية وهوية مشفرة ببروتوكول الأمان العالي — نَفَس العراق
           </span>
-          {mode !== 'bootstrap' && mode !== 'mfa-enroll' && (
-            <button
-              type="button"
-              onClick={() => { setMode('bootstrap'); setError(null); }}
-              className="text-[11px] text-[#6B463B] font-bold hover:underline"
-            >
-              تهيئة المؤسس
-            </button>
-          )}
         </div>
       </div>
     </div>

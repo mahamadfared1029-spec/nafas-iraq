@@ -21,7 +21,11 @@ import {
   Lock,
   ArrowUpDown,
   Archive,
-  RotateCcw
+  RotateCcw,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { nafasAuth } from '@/lib/auth/authService';
 import { nafasReports } from '@/lib/reports/reportService';
@@ -41,7 +45,7 @@ interface FounderCommandCenterProps {
 }
 
 export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterProps) {
-  const [activeTab, setActiveTab] = useState<'reports' | 'staff' | 'outbox' | 'audit' | 'reset'>('reports');
+  const [activeTab, setActiveTab] = useState<'reports' | 'staff' | 'outbox' | 'audit' | 'reset' | 'pin'>('reports');
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   
   // Data states
@@ -60,6 +64,22 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
   const [modNotes, setModNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  // Founder Admin PIN States
+  const [pinInput, setPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
+  const [pinActionLoading, setPinActionLoading] = useState(false);
+  const [pinFeedback, setPinFeedback] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
+
+  // Founder Admin PIN Verification Test States
+  const [testPinInput, setTestPinInput] = useState('');
+  const [showTestPin, setShowTestPin] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testFeedback, setTestFeedback] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
 
   // Load and refresh data
   const loadData = async () => {
@@ -91,6 +111,55 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
       loadData();
     }
   }, [isOpen]);
+
+  const handleSavePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinFeedback(null);
+    setPinError(null);
+
+    if (pinInput.length < 4 || pinInput.length > 8 || !/^[0-9]+$/.test(pinInput)) {
+      setPinError('الرمز السري الإداري يجب أن يتكون من 4 إلى 8 أرقام فقط.');
+      return;
+    }
+    if (pinInput !== confirmPinInput) {
+      setPinError('الرمزان المدخلان غير متطابقين.');
+      return;
+    }
+
+    setPinActionLoading(true);
+    try {
+      const res = await nafasAuth.setFounderPin(pinInput);
+      setPinFeedback(res.messageAr);
+      setPinInput('');
+      setConfirmPinInput('');
+    } catch (err: any) {
+      setPinError(err?.message || 'فشل حفظ الرمز الإداري.');
+    } finally {
+      setPinActionLoading(false);
+    }
+  };
+
+  const handleTestVerifyPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTestFeedback(null);
+    setTestError(null);
+
+    if (!testPinInput) {
+      setTestError('يرجى إدخال الرمز لتجربة التحقق.');
+      return;
+    }
+
+    setTestLoading(true);
+    try {
+      const res = await nafasAuth.verifyFounderPin(testPinInput);
+      setTestFeedback(res.messageAr);
+      setTestPinInput('');
+    } catch (err: any) {
+      setTestError(err?.message || 'فشل التحقق من الرمز.');
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   // Status metrics calculation
   const stats = useMemo(() => {
@@ -303,6 +372,18 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
               >
                 <ShieldAlert className="w-3.5 h-3.5" />
                 <span>سجل الرقابة الإدارية</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('pin')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  activeTab === 'pin'
+                    ? 'bg-[#62467D] text-white shadow-sm'
+                    : 'text-[#6B463B] hover:bg-white/60'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>رمز المشرف العام (Admin PIN)</span>
               </button>
 
               <button
@@ -757,6 +838,171 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
                   <span>تأكيد تنظيف البلاغات التجريبية الآن</span>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 6: FOUNDER ADMIN PIN (OWNER-ONLY WITH AAL2) */}
+        {activeTab === 'pin' && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-2xl mx-auto">
+            {/* Header info card */}
+            <div className="p-5 bg-[#62467D]/10 border border-[#62467D]/20 rounded-3xl space-y-2">
+              <div className="flex items-center gap-2 text-[#62467D] font-bold text-sm">
+                <KeyRound className="w-5 h-5 text-[#62467D]" />
+                <span>الرمز السري الإداري للمؤسس (Founder Admin Secondary PIN)</span>
+              </div>
+              <p className="text-xs text-gray-700 leading-relaxed">
+                يوفر طبقة أمان سيادية إضافية لحماية العمليات الإدارية الحساسة. يُخزن الرمز مشفراً بخوارزمية التشفير الأحادي (Bcrypt Salted Hash) في قاعدة البيانات ولا يُحفظ في المتصفح أو أي كود أمامي، ويتطلب جلسة AAL2 موثقة لتعديله.
+              </p>
+            </div>
+
+            {/* Set / Update PIN Form */}
+            <div className="p-6 bg-white border border-[#E5DCCD] rounded-3xl shadow-sm space-y-4">
+              <h4 className="font-bold text-sm text-[#222238] flex items-center gap-2">
+                <Lock className="w-4 h-4 text-[#62467D]" />
+                <span>تعيين أو تغيير الرمز الإداري</span>
+              </h4>
+
+              {pinError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{pinError}</span>
+                </div>
+              )}
+
+              {pinFeedback && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{pinFeedback}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSavePin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#6B463B] mb-1">
+                    الرمز السري الجديد (4 إلى 8 أرقام)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPin ? 'text' : 'password'}
+                      required
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={8}
+                      minLength={4}
+                      value={pinInput}
+                      onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="••••"
+                      className="w-full pr-4 pl-12 py-2.5 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-700 transition-colors focus:outline-none"
+                      aria-label={showPin ? 'إخفاء الرمز السري' : 'إظهار الرمز السري'}
+                    >
+                      {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#6B463B] mb-1">
+                    تأكيد الرمز السري
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPin ? 'text' : 'password'}
+                      required
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={8}
+                      minLength={4}
+                      value={confirmPinInput}
+                      onChange={(e) => setConfirmPinInput(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="••••"
+                      className="w-full pr-4 pl-12 py-2.5 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#62467D] text-[#222238]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPin(!showConfirmPin)}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-700 transition-colors focus:outline-none"
+                      aria-label={showConfirmPin ? 'إخفاء تأكيد الرمز' : 'إظهار تأكيد الرمز'}
+                    >
+                      {showConfirmPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={pinActionLoading || pinInput.length < 4}
+                  className="w-full py-2.5 bg-[#62467D] hover:bg-[#52386A] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {pinActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  <span>حفظ الرمز السري المشفر وتوثيق الإجراء</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Test PIN Verification Form (With rate-limiting protection) */}
+            <div className="p-6 bg-white border border-[#E5DCCD] rounded-3xl shadow-sm space-y-4">
+              <h4 className="font-bold text-sm text-[#222238] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>اختبار التحقق من الرمز (Test Verification)</span>
+              </h4>
+
+              {testError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{testError}</span>
+                </div>
+              )}
+
+              {testFeedback && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{testFeedback}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleTestVerifyPin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#6B463B] mb-1">
+                    أدخل الرمز للتحقق:
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showTestPin ? 'text' : 'password'}
+                      required
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={8}
+                      value={testPinInput}
+                      onChange={(e) => setTestPinInput(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="••••"
+                      className="w-full pr-4 pl-12 py-2.5 text-sm bg-[#F7F1E7]/40 border border-[#E5DCCD] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 text-[#222238]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTestPin(!showTestPin)}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-700 transition-colors focus:outline-none"
+                      aria-label={showTestPin ? 'إخفاء الرمز' : 'إظهار الرمز'}
+                    >
+                      {showTestPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={testLoading || !testPinInput}
+                  className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {testLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  <span>اختبار المطابقة والتشفير</span>
+                </button>
+              </form>
             </div>
           </div>
         )}

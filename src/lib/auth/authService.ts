@@ -12,6 +12,7 @@
 
 import { Role, UserProfile, AdminAuditLogItem } from '@/types';
 import { getSupabaseClient, isSupabaseConfigured } from '../supabase/client';
+import { getBasePath } from '@/lib/basePath';
 import { User, Session } from '@supabase/supabase-js';
 
 export interface AuthSession {
@@ -111,54 +112,71 @@ class NafasAuthService {
       const user = session.user;
 
       // Query authoritative profile from public.profiles table
-      const { data: profile, error } = await supabase
+      let { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
 
       if (error || !profile) {
-        // Construct safe initial citizen profile if row is awaiting trigger
-        const userProfile: UserProfile = {
+        // Construct safe initial citizen profile if row is awaiting trigger or for Google OAuth
+        const now = new Date().toISOString();
+        const initialProfile = {
           id: user.id,
           email: user.email || '',
-          fullName: user.user_metadata?.full_name || 'مواطن عراقي',
-          role: 'citizen',
-          governorateId: user.user_metadata?.governorate_id || 'baghdad',
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'مواطن نَفَس',
+          role: 'citizen' as Role,
+          governorate_id: user.user_metadata?.governorate_id || 'baghdad',
           points: 0,
-          isVerifiedVolunteer: false,
-          mfaEnabled: false,
-          isSuspended: false,
-          createdAt: user.created_at,
-          updatedAt: user.updated_at || user.created_at
+          is_verified_volunteer: false,
+          mfa_enabled: false,
+          is_suspended: false,
+          created_at: now,
+          updated_at: now
         };
 
-        this.currentSession = {
-          token: session.access_token,
-          user: userProfile,
-          expiresAt: session.expires_at ? session.expires_at * 1000 : Date.now() + 3600 * 1000
-        };
-      } else {
-        const userProfile: UserProfile = {
-          id: profile.id,
-          email: profile.email,
-          fullName: profile.full_name,
-          role: profile.role as Role,
-          governorateId: profile.governorate_id,
-          points: profile.points,
-          isVerifiedVolunteer: profile.is_verified_volunteer,
-          mfaEnabled: profile.mfa_enabled,
-          isSuspended: profile.is_suspended,
-          createdAt: profile.created_at,
-          updatedAt: profile.updated_at
-        };
-
-        this.currentSession = {
-          token: session.access_token,
-          user: userProfile,
-          expiresAt: session.expires_at ? session.expires_at * 1000 : Date.now() + 3600 * 1000
-        };
+        try {
+          await supabase.from('profiles').upsert(initialProfile, { onConflict: 'id' });
+          const { data: refetched } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+          if (refetched) {
+            profile = refetched;
+          }
+        } catch (_) {}
       }
+
+      const activeProfile = profile || {
+        id: user.id,
+        email: user.email || '',
+        full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'مواطن نَفَس',
+        role: 'citizen' as Role,
+        governorate_id: user.user_metadata?.governorate_id || 'baghdad',
+        points: 0,
+        is_verified_volunteer: false,
+        mfa_enabled: false,
+        is_suspended: false,
+        created_at: user.created_at,
+        updated_at: user.updated_at || user.created_at
+      };
+
+      const userProfile: UserProfile = {
+        id: activeProfile.id,
+        email: activeProfile.email,
+        fullName: activeProfile.full_name,
+        role: activeProfile.role as Role,
+        governorateId: activeProfile.governorate_id,
+        points: activeProfile.points || 0,
+        isVerifiedVolunteer: Boolean(activeProfile.is_verified_volunteer),
+        mfaEnabled: Boolean(activeProfile.mfa_enabled),
+        isSuspended: Boolean(activeProfile.is_suspended),
+        createdAt: activeProfile.created_at,
+        updatedAt: activeProfile.updated_at
+      };
+
+      this.currentSession = {
+        token: session.access_token,
+        user: userProfile,
+        expiresAt: session.expires_at ? session.expires_at * 1000 : Date.now() + 3600 * 1000
+      };
 
       this.notifyListeners();
     } catch (_) {
@@ -609,6 +627,109 @@ class NafasAuthService {
     return {
       success: true,
       messageAr: 'تم إلغاء عامل المصادقة بنجاح.'
+    };
+  }
+
+  /**
+   * Google OAuth Sign In
+   * Uses Supabase Auth with Google Identity Provider and account selector prompt
+   */
+  public async signInWithGoogle(): Promise<{ url?: string }> {
+    if (!this.isConfigured()) {
+      throw new Error('بوابة المصادقة السحابية (Supabase Auth) غير متصلة حالياً.');
+    }
+
+    const supabase = getSupabaseClient();
+    const base = getBasePath();
+    const redirectUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}${base ? `${base}/` : '/'}`
+      : 'https://mahamadfared1029-spec.github.io/nafas-iraq/';
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        queryParams: {
+          prompt: 'select_account',
+          access_type: 'offline'
+        },
+        redirectTo: redirectUrl
+      }
+    });
+
+    if (error) {
+      throw new Error(`فشل تسجيل الدخول عبر Google: ${error.message}`);
+    }
+
+    return { url: data?.url };
+  }
+
+  /**
+   * Set or update Founder Administrative PIN
+   * Requires authenticated super_admin session with verified AAL2
+   */
+  public async setFounderPin(pin: string): Promise<{ success: boolean; messageAr: string }> {
+    const cleanPin = pin ? pin.trim() : '';
+    if (!cleanPin || cleanPin.length < 4 || cleanPin.length > 8 || !/^[0-9]+$/.test(cleanPin)) {
+      throw new Error('الرمز السري الإداري يجب أن يتكون من 4 إلى 8 أرقام فقط.');
+    }
+
+    const hasAal2 = await this.verifyAal2Assurance();
+    if (!hasAal2) {
+      throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
+    }
+
+    const currentUser = this.getCurrentUser();
+    if (!currentUser || currentUser.role !== 'super_admin') {
+      throw new Error('غير مصرح لك بضبط الرمز الإداري. هذه الميزة مخصصة للمشرف العام فقط.');
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.rpc('set_founder_pin', { p_pin: cleanPin });
+
+    if (error) {
+      throw new Error(`فشل ضبط الرمز الإداري: ${error.message}`);
+    }
+
+    return {
+      success: true,
+      messageAr: data?.message || 'تم حفظ الرمز السري الإداري بنجاح وتأمينه بالتشفير المتقدم.'
+    };
+  }
+
+  /**
+   * Verify Founder Administrative PIN
+   * Invokes rate-limited server-side cryptographic verification
+   */
+  public async verifyFounderPin(pin: string): Promise<{ success: boolean; messageAr: string }> {
+    const cleanPin = pin ? pin.trim() : '';
+    if (!cleanPin) {
+      throw new Error('يرجى إدخال الرمز السري.');
+    }
+
+    const hasAal2 = await this.verifyAal2Assurance();
+    if (!hasAal2) {
+      throw new Error('403 Forbidden: هذا الإجراء الإداري يتطلب التحقق الثنائي النشط (AAL2 Required).');
+    }
+
+    const currentUser = this.getCurrentUser();
+    if (!currentUser || currentUser.role !== 'super_admin') {
+      throw new Error('غير مصرح. التحقق من الرمز الإداري مخصص للمشرف العام فقط.');
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.rpc('verify_founder_pin', { p_pin: cleanPin });
+
+    if (error) {
+      throw new Error(`فشل التحقق من الرمز: ${error.message}`);
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'الرمز السري غير صحيح.');
+    }
+
+    return {
+      success: true,
+      messageAr: data?.message || 'تم التحقق من الرمز السري بنجاح.'
     };
   }
 

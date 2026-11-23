@@ -19,6 +19,7 @@ import {
 import { TRANSLATIONS, TranslationDictionary } from './i18n';
 import { NafasApiClient } from './server/apiClient';
 import { nafasReports } from './reports/reportService';
+import { nafasAuth } from './auth/authService';
 
 export interface UserPassport {
   userName: string;
@@ -112,10 +113,25 @@ const DEMO_FIXTURE_PASSPORT: UserPassport = {
 };
 
 export function NafasProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<Role>('citizen');
+  const [role, setRole] = useState<Role>(() => {
+    const user = nafasAuth.getCurrentUser();
+    return user ? user.role : 'guest';
+  });
   const [language, setLanguage] = useState<Language>('ar');
   const [season, setSeason] = useState<Season>('auto');
   const [selectedGovernorateId, setSelectedGovernorateId] = useState<string>('all');
+  
+  // Synchronize authoritative role directly from server session
+  useEffect(() => {
+    const unsub = nafasAuth.onAuthStateChange((session) => {
+      if (session?.user) {
+        setRole(session.user.role || 'citizen');
+      } else {
+        setRole('guest');
+      }
+    });
+    return unsub;
+  }, []);
   
   // Production default is strictly false: Zero fabricated reports on live public launch
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);

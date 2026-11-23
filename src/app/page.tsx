@@ -21,6 +21,7 @@ import { AuthModal, AuthModalMode } from '@/components/auth/AuthModal';
 import { FounderCommandCenter } from '@/components/admin/FounderCommandCenter';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
 import { getBasePath } from '@/lib/basePath';
+import { nafasAuth } from '@/lib/auth/authService';
 import { 
   ArrowRight, 
   MapPin, 
@@ -65,10 +66,21 @@ export default function HomePage() {
   const [rewardsModalOpen, setRewardsModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('login');
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [commandCenterOpen, setCommandCenterOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<EnvironmentalReport | null>(null);
   const [selectedCertificate, setSelectedCertificate] = useState<IssuedCertificate | null>(null);
   const [pinnedCoords, setPinnedCoords] = useState<{ lat: number; lng: number; governorateId: string } | null>(null);
+
+  const handleRequireAuth = (action: () => void, mode: AuthModalMode = 'login', noticeText?: string) => {
+    if (!nafasAuth.isAuthenticated()) {
+      setAuthModalMode(mode);
+      setAuthNotice(noticeText || 'يرجى تسجيل الدخول أو إنشاء حساب للمتابعة.');
+      setAuthModalOpen(true);
+      return;
+    }
+    action();
+  };
 
   // Sync with browser back navigation, initial hash, and refresh
   useEffect(() => {
@@ -182,15 +194,34 @@ export default function HomePage() {
         activeTab={currentView}
         setActiveTab={navigateTo}
         onOpenReportModal={() => {
-          setPinnedCoords(null);
-          setReportModalOpen(true);
+          handleRequireAuth(
+            () => {
+              setPinnedCoords(null);
+              setReportModalOpen(true);
+            },
+            'register',
+            'يرجى تسجيل الدخول أو إنشاء حساب مواطن للمشاركة في الإبلاغ عن الانتهاكات البيئية وحماية بيئة العراق.'
+          );
         }}
-        onOpenPassportModal={() => setPassportModalOpen(true)}
+        onOpenPassportModal={() => {
+          handleRequireAuth(
+            () => setPassportModalOpen(true),
+            'login',
+            'جواز نَفَس البيئي مخصص للمواطنين المسجلين لجمع نقاط الأثر ونيل الأوسمة والشهادات.'
+          );
+        }}
         onOpenAuthModal={(mode?: AuthModalMode) => {
           setAuthModalMode(mode || 'login');
+          setAuthNotice(null);
           setAuthModalOpen(true);
         }}
-        onOpenCommandCenter={() => setCommandCenterOpen(true)}
+        onOpenCommandCenter={() => {
+          handleRequireAuth(
+            () => setCommandCenterOpen(true),
+            'login',
+            'مركز القيادة والرقابة البيئية مخصص للمشرفين العامين وأعضاء الكادر الإداري المعتمدين.'
+          );
+        }}
       />
 
       {/* 2. Main Content Area */}
@@ -203,11 +234,29 @@ export default function HomePage() {
           <HomeDashboard
             onNavigate={navigateTo}
             onOpenReportModal={() => {
-              setPinnedCoords(null);
-              setReportModalOpen(true);
+              handleRequireAuth(
+                () => {
+                  setPinnedCoords(null);
+                  setReportModalOpen(true);
+                },
+                'register',
+                'يرجى تسجيل الدخول أو إنشاء حساب مواطن للمشاركة في الإبلاغ عن الانتهاكات البيئية وحماية بيئة العراق.'
+              );
             }}
-            onOpenPassportModal={() => setPassportModalOpen(true)}
-            onOpenRewardsModal={() => setRewardsModalOpen(true)}
+            onOpenPassportModal={() => {
+              handleRequireAuth(
+                () => setPassportModalOpen(true),
+                'login',
+                'جواز نَفَس البيئي مخصص للمواطنين المسجلين لجمع نقاط الأثر ونيل الأوسمة والشهادات.'
+              );
+            }}
+            onOpenRewardsModal={() => {
+              handleRequireAuth(
+                () => setRewardsModalOpen(true),
+                'login',
+                'استبدال النقاط بالمكافآت البيئية يتطلب حساباً موثقاً.'
+              );
+            }}
           />
         )}
 
@@ -258,7 +307,13 @@ export default function HomePage() {
                   <IraqEnvironmentalMap
                     initialLayer={currentView === 'map-3d' ? '3d' : undefined}
                     onSelectReport={(report) => setSelectedReport(report)}
-                    onOpenReportModalWithCoords={handleOpenReportWithCoords}
+                    onOpenReportModalWithCoords={(lat, lng, gov) => {
+                      handleRequireAuth(
+                        () => handleOpenReportWithCoords(lat, lng, gov),
+                        'register',
+                        'يرجى تسجيل الدخول أو إنشاء حساب مواطن للإبلاغ عن الانتهاك البيئي في هذا الموقع.'
+                      );
+                    }}
                   />
                 </div>
               )}
@@ -268,6 +323,11 @@ export default function HomePage() {
                 <div className="max-w-5xl mx-auto px-4">
                   <CampaignList
                     onViewCertificate={(cert) => setSelectedCertificate(cert)}
+                    onRequireAuth={(notice) => {
+                      setAuthModalMode('register');
+                      setAuthNotice(notice || 'يرجى تسجيل الدخول أو إنشاء حساب للمتابعة.');
+                      setAuthModalOpen(true);
+                    }}
                   />
                 </div>
               )}
@@ -312,10 +372,22 @@ export default function HomePage() {
         currentView={currentView}
         onNavigate={navigateTo}
         onOpenReportModal={() => {
-          setPinnedCoords(null);
-          setReportModalOpen(true);
+          handleRequireAuth(
+            () => {
+              setPinnedCoords(null);
+              setReportModalOpen(true);
+            },
+            'register',
+            'يرجى تسجيل الدخول أو إنشاء حساب مواطن للمشاركة في الإبلاغ عن الانتهاكات البيئية وحماية بيئة العراق.'
+          );
         }}
-        onOpenPassportModal={() => setPassportModalOpen(true)}
+        onOpenPassportModal={() => {
+          handleRequireAuth(
+            () => setPassportModalOpen(true),
+            'login',
+            'جواز نَفَس البيئي مخصص للمواطنين المسجلين لجمع نقاط الأثر ونيل الأوسمة والشهادات.'
+          );
+        }}
       />
 
       {/* 4. Modals & Overlays */}
@@ -351,8 +423,12 @@ export default function HomePage() {
 
       <AuthModal
         isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setAuthNotice(null);
+        }}
         initialMode={authModalMode}
+        notice={authNotice}
       />
 
       <FounderCommandCenter

@@ -97,7 +97,7 @@ export class NafasReportService {
 
     const supabase = getSupabaseClient();
     const currentUser = nafasAuth.getCurrentUser();
-    const userId = currentUser?.id || 'anonymous';
+    const userId = currentUser ? currentUser.id : 'guest-upload';
     const ext = file.name.split('.').pop() || 'webp';
     const randId = Math.random().toString(36).substring(2, 10);
     // User-isolated storage namespace: reports/{userId}/{governorateId}/{filename}
