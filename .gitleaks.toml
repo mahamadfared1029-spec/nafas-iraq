@@ -35,9 +35,15 @@ tags = ["worker", "secret"]
 keywords = ["worker_secret"]
 
 [allowlist]
-description = "Global Allowlist for documentation templates and scanner configuration"
+description = "Global Allowlist for documentation templates, botanical dataset UUIDs, and static 3D HTML asset embeds"
 paths = [
   '''^\.env\.example$''',
   '''^scripts/secret-scan\.mjs$''',
-  '''^\.gitleaks\.toml$'''
+  '''^\.gitleaks\.toml$''',
+  '''^_next/''',
+  '''^out/''',
+  '''(^|/)nafas-plants\.json$''',
+  '''(^|/)nafas-iraq-3d\.html$''',
+  '''(^|/)intro\.html$''',
+  '''(^|/)nafAS-intro\.html$'''
 ]
