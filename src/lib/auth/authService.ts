@@ -640,8 +640,12 @@ class NafasAuthService {
     }
 
     const supabase = getSupabaseClient();
+    const redirectUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}/#reset-password`
+      : 'https://mahamadfared1029-spec.github.io/nafas-iraq/#reset-password';
+
     const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-      redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/#reset-password` : undefined
+      redirectTo: redirectUrl
     });
 
     if (error) {
