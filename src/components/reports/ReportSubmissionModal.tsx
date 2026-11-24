@@ -224,6 +224,28 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
 
     try {
       const sanitized = await stripImageMetadata(file);
+
+      // Fail-closed security: Require sanitized.stripped === true
+      if (!sanitized || sanitized.stripped !== true) {
+        setImageError('فشلت معالجة وتجريد بيانات الموقع والكاميرا الحساسة (EXIF) من الصورة. تم رفض الرفع حمايةً لخصوصيتك.');
+        setImageFile(null);
+        setImageFileName('');
+        setImageFileSize(0);
+        setImagePreview('');
+        return;
+      }
+
+      // Revalidate post-conversion file
+      const postValidation = nafasReports.validateImageFile(sanitized.file);
+      if (!postValidation.valid) {
+        setImageError(postValidation.error || 'ملف الصورة غير صالح بعد تجريد البيانات.');
+        setImageFile(null);
+        setImageFileName('');
+        setImageFileSize(0);
+        setImagePreview('');
+        return;
+      }
+
       const cleanFile = sanitized.file;
       setImageFile(cleanFile);
       setImageFileName(cleanFile.name);
@@ -238,15 +260,12 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
       };
       reader.readAsDataURL(cleanFile);
     } catch {
-      setImageFile(file);
-      setImageFileName(file.name);
-      setImageFileSize(file.size);
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setImagePreview(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      // Fail-closed: Never fall back to unsanitized original file
+      setImageError('تعذر معالجة وتجريد بيانات الصورة الحساسة لحماية الخصوصية. تم إيقاف الرفع التزاماً بضوابط الأمان.');
+      setImageFile(null);
+      setImageFileName('');
+      setImageFileSize(0);
+      setImagePreview('');
     }
   };
 

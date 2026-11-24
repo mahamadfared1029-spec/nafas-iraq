@@ -508,7 +508,10 @@ class NafasAuthService {
   }
 
   /**
-   * Enroll a new TOTP factor for user-facing MFA setup
+   * Enroll a new TOTP factor for user-facing MFA setup.
+   * SAFETY PROTOCOL:
+   * - Automatically cleans ONLY unverified factors from previous incomplete sessions.
+   * - NEVER removes or deletes active verified factors on enrollment retries or errors.
    */
   public async enrollMfaFactor(): Promise<MfaEnrollmentResult> {
     if (!this.isAuthenticated()) {
@@ -521,12 +524,13 @@ class NafasAuthService {
 
     const supabase = getSupabaseClient();
 
-    // 1. Proactively auto-clean any unverified or stale factors
+    // 1. Proactively auto-clean ONLY unverified factors from previous incomplete attempts.
+    // STRICT RULE: Never delete or unenroll verified factors.
     try {
       const { data: existingFactors } = await supabase.auth.mfa.listFactors();
       const allFactors = existingFactors?.all || existingFactors?.totp || [];
       for (const factor of allFactors) {
-        if (factor.status !== 'verified') {
+        if (factor.status === 'unverified') {
           try {
             await supabase.auth.mfa.unenroll({ factorId: factor.id });
           } catch (_) {}
@@ -542,17 +546,20 @@ class NafasAuthService {
       friendlyName: uniqueFriendlyName
     });
 
-    // 3. If an error occurs on duplicate factors or collisions, attempt deep cleanup and retry
+    // 3. If an error occurs on duplicate unverified factors, clean ONLY unverified factors and retry
+    // SAFETY RULE: Never delete verified factors as a generic recovery mechanism
     if (enrollRes.error) {
       const errMsg = enrollRes.error.message || '';
-      if (errMsg.includes('already exists') || errMsg.includes('friendly name') || errMsg.includes('maximum')) {
+      if (errMsg.includes('already exists') || errMsg.includes('friendly name')) {
         try {
           const { data: list } = await supabase.auth.mfa.listFactors();
           const all = list?.all || list?.totp || [];
           for (const factor of all) {
-            try {
-              await supabase.auth.mfa.unenroll({ factorId: factor.id });
-            } catch (_) {}
+            if (factor.status === 'unverified') {
+              try {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id });
+              } catch (_) {}
+            }
           }
           enrollRes = await supabase.auth.mfa.enroll({
             factorType: 'totp',
@@ -566,8 +573,8 @@ class NafasAuthService {
     const { data, error } = enrollRes;
 
     if (error || !data || !data.totp) {
-      if (error?.message?.includes('already exists') || error?.message?.includes('friendly name')) {
-        throw new Error('يوجد إعداد سابق للمصادقة الثنائية على هذا الحساب. يرجى إلغاء الربط السابق أو إعادة المحاولة.');
+      if (error?.message?.includes('already exists') || error?.message?.includes('friendly name') || error?.message?.includes('maximum')) {
+        throw new Error('يوجد عامل مصادقة ثنائية مفعل ونشط بالفعل على هذا الحساب. لاستبدال المفتاح النشط، يرجى تأكيد الاستبدال صراحة عبر إجراء الاستبدال الآمن.');
       }
       throw new Error(`فشل تهيئة المصادقة الثنائية: ${error?.message || 'خطأ غير معروف'}`);
     }
@@ -581,9 +588,15 @@ class NafasAuthService {
   }
 
   /**
-   * Verify and activate TOTP factor enrollment with a 6-digit code
+   * Verify and activate TOTP factor enrollment with a 6-digit code.
+   * If replacing an existing active verified factor, safely retires the old factor
+   * ONLY AFTER the new factor is successfully verified and active.
    */
-  public async verifyMfaEnrollment(factorId: string, code: string): Promise<{ success: boolean; messageAr: string }> {
+  public async verifyMfaEnrollment(
+    factorId: string, 
+    code: string,
+    replaceOldFactorId?: string
+  ): Promise<{ success: boolean; messageAr: string }> {
     const cleanCode = code ? code.trim() : '';
     if (!factorId || cleanCode.length !== 6) {
       throw new Error('يرجى إدخال رمز التحقق المكون من 6 أرقام من تطبيق المصادقة.');
@@ -601,6 +614,15 @@ class NafasAuthService {
 
     if (error) {
       throw new Error(`رمز المصادقة غير صحيح أو منتهي الصلاحية: ${error.message}`);
+    }
+
+    // Secure replacement procedure: retire previous factor ONLY after new factor is verified
+    if (replaceOldFactorId && replaceOldFactorId !== factorId) {
+      try {
+        await supabase.auth.mfa.unenroll({ factorId: replaceOldFactorId });
+      } catch (unenrollErr: any) {
+        console.warn('Failed to retire replaced factor:', unenrollErr?.message);
+      }
     }
 
     const currentUser = this.getCurrentUser();
@@ -639,23 +661,130 @@ class NafasAuthService {
   }
 
   /**
-   * Unenroll an existing MFA factor
+   * Check whether user has at least one active, verified MFA factor enrolled in Supabase
    */
-  public async unenrollMfaFactor(factorId: string): Promise<{ success: boolean; messageAr: string }> {
+  public async hasVerifiedMfaFactor(): Promise<boolean> {
+    if (!this.isConfigured() || !this.isAuthenticated()) return false;
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error || !data) return false;
+      const verified = (data.all || data.totp || []).some((f: any) => f.status === 'verified');
+      return verified;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * Get current session's actual Authenticator Assurance Level ('aal1' | 'aal2')
+   */
+  public async getSessionAssuranceLevel(): Promise<'aal1' | 'aal2'> {
+    if (!this.isConfigured() || !this.isAuthenticated()) return 'aal1';
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (error || !data) return 'aal1';
+      return data.currentLevel === 'aal2' ? 'aal2' : 'aal1';
+    } catch (_) {
+      return 'aal1';
+    }
+  }
+
+  /**
+   * Get complete MFA status, clearly distinguishing enrolled verified factors
+   * from the current session's actual AAL2 status
+   */
+  public async getMfaSecuritySummary(): Promise<{
+    hasVerifiedFactor: boolean;
+    sessionAssuranceLevel: 'aal1' | 'aal2';
+    verifiedFactorCount: number;
+    unverifiedFactorCount: number;
+  }> {
+    if (!this.isConfigured() || !this.isAuthenticated()) {
+      return {
+        hasVerifiedFactor: false,
+        sessionAssuranceLevel: 'aal1',
+        verifiedFactorCount: 0,
+        unverifiedFactorCount: 0
+      };
+    }
+
+    try {
+      const supabase = getSupabaseClient();
+      const [factorsRes, aalRes] = await Promise.all([
+        supabase.auth.mfa.listFactors(),
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      ]);
+
+      const all = factorsRes.data?.all || factorsRes.data?.totp || [];
+      const verified = all.filter((f: any) => f.status === 'verified');
+      const unverified = all.filter((f: any) => f.status === 'unverified');
+      const level = aalRes.data?.currentLevel === 'aal2' ? 'aal2' : 'aal1';
+
+      return {
+        hasVerifiedFactor: verified.length > 0,
+        sessionAssuranceLevel: level,
+        verifiedFactorCount: verified.length,
+        unverifiedFactorCount: unverified.length
+      };
+    } catch (_) {
+      return {
+        hasVerifiedFactor: false,
+        sessionAssuranceLevel: 'aal1',
+        verifiedFactorCount: 0,
+        unverifiedFactorCount: 0
+      };
+    }
+  }
+
+  /**
+   * Unenroll an existing MFA factor.
+   * SAFETY PROTOCOL:
+   * - Retiring an active verified factor requires explicit user confirmation
+   *   and an active AAL2 session to prevent accidental administrative lockout.
+   * - Unverified (stale) factors may be unenrolled freely during cleanup.
+   */
+  public async unenrollMfaFactor(
+    factorId: string,
+    confirmExplicit = false
+  ): Promise<{ success: boolean; messageAr: string }> {
     if (!this.isConfigured() || !this.isAuthenticated()) {
       throw new Error('يجب تسجيل الدخول لإلغاء عامل المصادقة.');
     }
+
+    if (!factorId) {
+      throw new Error('معرف عامل المصادقة مطلوب لإتمام الإلغاء.');
+    }
+
     const supabase = getSupabaseClient();
+
+    // Check if the target factor is currently verified
+    const { data: factorList } = await supabase.auth.mfa.listFactors();
+    const targetFactor = (factorList?.all || factorList?.totp || []).find((f: any) => f.id === factorId);
+
+    if (targetFactor && targetFactor.status === 'verified') {
+      if (!confirmExplicit) {
+        throw new Error('إلغاء مفتاح المصادقة النشط يتطلب تأكيداً صريحاً لحماية الحساب من التعطيل غير المقصود.');
+      }
+
+      // Check session assurance before allowing removal of an active verified factor
+      const hasAal2 = await this.verifyAal2Assurance();
+      if (!hasAal2) {
+        throw new Error('403 Forbidden: إلغاء مفتاح المصادقة النشط يتطلب جلسة مؤكدة بالتحقق الثنائي النشط (AAL2).');
+      }
+    }
+
     const { error } = await supabase.auth.mfa.unenroll({ factorId });
     if (error) {
       throw new Error(`فشل إلغاء عامل المصادقة: ${error.message}`);
     }
 
     const { data: remaining } = await supabase.auth.mfa.listFactors();
-    const hasRemaining = (remaining?.totp?.length || 0) > 0;
+    const hasRemainingVerified = (remaining?.all || remaining?.totp || []).some((f: any) => f.status === 'verified');
 
     const currentUser = this.getCurrentUser();
-    if (currentUser && !hasRemaining) {
+    if (currentUser && !hasRemainingVerified) {
       await supabase
         .from('profiles')
         .update({ mfa_enabled: false, updated_at: new Date().toISOString() })

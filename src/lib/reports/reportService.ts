@@ -96,9 +96,26 @@ export class NafasReportService {
       throw new Error(validation.error || 'ملف الصورة غير صالح');
     }
 
-    // Client-side EXIF/metadata stripping before network transmission
-    const sanitized = await stripImageMetadata(file);
+    // Client-side EXIF/metadata stripping before network transmission (Fail-Closed Protection)
+    let sanitized;
+    try {
+      sanitized = await stripImageMetadata(file);
+    } catch (err: any) {
+      throw new Error(`فشلت معالجة وتجريد البيانات الوصفية (EXIF) من الصورة: ${err?.message || 'خطأ غير معروف'}. تم إيقاف الرفع التزاماً بسياسة الخصوصية وحماية هوية المبلغين.`);
+    }
+
+    // Require sanitized.stripped === true; never silently upload an unsanitized original
+    if (!sanitized || sanitized.stripped !== true) {
+      throw new Error('فشلت معالجة وتجريد بيانات الموقع والكاميرا الحساسة (EXIF) من الصورة. تم إيقاف الرفع التزاماً بسياسة الخصوصية وحماية هوية المبلغين.');
+    }
+
     const fileToUpload = sanitized.file;
+
+    // Revalidate file type and size after conversion
+    const postValidation = this.validateImageFile(fileToUpload);
+    if (!postValidation.valid) {
+      throw new Error(postValidation.error || 'ملف الصورة المعالج غير صالح بعد تجريد البيانات.');
+    }
 
     const supabase = getSupabaseClient();
     const currentUser = nafasAuth.getCurrentUser();

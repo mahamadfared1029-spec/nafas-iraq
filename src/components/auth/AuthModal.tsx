@@ -20,7 +20,8 @@ import {
   EyeOff,
   Info,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { nafasAuth, MfaEnrollmentResult } from '@/lib/auth/authService';
 import { getSupabaseUrl } from '@/lib/supabase/client';
@@ -96,6 +97,8 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [mfaEnrolledSuccess, setMfaEnrolledSuccess] = useState(false);
   const [alreadyEnrolledFactor, setAlreadyEnrolledFactor] = useState<any | null>(null);
+  const [replacingFactorId, setReplacingFactorId] = useState<string | null>(null);
+  const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
 
   // General States
   const [loading, setLoading] = useState(false);
@@ -155,11 +158,11 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
 
   if (!isOpen) return null;
 
-  const startMfaEnrollment = async (forceReset: boolean = false) => {
+  const startMfaEnrollment = async (replacingId?: string) => {
     setError(null);
     setLoading(true);
     try {
-      if (!forceReset) {
+      if (!replacingId) {
         const factors = await nafasAuth.listMfaFactors();
         const verified = (factors.all || factors.totp || []).find((f: any) => f.status === 'verified');
         if (verified) {
@@ -167,15 +170,6 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
           setLoading(false);
           return;
         }
-      } else {
-        const factors = await nafasAuth.listMfaFactors();
-        for (const f of factors.all || []) {
-          try {
-            await nafasAuth.unenrollMfaFactor(f.id);
-          } catch (_) {}
-        }
-        setAlreadyEnrolledFactor(null);
-        setQrCodeSvg('');
       }
 
       const res: MfaEnrollmentResult = await nafasAuth.enrollMfaFactor();
@@ -183,6 +177,8 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
       setQrCodeSvg(res.qrCodeSvg);
       setTotpSecret(res.secret);
       setTotpUri(res.uri || '');
+      setReplacingFactorId(replacingId || null);
+      setConfirmReplaceOpen(false);
       setAlreadyEnrolledFactor(null);
     } catch (err: any) {
       setError(err?.message || 'فشل تهيئة المصادقة الثنائية.');
@@ -315,9 +311,14 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
     setError(null);
     setLoading(true);
     try {
-      const res = await nafasAuth.verifyMfaEnrollment(enrollFactorId, enrollCode);
+      const res = await nafasAuth.verifyMfaEnrollment(
+        enrollFactorId, 
+        enrollCode, 
+        replacingFactorId || undefined
+      );
       setSuccessMessage(res.messageAr);
       setMfaEnrolledSuccess(true);
+      setReplacingFactorId(null);
       setTimeout(() => {
         onClose();
       }, 1200);
@@ -881,42 +882,73 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
                   <div>
                     <h4 className="font-bold text-sm text-emerald-900 mb-1">المصادقة الثنائية مفعلة ونشطة بالفعل</h4>
                     <p className="text-xs text-emerald-700 leading-relaxed">
-                      حسابك محمي بتطبيق المصادقة (Google Authenticator) ويعمل ببروتوكول الأمان العالي (AAL2).
+                      حسابك محمي بتطبيق المصادقة (Google Authenticator) ومسجل ببروتوكول الأمان العالي (AAL2).
                     </p>
                   </div>
-                  <div className="pt-2 flex flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={() => startMfaEnrollment(true)}
-                      disabled={loading}
-                      className="w-full py-2.5 px-3 bg-white hover:bg-gray-50 text-[#62467D] font-bold text-xs rounded-xl border border-[#62467D]/30 transition-all flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                      <span>إعادة ضبط المفتاح وتوليد رمز QR جديد</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="w-full py-2 px-3 bg-[#62467D] hover:bg-[#52386A] text-white font-bold text-xs rounded-xl shadow-xs"
-                    >
-                      تم، إغلاق
-                    </button>
-                  </div>
+
+                  {confirmReplaceOpen ? (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-2.5 text-right">
+                      <p className="font-bold flex items-center gap-1.5 text-amber-800">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>تأكيد استبدال مفتاح المصادقة (إجراء آمن ضد الانقطاع):</span>
+                      </p>
+                      <p className="text-[11px] leading-relaxed">
+                        سيظل مفتاحك الحالي نشطاً لحماية حسابك ولن يتم إلغاؤه إلا بعد مسح الرمز الجديد وتأكيد رمز التحقق بنجاح.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => startMfaEnrollment(alreadyEnrolledFactor.id)}
+                          disabled={loading}
+                          className="flex-1 py-2 px-3 bg-[#62467D] hover:bg-[#52386A] text-white font-bold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                          <span>متابعة وتوليد رمز QR الجديد</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmReplaceOpen(false)}
+                          className="py-2 px-3 bg-white border border-gray-300 text-gray-700 font-semibold rounded-lg text-xs hover:bg-gray-50"
+                        >
+                          إلغاء
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-2 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmReplaceOpen(true)}
+                        disabled={loading}
+                        className="w-full py-2.5 px-3 bg-white hover:bg-gray-50 text-[#62467D] font-bold text-xs rounded-xl border border-[#62467D]/30 transition-all flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        <span>استبدال مفتاح المصادقة بمفتاح جديد</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="w-full py-2 px-3 bg-[#62467D] hover:bg-[#52386A] text-white font-bold text-xs rounded-xl shadow-xs"
+                      >
+                        تم، إغلاق
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Error fallback with one-click cleanup and retry */}
+              {/* Error fallback with safe retry (cleans ONLY unverified factors) */}
               {error && !qrCodeSvg && !alreadyEnrolledFactor && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-center space-y-2.5">
                   <p className="text-xs text-red-700 font-semibold">{error}</p>
                   <button
                     type="button"
-                    onClick={() => startMfaEnrollment(true)}
+                    onClick={() => startMfaEnrollment()}
                     disabled={loading}
                     className="w-full py-2 px-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                    <span>تنظيف الجلسات السابقة وتوليد رمز QR جديد</span>
+                    <span>تنظيف المحاولات المعلقة وإعادة المحاولة</span>
                   </button>
                 </div>
               )}
