@@ -520,9 +520,20 @@ class NafasAuthService {
     }
 
     const supabase = getSupabaseClient();
+
+    // Auto-clean any pending unverified factors from previous incomplete sessions
+    try {
+      const { data: existingFactors } = await supabase.auth.mfa.listFactors();
+      const unverified = existingFactors?.all?.filter(f => f.status === 'unverified') || [];
+      for (const factor of unverified) {
+        await supabase.auth.mfa.unenroll({ factorId: factor.id });
+      }
+    } catch (_) {}
+
     const { data, error } = await supabase.auth.mfa.enroll({
       factorType: 'totp',
-      issuer: 'NAFAS (نَفَس)'
+      issuer: 'NAFAS (نَفَس)',
+      friendlyName: `NAFAS-TOTP-${Date.now().toString(36)}`
     });
 
     if (error || !data || !data.totp) {
@@ -648,6 +659,7 @@ class NafasAuthService {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        skipBrowserRedirect: true,
         queryParams: {
           prompt: 'select_account',
           access_type: 'offline'
@@ -660,7 +672,30 @@ class NafasAuthService {
       throw new Error(`فشل تسجيل الدخول عبر Google: ${error.message}`);
     }
 
-    return { url: data?.url };
+    if (!data?.url) {
+      throw new Error('لم يتم استلام رابط تسجيل الدخول من خادم Google.');
+    }
+
+    // Pre-flight probe to catch "provider is not enabled" before sending user to a raw JSON error page
+    try {
+      const probe = await fetch(data.url);
+      if (!probe.ok) {
+        const probeJson = await probe.json().catch(() => null);
+        if (probeJson?.msg?.includes('provider is not enabled') || probeJson?.error_code === 'validation_failed') {
+          throw new Error('تسجيل الدخول عبر Google يتطلب تفعيل مزوّد Google في لوحة تحكم Supabase > Auth > Providers. يمكنك استخدام تسجيل الدخول بالبريد وكلمة المرور حالياً.');
+        }
+      }
+    } catch (probeErr: any) {
+      if (probeErr?.message?.includes('Google يتطلب تفعيل')) {
+        throw probeErr;
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.location.href = data.url;
+    }
+
+    return { url: data.url };
   }
 
   /**
