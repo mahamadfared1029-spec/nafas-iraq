@@ -521,43 +521,54 @@ class NafasAuthService {
 
     const supabase = getSupabaseClient();
 
-    // Auto-clean any pending unverified factors from previous incomplete sessions
+    // 1. Proactively auto-clean any unverified or stale factors
     try {
       const { data: existingFactors } = await supabase.auth.mfa.listFactors();
-      const unverified = (existingFactors?.all || []).filter(
-        (f: any) => f.status === 'unverified' || !f.status
-      );
-      for (const factor of unverified) {
-        await supabase.auth.mfa.unenroll({ factorId: factor.id });
+      const allFactors = existingFactors?.all || existingFactors?.totp || [];
+      for (const factor of allFactors) {
+        if (factor.status !== 'verified') {
+          try {
+            await supabase.auth.mfa.unenroll({ factorId: factor.id });
+          } catch (_) {}
+        }
       }
     } catch (_) {}
 
+    // 2. Generate a guaranteed-unique friendly name
+    const uniqueFriendlyName = `NAFAS-TOTP-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
     let enrollRes = await supabase.auth.mfa.enroll({
       factorType: 'totp',
       issuer: 'NAFAS',
-      friendlyName: `NAFAS-TOTP-${Date.now().toString(36)}`
+      friendlyName: uniqueFriendlyName
     });
 
-    // If collision occurs on unverified factor, clean and retry
-    if (enrollRes.error && enrollRes.error.message.includes('already exists')) {
-      try {
-        const { data: list } = await supabase.auth.mfa.listFactors();
-        for (const factor of list?.all || []) {
-          if (factor.status !== 'verified') {
-            await supabase.auth.mfa.unenroll({ factorId: factor.id });
+    // 3. If an error occurs on duplicate factors or collisions, attempt deep cleanup and retry
+    if (enrollRes.error) {
+      const errMsg = enrollRes.error.message || '';
+      if (errMsg.includes('already exists') || errMsg.includes('friendly name') || errMsg.includes('maximum')) {
+        try {
+          const { data: list } = await supabase.auth.mfa.listFactors();
+          const all = list?.all || list?.totp || [];
+          for (const factor of all) {
+            try {
+              await supabase.auth.mfa.unenroll({ factorId: factor.id });
+            } catch (_) {}
           }
-        }
-        enrollRes = await supabase.auth.mfa.enroll({
-          factorType: 'totp',
-          issuer: 'NAFAS',
-          friendlyName: `NAFAS-TOTP-${Date.now().toString(36)}`
-        });
-      } catch (_) {}
+          enrollRes = await supabase.auth.mfa.enroll({
+            factorType: 'totp',
+            issuer: 'NAFAS',
+            friendlyName: `NAFAS-TOTP-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+          });
+        } catch (_) {}
+      }
     }
 
     const { data, error } = enrollRes;
 
     if (error || !data || !data.totp) {
+      if (error?.message?.includes('already exists') || error?.message?.includes('friendly name')) {
+        throw new Error('يوجد إعداد سابق للمصادقة الثنائية على هذا الحساب. يرجى إلغاء الربط السابق أو إعادة المحاولة.');
+      }
       throw new Error(`فشل تهيئة المصادقة الثنائية: ${error?.message || 'خطأ غير معروف'}`);
     }
 
