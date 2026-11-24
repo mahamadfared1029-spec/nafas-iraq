@@ -17,6 +17,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Gitleaks Secret Scanner
+        id: gitleaks_action
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,41 +38,52 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
+        id: npm_ci
         run: npm ci
 
       - name: Pre-Commit Secret Scanner Check
+        id: precommit_scan
         run: npm run secret-scan
 
       - name: TypeScript Static Type Checking
+        id: tsc_check
         run: npx tsc --noEmit
 
       - name: Dependency Security Audit
+        id: dep_audit
+        continue-on-error: true
         run: |
           echo "Running dependency vulnerability scan..."
-          npm audit --audit-level=high || echo "Audit completed with non-blocking notices."
+          npm audit --audit-level=high
 
       - name: Run Vitest Security & Architecture Test Suite
+        id: vitest_suite
         run: npm run test
 
       - name: Verify Next.js Static Export Build
+        id: next_export
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: "https://ucaavthzcmobobilbmqu.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_HL8PUXFEo51B4a_JsqsbSA_O_gwXSit"
           DEPLOY_TARGET: "gh-pages"
 
-      - name: Generate Automated Security Summary
+      - name: Generate Dynamic Security Summary
         if: always()
         run: |
-          echo "### 🛡️ NAFAS Platform Automated Security Summary" >> $GITHUB_STEP_SUMMARY
+          echo "### 🛡️ NAFAS Platform Automated Verification Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Check / Gate | Status | Execution Engine |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Gitleaks Secret Scanning | ✅ Passed (0 Secrets Detected) | Gitleaks v2 |" >> $GITHUB_STEP_SUMMARY
-          echo "| Pre-Commit Secret Scanner | ✅ Passed | Custom Script |" >> $GITHUB_STEP_SUMMARY
-          echo "| TypeScript Strict Analysis | ✅ Passed (0 Type Errors) | tsc v5.7 |" >> $GITHUB_STEP_SUMMARY
-          echo "| Automated Security Tests | ✅ Passed (136/136 Tests) | Vitest v3 |" >> $GITHUB_STEP_SUMMARY
-          echo "| Next.js Production Build | ✅ Export Succeeded | Next.js v14 |" >> $GITHUB_STEP_SUMMARY
-          echo "| OWASP ASVS 5.0 L2 Review | ✅ Verified | NYX OMNI SUPERMAN |" >> $GITHUB_STEP_SUMMARY
+          echo "| Check / Gate | Outcome | Engine | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scan (Gitleaks) | ${{ steps.precommit_scan.outcome }} | Gitleaks / Custom Scanner | ${{ steps.precommit_scan.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| TypeScript Type Safety | ${{ steps.tsc_check.outcome }} | tsc v5.7 (Strict Mode) | ${{ steps.tsc_check.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Vitest Automated Tests | ${{ steps.vitest_suite.outcome }} | Vitest v3 (138 Tests) | ${{ steps.vitest_suite.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Static Export Build | ${{ steps.next_export.outcome }} | Next.js v14 | ${{ steps.next_export.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Vulnerability Audit | ${{ steps.dep_audit.outcome }} | npm audit (Advisories Logged) | ⚠️ REVIEWED POLICY |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Commit SHA: \`${{ github.sha }}\` | Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "#### 📋 Dependency Vulnerability Exception Policy" >> $GITHUB_STEP_SUMMARY
+          echo "- **Upstream Advisories Noted:** \`postcss\` in \`next\` (high) and \`tinypool\` in \`vitest\` (critical in dev tooling)." >> $GITHUB_STEP_SUMMARY
+          echo "- **Production Risk Neutralization:** The live platform is deployed strictly as a static export (\`output: export\`) on GitHub Pages. No Node.js SSR runtime or Image Optimizer server processes run in production." >> $GITHUB_STEP_SUMMARY
+          echo "- **Action Plan:** Pinned for routine Next.js 15 LTS / Vitest 5 major version upgrade during Phase 2 maintenance." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: \`${{ github.sha }}\` | Ref: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

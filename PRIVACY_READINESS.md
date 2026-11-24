@@ -22,7 +22,7 @@ The NAFAS platform operates under the core principle of **"Citizen Safety & Envi
 | **Password Hash** | Security Credential | `auth.users` (Bcrypt) | Until changed | Cryptographically inaccessible to platform administrators |
 | **Phone Number** | Direct Contact Info | `public.campaign_participants` | 30 days post-campaign | Masked; temporary audited access for verified coordinators only |
 | **GPS Coordinates** | Geolocation Data | `public.reports` | Permanent (anonymized) | Exact coords for municipality; centroid masking for sensitive disputes |
-| **Report Photos** | Media / Evidence | Supabase Storage (`reports`) | Permanent | Stripped of EXIF metadata before public display |
+| **Report Photos** | Media / Evidence | Supabase Storage (`reports`) | Permanent | Stripped of EXIF metadata client-side via Canvas pixel extraction before upload |
 | **MFA TOTP Secret** | High-Security Credential| `auth.mfa_factors` | Until factor revoked | Authenticator device only; inaccessible to staff |
 
 ---

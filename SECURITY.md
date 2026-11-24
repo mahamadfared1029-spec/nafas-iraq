@@ -10,7 +10,7 @@
 
 ## 2. File Upload Hardening
 - Client-side and server-side MIME type verification (restricted to `image/jpeg`, `image/png`, `image/webp`).
-- Max payload cap: 5MB per image.
+- Max payload cap: 10MB (10,485,760 bytes) per image matching frontend and Supabase storage bucket limits.
 - Image stripping of sensitive EXIF metadata before public display.
 
 ## 3. Input Sanitization & Server Boundaries

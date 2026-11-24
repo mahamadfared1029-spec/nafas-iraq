@@ -5,6 +5,7 @@ import { useNafas } from '@/lib/store';
 import { IRAQ_GOVERNORATES, CATEGORY_INFO } from '@/lib/constants';
 import { PollutionCategory, SeverityLevel } from '@/types';
 import { nafasReports } from '@/lib/reports/reportService';
+import { stripImageMetadata } from '@/lib/media/imageSanitizer';
 import { 
   X, 
   MapPin, 
@@ -201,8 +202,8 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
     setGpsMessage(`تم تعيين مركز ${gov.nameAr} كإحداثي تقريبي مؤقت يلزم إقراره.`);
   };
 
-  // Real device image file upload and validation
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Real device image file upload and validation with client-side EXIF/metadata removal
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setImageError(null);
     if (!file) return;
@@ -214,25 +215,39 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
       return;
     }
 
-    // Size limit: 10 MB
+    // Size limit: 10 MB (10,485,760 bytes) matching Supabase Storage bucket policy
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       setImageError('حجم الصورة يتجاوز الحد المسموح به (10 ميغابايت). يرجى تقليل حجمها.');
       return;
     }
 
-    setImageFile(file);
-    setImageFileName(file.name);
-    setImageFileSize(file.size);
+    try {
+      const sanitized = await stripImageMetadata(file);
+      const cleanFile = sanitized.file;
+      setImageFile(cleanFile);
+      setImageFileName(cleanFile.name);
+      setImageFileSize(cleanFile.size);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setImagePreview(event.target?.result as string);
-    };
-    reader.onerror = () => {
-      setImageError('فشلت قراءة ملف الصورة. يرجى المحاولة مجدداً.');
-    };
-    reader.readAsDataURL(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.onerror = () => {
+        setImageError('فشلت قراءة ملف الصورة. يرجى المحاولة مجدداً.');
+      };
+      reader.readAsDataURL(cleanFile);
+    } catch {
+      setImageFile(file);
+      setImageFileName(file.name);
+      setImageFileSize(file.size);
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveImage = () => {

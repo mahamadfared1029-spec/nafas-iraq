@@ -20,6 +20,7 @@ import {
 } from '@/types';
 import { getSupabaseClient, isSupabaseConfigured } from '../supabase/client';
 import { nafasAuth } from '../auth/authService';
+import { stripImageMetadata } from '../media/imageSanitizer';
 
 export interface SubmitReportInput {
   title: string;
@@ -95,10 +96,14 @@ export class NafasReportService {
       throw new Error(validation.error || 'ملف الصورة غير صالح');
     }
 
+    // Client-side EXIF/metadata stripping before network transmission
+    const sanitized = await stripImageMetadata(file);
+    const fileToUpload = sanitized.file;
+
     const supabase = getSupabaseClient();
     const currentUser = nafasAuth.getCurrentUser();
     const userId = currentUser ? currentUser.id : 'guest-upload';
-    const ext = file.name.split('.').pop() || 'webp';
+    const ext = fileToUpload.name.split('.').pop() || 'jpg';
     const randId = Math.random().toString(36).substring(2, 10);
     // User-isolated storage namespace: reports/{userId}/{governorateId}/{filename}
     const storagePath = `reports/${userId}/${governorateId}/${Date.now()}_${randId}.${ext}`;
@@ -106,8 +111,8 @@ export class NafasReportService {
     // 1. Upload to private bucket (Enforces user namespace isolation in storage RLS)
     const { error: uploadError } = await supabase.storage
       .from('report-evidence-private')
-      .upload(storagePath, file, {
-        contentType: file.type,
+      .upload(storagePath, fileToUpload, {
+        contentType: fileToUpload.type,
         upsert: false
       });
 

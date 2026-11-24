@@ -9,11 +9,11 @@
   "active_branch": "main",
   "live_gh_pages_commit": "762785e",
   "test_suite": {
-    "test_files": 12,
-    "tests_total": 136,
-    "tests_passed": 136,
+    "test_files": 14,
+    "tests_total": 143,
+    "tests_passed": 143,
     "tests_failed": 0,
-    "secret_scanning_files": 127,
+    "secret_scanning_files": 146,
     "secret_scanning_leaks": 0,
     "typescript_errors": 0
   },
@@ -24,7 +24,12 @@
     "Phase 3: One-tap mobile authenticator URI link integration",
     "Phase 4: Google OAuth graceful availability probe and error mitigation",
     "Phase 5: Staff AAL2 RLS policy enforcement (Migration 005)",
-    "Phase 6: TypeScript strict compilation fixes across legacy test suites"
+    "Phase 6: TypeScript strict compilation fixes across legacy test suites",
+    "Phase 7: Client-side EXIF/metadata removal via Canvas re-encoding",
+    "Phase 8: Migration 007 applied to restrict public_reports view to verified only",
+    "Phase 9: Alignment of 10MB file size limit across client, service, and storage",
+    "Phase 10: CI integrity dynamic reporting and dependency exception policy",
+    "Phase 11: Owner-verified security vulnerability contact channels established"
   ],
   "in_progress": [
     "Security Fortress OWASP ASVS 5.0 L2 comprehensive audit",

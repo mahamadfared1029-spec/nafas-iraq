@@ -102,7 +102,7 @@ vi.mock('@supabase/supabase-js', () => {
       from: vi.fn((table: string) => {
         let currentData: any[] = [];
         if (table === 'reports') currentData = mockDbReports;
-        else if (table === 'public_reports') currentData = mockDbReports.filter(r => ['verified', 'in_progress', 'pending_verification', 'resolved'].includes(r.status) && !r.is_archived);
+        else if (table === 'public_reports') currentData = mockDbReports.filter(r => ['verified', 'in_progress', 'resolved'].includes(r.status) && !r.is_archived);
         else if (table === 'profiles') currentData = mockDbProfiles;
         else if (table === 'report_audit_logs') currentData = mockDbLogs;
         else if (table === 'notification_outbox') currentData = mockDbOutbox;

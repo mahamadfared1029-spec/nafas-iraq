@@ -66,7 +66,7 @@ The NAFAS platform facilitates citizen reporting of environmental violations and
 ### 3.5 Denial of Service (Resource Exhaustion)
 - **Threat:** Attacker floods database with massive image payloads or hundreds of rapid reports.
 - **Mitigation:**
-  - Client and storage payload cap: 5MB per image.
+  - Client and storage payload cap: 10MB (10,485,760 bytes) per image.
   - Account rate limiting: Maximum 5 reports/hour.
   - Spatial deduplication: Reports within 50m of existing incidents are flagged rather than multiplied.
   - GitHub Pages CDN absorbs edge traffic spikes.

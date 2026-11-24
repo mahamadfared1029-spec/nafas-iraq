@@ -66,7 +66,7 @@
 | **5.1.1** | Input validation on all incoming data | **VERIFIED** | Form inputs sanitized and constrained (length, regex patterns, governorate whitelist). |
 | **5.2.1** | SQL injection prevention | **VERIFIED** | Strict parameterization via Supabase PostgREST client; zero raw string SQL concatenation. |
 | **5.3.1** | Cross-Site Scripting (XSS) prevention | **VERIFIED** | React JSX auto-escaping; avoidance of `dangerouslySetInnerHTML` for user content. |
-| **5.4.1** | Memory & payload limits | **VERIFIED** | Image uploads capped at 5MB; report descriptions capped at 2,000 characters. |
+| **5.4.1** | Memory & payload limits | **VERIFIED** | Image uploads capped at 10MB (10,485,760 bytes); report descriptions capped at 2,000 characters. |
 
 ---
 
@@ -93,7 +93,7 @@
 |---|---|---|---|
 | **8.1.1** | Personal data minimization | **VERIFIED** | Only essential data collected; volunteer phone numbers hidden from public view. |
 | **8.2.1** | Geolocation privacy masking | **VERIFIED** | Centroid approximation for sensitive dispute reports; exact coordinates restricted to municipality teams. |
-| **8.3.1** | EXIF metadata stripping | **VERIFIED** | Camera model and embedded GPS stripped from uploaded images before public distribution. |
+| **8.3.1** | EXIF metadata stripping | **VERIFIED** | Camera model and embedded GPS stripped client-side via Canvas pixel extraction (imageSanitizer.ts) before upload. |
 | **8.4.1** | Right to be forgotten (Account Deletion) | **VERIFIED** | Documented procedure in `07_ACCOUNT_DELETION_GUIDE.md` for permanent data erasure. |
 
 ---
@@ -127,7 +127,7 @@
 | Requirement | Description | Status | Architecture & Evidence |
 |---|---|---|---|
 | **12.1.1** | Safe file upload validation | **VERIFIED** | Content-type validation restricted to `image/jpeg`, `image/png`, `image/webp`. |
-| **12.2.1** | File size restrictions | **VERIFIED** | 5MB per image limit enforced. |
+| **12.2.1** | File size restrictions | **VERIFIED** | 10MB (10,485,760 bytes) per image limit enforced across client validation, service logic, and storage bucket configuration. |
 | **12.3.1** | Storage access control | **VERIFIED** | Supabase Storage bucket policies enforce authenticated upload and public read on approved media. |
 
 ---
