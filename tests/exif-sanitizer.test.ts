@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { hasJpegExifMarker, stripImageMetadata } from '../src/lib/media/imageSanitizer';
 
 describe('EXIF Privacy & Client-Side Image Sanitizer', () => {
