@@ -524,17 +524,38 @@ class NafasAuthService {
     // Auto-clean any pending unverified factors from previous incomplete sessions
     try {
       const { data: existingFactors } = await supabase.auth.mfa.listFactors();
-      const unverified = existingFactors?.all?.filter(f => f.status === 'unverified') || [];
+      const unverified = (existingFactors?.all || []).filter(
+        (f: any) => f.status === 'unverified' || !f.status
+      );
       for (const factor of unverified) {
         await supabase.auth.mfa.unenroll({ factorId: factor.id });
       }
     } catch (_) {}
 
-    const { data, error } = await supabase.auth.mfa.enroll({
+    let enrollRes = await supabase.auth.mfa.enroll({
       factorType: 'totp',
-      issuer: 'NAFAS (نَفَس)',
+      issuer: 'NAFAS',
       friendlyName: `NAFAS-TOTP-${Date.now().toString(36)}`
     });
+
+    // If collision occurs on unverified factor, clean and retry
+    if (enrollRes.error && enrollRes.error.message.includes('already exists')) {
+      try {
+        const { data: list } = await supabase.auth.mfa.listFactors();
+        for (const factor of list?.all || []) {
+          if (factor.status !== 'verified') {
+            await supabase.auth.mfa.unenroll({ factorId: factor.id });
+          }
+        }
+        enrollRes = await supabase.auth.mfa.enroll({
+          factorType: 'totp',
+          issuer: 'NAFAS',
+          friendlyName: `NAFAS-TOTP-${Date.now().toString(36)}`
+        });
+      } catch (_) {}
+    }
+
+    const { data, error } = enrollRes;
 
     if (error || !data || !data.totp) {
       throw new Error(`فشل تهيئة المصادقة الثنائية: ${error?.message || 'خطأ غير معروف'}`);

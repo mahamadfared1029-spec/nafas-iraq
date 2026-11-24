@@ -18,9 +18,11 @@ import {
   Smartphone,
   Eye,
   EyeOff,
-  Info
+  Info,
+  ExternalLink
 } from 'lucide-react';
 import { nafasAuth, MfaEnrollmentResult } from '@/lib/auth/authService';
+import { getSupabaseUrl } from '@/lib/supabase/client';
 import { IRAQ_GOVERNORATES } from '@/lib/constants';
 import { NafasLogo } from '../brand/NafasLogo';
 
@@ -37,6 +39,27 @@ interface AuthModalProps {
   onClose: () => void;
   initialMode?: AuthModalMode;
   notice?: string | null;
+}
+
+function getFormattedQrCode(raw: string): string {
+  if (!raw) return '';
+  let svgContent = raw;
+  if (raw.startsWith('data:image/svg+xml')) {
+    const idx = raw.indexOf('<svg');
+    if (idx !== -1) {
+      svgContent = raw.slice(idx);
+    }
+  }
+
+  // Ensure viewBox exists and preserveAspectRatio is set so the QR code scales without clipping
+  if (svgContent.includes('<svg') && !svgContent.includes('viewBox')) {
+    svgContent = svgContent.replace(
+      /<svg width="(\d+)" height="(\d+)"/i,
+      '<svg width="$1" height="$2" viewBox="0 0 $1 $2" preserveAspectRatio="xMidYMid meet"'
+    );
+  }
+
+  return `data:image/svg+xml;utf-8,${encodeURIComponent(svgContent)}`;
 }
 
 export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: AuthModalProps) {
@@ -67,6 +90,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
   const [enrollFactorId, setEnrollFactorId] = useState('');
   const [qrCodeSvg, setQrCodeSvg] = useState('');
   const [totpSecret, setTotpSecret] = useState('');
+  const [totpUri, setTotpUri] = useState('');
   const [enrollCode, setEnrollCode] = useState('');
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [mfaEnrolledSuccess, setMfaEnrolledSuccess] = useState(false);
@@ -74,8 +98,35 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
   // General States
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Check if Google Provider is configured and operational on Supabase
+  useEffect(() => {
+    async function checkGoogle() {
+      try {
+        const baseUrl = getSupabaseUrl();
+        if (!baseUrl) {
+          setGoogleAvailable(false);
+          return;
+        }
+        const url = `${baseUrl}/auth/v1/authorize?provider=google`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          const json = await res.json().catch(() => null);
+          if (json?.msg?.includes('provider is not enabled')) {
+            setGoogleAvailable(false);
+            return;
+          }
+        }
+        setGoogleAvailable(true);
+      } catch (_) {
+        setGoogleAvailable(false);
+      }
+    }
+    checkGoogle();
+  }, []);
 
   // Sync mode with prop changes & detect recovery hashes in URL
   useEffect(() => {
@@ -110,6 +161,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
       setEnrollFactorId(res.factorId);
       setQrCodeSvg(res.qrCodeSvg);
       setTotpSecret(res.secret);
+      setTotpUri(res.uri || '');
     } catch (err: any) {
       setError(err?.message || 'فشل تهيئة المصادقة الثنائية.');
     } finally {
@@ -352,46 +404,50 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
           {/* 1. LOGIN FORM */}
           {mode === 'login' && (
             <div className="space-y-4">
-              {/* Google OAuth Button */}
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={googleLoading || loading}
-                className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm rounded-xl border border-gray-300 shadow-sm transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {googleLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-[#62467D]" />
-                ) : (
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                )}
-                <span>المتابعة باستخدام Google</span>
-              </button>
+              {/* Google OAuth Button - Displayed only when genuinely configured and operational */}
+              {googleAvailable === true && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={googleLoading || loading}
+                    className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm rounded-xl border border-gray-300 shadow-sm transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    {googleLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-[#62467D]" />
+                    ) : (
+                      <svg className="w-5 h-5" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                    )}
+                    <span>المتابعة باستخدام Google</span>
+                  </button>
 
-              <div className="relative my-3">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#E5DCCD]"></div>
-                </div>
-                <div className="relative flex justify-center text-[11px]">
-                  <span className="bg-white px-3 text-gray-500 font-medium">أو عبر البريد الإلكتروني</span>
-                </div>
-              </div>
+                  <div className="relative my-3">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-[#E5DCCD]"></div>
+                    </div>
+                    <div className="relative flex justify-center text-[11px]">
+                      <span className="bg-white px-3 text-gray-500 font-medium">أو عبر البريد الإلكتروني</span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
@@ -796,34 +852,49 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
 
               {qrCodeSvg && (
                 <div className="space-y-4">
-                  {/* QR Code Container */}
-                  <div className="flex justify-center p-3 bg-white border border-[#E5DCCD] rounded-2xl shadow-sm">
-                    <div 
-                      className="w-48 h-48 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
-                      dangerouslySetInnerHTML={{ __html: qrCodeSvg }}
+                  {/* Responsive unclipped QR Code Container */}
+                  <div className="flex flex-col items-center justify-center p-4 bg-white border border-[#E5DCCD] rounded-2xl shadow-sm">
+                    <img 
+                      src={getFormattedQrCode(qrCodeSvg)} 
+                      alt="رمز الاستجابة السريعة لمصادقة TOTP" 
+                      className="w-48 h-48 sm:w-56 sm:h-56 max-w-full object-contain mx-auto block rounded-lg"
                     />
+                    <p className="text-[11px] text-gray-500 mt-2 text-center">
+                      امسح الرمز بكاميرا تطبيق Google Authenticator
+                    </p>
                   </div>
 
+                  {/* One-Tap Mobile App Link (for users opening on mobile) */}
+                  {totpUri && (
+                    <a
+                      href={totpUri}
+                      className="w-full py-2.5 px-3 bg-[#62467D]/10 hover:bg-[#62467D]/20 text-[#62467D] font-bold text-xs rounded-xl border border-[#62467D]/30 transition-all flex items-center justify-center gap-2 shadow-xs"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>فتح وتثبيت في تطبيق المصادقة مباشرة على هذا الهاتف</span>
+                    </a>
+                  )}
+
                   {/* Secret Key Manual Copy */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-500 mb-1">
-                      المفتاح السري (في حال تعذر مسح الرمز من شاشة الهاتف):
+                  <div className="bg-[#F7F1E7]/50 p-3 rounded-xl border border-[#E5DCCD]">
+                    <label className="block text-[11px] font-bold text-[#6B463B] mb-1.5">
+                      أو انسخ المفتاح السري يدوياً وألصقه في تطبيق المصادقة:
                     </label>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         readOnly
                         value={totpSecret}
-                        className="flex-1 font-mono text-xs px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 select-all"
+                        className="flex-1 font-mono text-xs px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-800 select-all tracking-wider text-center font-bold"
                       />
                       <button
                         type="button"
                         onClick={handleCopySecret}
-                        className="p-2 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors flex items-center gap-1 text-xs"
+                        className="py-2 px-3 bg-[#62467D] hover:bg-[#52386A] text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0"
                         title="نسخ المفتاح السري"
                       >
-                        {copiedSecret ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                        <span className="hidden sm:inline">{copiedSecret ? 'تم النسخ' : 'نسخ'}</span>
+                        {copiedSecret ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                        <span>{copiedSecret ? 'تم النسخ!' : 'نسخ المفتاح'}</span>
                       </button>
                     </div>
                   </div>
