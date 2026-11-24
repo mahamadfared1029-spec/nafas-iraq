@@ -384,8 +384,8 @@ describe('OPERATION FOUNDATION — PHASE 1 ACCEPTANCE SUITE', () => {
       });
 
       expect(reg.success).toBe(true);
-      expect(reg.user.role).toBe('citizen');
-      expect(reg.user.email).toBe('citizen_iraq_test@example.com');
+      expect(reg.user?.role).toBe('citizen');
+      expect(reg.user?.email).toBe('citizen_iraq_test@example.com');
       expect(nafasAuth.isAuthenticated()).toBe(true);
       expect(nafasAuth.isFounderOrSuperAdmin()).toBe(false);
     });

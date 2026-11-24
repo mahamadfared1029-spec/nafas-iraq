@@ -395,7 +395,7 @@ describe('PHASE 1 FINAL INTEGRATION & SECURITY GATE ACCEPTANCE', () => {
       governorateId: 'basra'
     });
     expect(citizenReg.success).toBe(true);
-    expect(citizenReg.user.role).toBe('citizen');
+    expect(citizenReg.user?.role).toBe('citizen');
 
     const citizenUser = nafasAuth.getCurrentUser();
     expect(citizenUser?.id).toBeDefined();
