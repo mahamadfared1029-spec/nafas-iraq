@@ -63,23 +63,28 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
       );
     });
 
-    it('should allow authenticated citizen to register and return confirmation', async () => {
+    it('should allow authenticated citizen to register and return confirmation via RPC', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
-      vi.spyOn(nafasAuth, 'getCurrentUser').mockReturnValue({
-        id: 'user-vol-1',
-        email: 'vol@nafas.iq',
-        role: 'volunteer',
-        fullName: 'متطوع نَفَس التجريبي',
-        governorateId: 'baghdad',
-        points: 0,
-        mfaEnabled: false,
-        createdAt: '2026-11-25',
-        updatedAt: '2026-11-25'
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+      const mockRpc = vi.fn().mockResolvedValue({
+        data: { success: true, message: 'تم تسجيلك بنجاح في الحملة التطوعية!', registration_id: 'reg-123' },
+        error: null
       });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
 
       const res = await nafasCampaigns.registerForCampaign('CMP-BAG-2026-01');
       expect(res.success).toBe(true);
       expect(res.message).toContain('تم تسجيلك بنجاح');
+      expect(mockRpc).toHaveBeenCalledWith('rpc_register_for_campaign', { p_campaign_id: 'CMP-BAG-2026-01' });
+    });
+
+    it('should fail honestly when Supabase is unconfigured (no fake success)', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(false);
+
+      await expect(nafasCampaigns.registerForCampaign('CMP-BAG-2026-01')).rejects.toThrow(
+        /يتطلب اتصالاً مباشراً بقاعدة البيانات/
+      );
     });
 
     it('should reject registration when campaign capacity is full in RPC response', async () => {
@@ -118,60 +123,115 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
       );
     });
 
-    it('should allow user to cancel an existing registration', async () => {
+    it('should allow user to cancel an existing registration via RPC', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+      const mockRpc = vi.fn().mockResolvedValue({
+        data: { success: true, message: 'تم إلغاء التسجيل بنجاح.' },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
 
       const res = await nafasCampaigns.cancelRegistration('CMP-BAG-2026-01');
       expect(res.success).toBe(true);
       expect(res.message).toContain('تم إلغاء التسجيل بنجاح');
+      expect(mockRpc).toHaveBeenCalledWith('rpc_cancel_campaign_registration', { p_campaign_id: 'CMP-BAG-2026-01' });
     });
   });
 
-  describe('3. Field Attendance & Verification Security', () => {
-    it('should generate a 6-digit dynamic field check-in code with expiration', async () => {
+  describe('3. Field Attendance & Verification Security (TITAN Integrity Gate)', () => {
+    it('should generate a 6-digit dynamic field check-in code with expiration via RPC', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
-      vi.spyOn(nafasAuth, 'getCurrentUser').mockReturnValue({
-        id: 'organizer-1',
-        email: 'org@nafas.iq',
-        role: 'organizer',
-        fullName: 'منسق الحملة',
-        governorateId: 'baghdad',
-        points: 100,
-        mfaEnabled: true,
-        createdAt: '2026-11-25',
-        updatedAt: '2026-11-25'
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      const mockRpc = vi.fn().mockResolvedValue({
+        data: {
+          success: true,
+          campaign_id: 'CMP-BAG-2026-01',
+          check_in_code: 'F9A27E',
+          expires_at: '2026-11-25T15:00:00Z'
+        },
+        error: null
       });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
 
       const res = await nafasCampaigns.generateCheckInCode('CMP-BAG-2026-01', 120);
-      expect(res.code).toBeDefined();
-      expect(res.code.length).toBeGreaterThanOrEqual(6);
-      expect(res.expiresAt).toBeDefined();
+      expect(res.code).toBe('F9A27E');
+      expect(res.expiresAt).toBe('2026-11-25T15:00:00Z');
+      expect(mockRpc).toHaveBeenCalledWith('rpc_generate_campaign_checkin_code', {
+        p_campaign_id: 'CMP-BAG-2026-01',
+        p_valid_minutes: 120
+      });
     });
 
-    it('should verify attendance and issue an authentic certificate', async () => {
+    it('should allow volunteer check-in without choosing hours (status becomes checked_in)', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
-      vi.spyOn(nafasAuth, 'getCurrentUser').mockReturnValue({
-        id: 'user-vol-1',
-        email: 'vol@nafas.iq',
-        role: 'volunteer',
-        fullName: 'أحمد البغدادي',
-        governorateId: 'baghdad',
-        points: 0,
-        mfaEnabled: false,
-        createdAt: '2026-11-25',
-        updatedAt: '2026-11-25'
-      });
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
 
-      const res = await nafasCampaigns.verifyAttendance({
+      const mockRpc = vi.fn().mockResolvedValue({
+        data: {
+          success: true,
+          status: 'checked_in',
+          message: 'تم تثبيت حضورك الميداني بنجاح! بانتظار الاعتماد النهائي لساعات التطوع من منسق الحملة.'
+        },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
+
+      const res = await nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'F9A27E');
+      expect(res.success).toBe(true);
+      expect(res.status).toBe('checked_in');
+      expect(res.message).toContain('بانتظار الاعتماد النهائي لساعات التطوع');
+      expect(mockRpc).toHaveBeenCalledWith('rpc_volunteer_checkin', {
+        p_campaign_id: 'CMP-BAG-2026-01',
+        p_checkin_code: 'F9A27E'
+      });
+    });
+
+    it('should allow organizer to approve attendance, award hours, and issue certificate', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      const mockRpc = vi.fn().mockResolvedValue({
+        data: {
+          success: true,
+          certificate_code: 'NFS-CERT-2026-A89BC1',
+          hours_awarded: 4.0,
+          message: 'تم اعتماد حضور المتطوع وإصدار وثيقة الأثر بنجاح!'
+        },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
+
+      const res = await nafasCampaigns.organizerApproveAttendance({
         campaignId: 'CMP-BAG-2026-01',
-        checkInCode: 'AB79K2',
-        hours: 3.5
+        volunteerId: 'vol-user-456',
+        hours: 4.0
       });
 
       expect(res.success).toBe(true);
-      expect(res.certificateCode).toBeDefined();
-      expect(res.certificateCode).toContain('NFS-CERT-');
-      expect(res.hoursAwarded).toBe(3.5);
+      expect(res.certificateCode).toBe('NFS-CERT-2026-A89BC1');
+      expect(res.hoursAwarded).toBe(4.0);
+      expect(mockRpc).toHaveBeenCalledWith('rpc_organizer_approve_attendance', {
+        p_campaign_id: 'CMP-BAG-2026-01',
+        p_volunteer_id: 'vol-user-456',
+        p_hours: 4.0
+      });
+    });
+
+    it('should lock check-in when rate-limit brute-force threshold is reached', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      const mockRpc = vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'تم قفل رمز الحضور بسبب تجاوز الحد الأقصى للمحاولات الخاطئة.' }
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
+
+      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'WRONG1')).rejects.toThrow(
+        /تجاوز الحد الأقصى للمحاولات الخاطئة/
+      );
     });
 
     it('should reject attendance check-in if code is expired or invalid in RPC response', async () => {
@@ -180,49 +240,80 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
 
       const mockRpc = vi.fn().mockResolvedValue({
         data: null,
-        error: { message: 'رمز الحضور غير صحيح أو انتهت صلاحيته.' }
+        error: { message: 'رمز الحضور غير صحيح.' }
       });
 
       vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({
         rpc: mockRpc
       } as any);
 
-      await expect(nafasCampaigns.verifyAttendance({
-        campaignId: 'CMP-BAG-2026-01',
-        checkInCode: 'INVALID'
-      })).rejects.toThrow(/رمز الحضور غير صحيح أو انتهت صلاحيته/);
+      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'INVALID')).rejects.toThrow(
+        /رمز الحضور غير صحيح/
+      );
     });
 
-    it('should prevent duplicate attendance check-in for the same campaign in RPC response', async () => {
+    it('should prevent duplicate attendance approval for the same campaign in RPC response', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
       vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
 
       const mockRpc = vi.fn().mockResolvedValue({
         data: null,
-        error: { message: 'تم تأكيد حضور هذا المتطوع مسبقاً لهذه الحملة.' }
+        error: { message: 'تم اعتماد حضور هذا المتطوع مسبقاً.' }
       });
 
       vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({
         rpc: mockRpc
       } as any);
 
-      await expect(nafasCampaigns.verifyAttendance({
+      await expect(nafasCampaigns.organizerApproveAttendance({
         campaignId: 'CMP-BAG-2026-01',
-        checkInCode: 'VALID1'
-      })).rejects.toThrow(/تم تأكيد حضور هذا المتطوع مسبقاً/);
+        volunteerId: 'vol-user-456',
+        hours: 4.0
+      })).rejects.toThrow(/تم اعتماد حضور هذا المتطوع مسبقاً/);
     });
   });
 
-  describe('4. Real Environmental Impact Metrics', () => {
-    it('should retrieve authentic aggregated impact metrics with realistic units', async () => {
+  describe('4. Real Environmental Impact Metrics (Zero Fabricated Data)', () => {
+    it('should return strictly zeros and never fabricate numbers when unconfigured', async () => {
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(false);
+
       const impact = await nafasCampaigns.getEnvironmentalImpact();
 
-      expect(impact.completedCampaigns).toBeGreaterThanOrEqual(0);
-      expect(impact.verifiedVolunteers).toBeGreaterThanOrEqual(0);
-      expect(impact.verifiedVolunteerHours).toBeGreaterThanOrEqual(0);
-      expect(impact.treesPlanted).toBeGreaterThanOrEqual(0);
-      expect(impact.wasteCollectedKg).toBeGreaterThanOrEqual(0);
-      expect(impact.verifiedReports).toBeGreaterThanOrEqual(0);
+      // Zero fabricated fallback rule
+      expect(impact.completedCampaigns).toBe(0);
+      expect(impact.activeCampaigns).toBe(0);
+      expect(impact.verifiedVolunteers).toBe(0);
+      expect(impact.verifiedVolunteerHours).toBe(0);
+      expect(impact.treesPlanted).toBe(0);
+      expect(impact.wasteCollectedKg).toBe(0);
+      expect(impact.verifiedReports).toBe(0);
+      expect(impact.resolvedCleanups).toBe(0);
+    });
+
+    it('should retrieve authentic aggregated impact metrics from RPC when configured', async () => {
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+      const mockRpc = vi.fn().mockResolvedValue({
+        data: {
+          completed_campaigns: 7,
+          active_campaigns: 3,
+          verified_volunteers: 45,
+          verified_volunteer_hours: 180,
+          trees_planted: 320,
+          waste_collected_kg: 850,
+          verified_reports: 14,
+          resolved_cleanups: 9
+        },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
+
+      const impact = await nafasCampaigns.getEnvironmentalImpact();
+
+      expect(impact.completedCampaigns).toBe(7);
+      expect(impact.verifiedVolunteers).toBe(45);
+      expect(impact.verifiedVolunteerHours).toBe(180);
+      expect(impact.treesPlanted).toBe(320);
+      expect(impact.wasteCollectedKg).toBe(850);
     });
 
     it('should accurately differentiate between completed campaigns and in-progress/draft campaigns', async () => {
@@ -252,7 +343,35 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
       })).rejects.toThrow(/يجب تسجيل الدخول/);
     });
 
-    it('should allow authorized organizer to create draft or published campaign', async () => {
+    it('should reject campaign creation honestly if Supabase is unconfigured', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(nafasAuth, 'getCurrentUser').mockReturnValue({
+        id: 'org-1',
+        email: 'org@nafas.iq',
+        role: 'organizer',
+        fullName: 'منسق الحملات',
+        governorateId: 'baghdad',
+        points: 0,
+        mfaEnabled: true,
+        createdAt: '2026-11-25',
+        updatedAt: '2026-11-25'
+      });
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(false);
+
+      await expect(nafasCampaigns.createCampaign({
+        titleAr: 'حملة تجريبية',
+        descriptionAr: 'تجربة',
+        campaignType: 'reforestation',
+        governorateId: 'baghdad',
+        meetingArea: 'الكرادة',
+        date: '2026-12-01',
+        startTime: '09:00 ص',
+        durationHours: 3.0,
+        volunteerCapacity: 20
+      })).rejects.toThrow(/تتطلب الاتصال بقاعدة بيانات نَفَس/);
+    });
+
+    it('should allow authorized organizer to create campaign in database', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
       vi.spyOn(nafasAuth, 'getCurrentUser').mockReturnValue({
         id: 'org-valid-1',
@@ -265,6 +384,17 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
         createdAt: '2026-11-25',
         updatedAt: '2026-11-25'
       });
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      const mockSingle = vi.fn().mockResolvedValue({
+        data: { id: 'CMP-BAB-2026-NEW' },
+        error: null
+      });
+      const mockSelect = vi.fn().mockReturnValue({ single: mockSingle });
+      const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+      const mockFrom = vi.fn().mockReturnValue({ insert: mockInsert });
+
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ from: mockFrom } as any);
 
       const res = await nafasCampaigns.createCampaign({
         titleAr: 'غرس 50 شجرة سدر في بساتين بابل',
@@ -283,8 +413,7 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
       });
 
       expect(res.success).toBe(true);
-      expect(res.campaignId).toBeDefined();
-      expect(res.campaignId).toContain('CMP-BAB-');
+      expect(res.campaignId).toBe('CMP-BAB-2026-NEW');
     });
   });
 });

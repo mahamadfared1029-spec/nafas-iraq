@@ -65,6 +65,7 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate, o
   const [enteredCheckInCode, setEnteredCheckInCode] = useState('');
   const [checkInFeedback, setCheckInFeedback] = useState<string | null>(null);
   const [checkInSuccessCert, setCheckInSuccessCert] = useState<IssuedCertificate | null>(null);
+  const [volunteerCheckedInNotice, setVolunteerCheckedInNotice] = useState<string | null>(null);
   const [checkInLoading, setCheckInLoading] = useState(false);
 
   // Organizer Check-In & Code Generation
@@ -153,20 +154,12 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate, o
     setCheckInLoading(true);
     setCheckInFeedback(null);
     try {
-      const res = await nafasCampaigns.verifyAttendance({
-        campaignId: checkInModalCampaign.id,
-        checkInCode: enteredCheckInCode.trim(),
-        hours: checkInModalCampaign.durationHours
-      });
-
-      // Issue local certificate in store
-      const cert = verifyAttendance(
-        checkInModalCampaign.id, 
-        passport.userName || 'متطوع نَفَس', 
-        checkInModalCampaign.durationHours
+      const res = await nafasCampaigns.volunteerCheckIn(
+        checkInModalCampaign.id,
+        enteredCheckInCode.trim()
       );
 
-      setCheckInSuccessCert(cert);
+      setVolunteerCheckedInNotice(res.message);
     } catch (err: any) {
       setCheckInFeedback(err?.message || 'رمز الحضور غير صحيح أو انتهت صلاحيته.');
     } finally {
@@ -482,7 +475,7 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate, o
                       <button
                         onClick={() => {
                           setOrganizerActionCampaign(campaign);
-                          setActiveOrganizerCode(campaign.checkInCode || null);
+                          setActiveOrganizerCode(null);
                           setIssuedCertFeedback(null);
                         }}
                         className="w-full py-2 rounded-xl text-[11px] font-bold border border-purple-300 bg-purple-50 text-purple-900 hover:bg-purple-100 flex items-center justify-center gap-1.5 transition-colors"
@@ -697,7 +690,11 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate, o
           <div className="bg-nafas-ivory w-full max-w-md rounded-3xl p-6 shadow-2xl border border-nafas-reed/20 space-y-5 animate-in fade-in zoom-in-95 text-right font-arabic">
             <div className="flex items-center justify-between border-b border-nafas-reed/20 pb-3">
               <button 
-                onClick={() => setCheckInModalCampaign(null)} 
+                onClick={() => {
+                  setCheckInModalCampaign(null);
+                  setVolunteerCheckedInNotice(null);
+                  setCheckInFeedback(null);
+                }} 
                 className="p-1 rounded-full hover:bg-gray-100 text-nafas-silt"
                 aria-label="إغلاق"
               >
@@ -709,7 +706,30 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate, o
               </h3>
             </div>
 
-            {checkInSuccessCert ? (
+            {volunteerCheckedInNotice ? (
+              <div className="p-6 text-center space-y-4">
+                <ShieldCheck className="w-14 h-14 text-emerald-600 mx-auto" />
+                <h4 className="text-xl font-bold text-nafas-silt">
+                  تم تثبيت الحضور الميداني بنجاح!
+                </h4>
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl text-xs text-emerald-900 leading-relaxed font-bold">
+                  {volunteerCheckedInNotice}
+                </div>
+                <p className="text-xs text-nafas-neutral-slate">
+                  حالة تسجيلك الآن: <span className="text-emerald-700 font-bold">حاضر في الميدان</span>. سيتم اعتماد ساعات التطوع الموثقة وإصدار الشهادة الرسمية من قبل منسق الحملة.
+                </p>
+                <button
+                  onClick={() => {
+                    setCheckInModalCampaign(null);
+                    setVolunteerCheckedInNotice(null);
+                    setCheckInFeedback(null);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-nafas-silt text-white text-xs font-bold shadow"
+                >
+                  إغلاق النافذة
+                </button>
+              </div>
+            ) : checkInSuccessCert ? (
               <div className="p-6 text-center space-y-4">
                 <Award className="w-14 h-14 text-emerald-600 mx-auto" />
                 <h4 className="text-xl font-bold text-nafas-silt">

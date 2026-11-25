@@ -174,8 +174,6 @@ export interface VolunteerCampaign {
   status: CampaignStatus;
   certificateEligible: boolean;
   partnerRewardsNotice?: string;
-  checkInCode?: string;
-  checkInCodeExpiresAt?: string;
 }
 
 export interface UserRegistration {
@@ -189,7 +187,7 @@ export interface UserRegistration {
   registeredAt: string;
   attended: boolean;
   attendedAt?: string;
-  status: 'registered' | 'attended' | 'cancelled' | 'no_show';
+  status: 'registered' | 'checked_in' | 'attended' | 'cancelled' | 'no_show';
   verifiedHours: number;
   certificateIssued: boolean;
 }

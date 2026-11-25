@@ -119,11 +119,7 @@ class CampaignService {
     }
 
     if (!isSupabaseConfigured()) {
-      return {
-        success: true,
-        campaignId: `CMP-${payload.governorateId.toUpperCase().slice(0, 3)}-${Date.now()}`,
-        message: 'تم حفظ الحملة بنجاح (وضع غير متصل).'
-      };
+      throw new Error('خدمة إنشاء الحملات تتطلب الاتصال بقاعدة بيانات نَفَس (Supabase). تعذر حفظ الحملة.');
     }
 
     const supabase = getSupabaseClient();
@@ -177,10 +173,7 @@ class CampaignService {
     }
 
     if (!isSupabaseConfigured()) {
-      return {
-        success: true,
-        message: 'تم تسجيلك بنجاح في الحملة التطوعية!'
-      };
+      throw new Error('التسجيل في الحملات البيئية يتطلب اتصالاً مباشراً بقاعدة البيانات لضمان عدم تجاوز السعة الاستيعابية.');
     }
 
     const supabase = getSupabaseClient();
@@ -208,10 +201,7 @@ class CampaignService {
     }
 
     if (!isSupabaseConfigured()) {
-      return {
-        success: true,
-        message: 'تم إلغاء التسجيل بنجاح.'
-      };
+      throw new Error('إلغاء التسجيل يتطلب اتصالاً مباشراً بقاعدة بيانات نَفَس.');
     }
 
     const supabase = getSupabaseClient();
@@ -295,11 +285,7 @@ class CampaignService {
     }
 
     if (!isSupabaseConfigured()) {
-      const mockCode = Math.floor(100000 + Math.random() * 900000).toString();
-      return {
-        code: mockCode,
-        expiresAt: new Date(Date.now() + validityMinutes * 60000).toISOString()
-      };
+      throw new Error('توليد رمز الحضور الميداني المشفر يتطلب اتصالاً بقاعدة البيانات.');
     }
 
     const supabase = getSupabaseClient();
@@ -321,63 +307,119 @@ class CampaignService {
   /**
    * Verify Attendance using Check-in Code or by Organizer
    */
-  public async verifyAttendance(params: {
-    campaignId: string;
-    volunteerId?: string;
-    checkInCode: string;
-    hours?: number;
-  }): Promise<AttendanceVerifyResult> {
+  /**
+   * Volunteer field check-in (Records presence, status becomes 'checked_in').
+   * Volunteers cannot self-award hours or self-issue certificates.
+   */
+  public async volunteerCheckIn(
+    campaignId: string,
+    checkInCode: string
+  ): Promise<{ success: boolean; message: string; status: 'checked_in' }> {
     if (!nafasAuth.isAuthenticated()) {
-      throw new Error('يجب تسجيل الدخول لتأكيد الحضور الميداني.');
+      throw new Error('يجب تسجيل الدخول لتثبيت الحضور الميداني.');
     }
 
     if (!isSupabaseConfigured()) {
-      const code = `NFS-CERT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      return {
-        success: true,
-        message: 'تم تأكيد الحضور الميداني بنجاح (وضع غير متصل)!',
-        certificateCode: code,
-        hoursAwarded: params.hours || 4.0
-      };
+      throw new Error('تثبيت الحضور الميداني يتطلب الاتصال بقاعدة بيانات نَفَس (Supabase).');
     }
 
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.rpc('rpc_verify_campaign_attendance', {
-      p_campaign_id: params.campaignId,
-      p_volunteer_id: params.volunteerId || null,
-      p_checkin_code: params.checkInCode.trim().toUpperCase(),
-      p_hours: params.hours || null
+    const { data, error } = await supabase.rpc('rpc_volunteer_checkin', {
+      p_campaign_id: campaignId,
+      p_checkin_code: checkInCode.trim().toUpperCase()
     });
 
     if (error) {
-      throw new Error(error.message || 'فشل التحقق من الحضور الميداني.');
+      throw new Error(error.message || 'فشل تثبيت الحضور الميداني.');
     }
 
     return {
       success: true,
-      message: data?.message || 'تم تأكيد الحضور الميداني وإصدار وثيقة المشاركة البيئية بنجاح!',
+      status: 'checked_in',
+      message: data?.message || 'تم تثبيت حضورك الميداني بنجاح! بانتظار الاعتماد النهائي لساعات التطوع من منسق الحملة.'
+    };
+  }
+
+  /**
+   * Organizer/Staff approve volunteer attendance and award certified hours.
+   * Generates official certificate with SHA-256 digest.
+   */
+  public async organizerApproveAttendance(params: {
+    campaignId: string;
+    volunteerId: string;
+    hours?: number;
+  }): Promise<AttendanceVerifyResult> {
+    if (!nafasAuth.isAuthenticated()) {
+      throw new Error('يجب تسجيل الدخول لاعتماد الحضور.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      throw new Error('اعتماد الحضور وإصدار الشهادات يتطلب الاتصال بقاعدة بيانات نَفَس (Supabase).');
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.rpc('rpc_organizer_approve_attendance', {
+      p_campaign_id: params.campaignId,
+      p_volunteer_id: params.volunteerId,
+      p_hours: params.hours || null
+    });
+
+    if (error) {
+      throw new Error(error.message || 'فشل اعتماد الحضور وإصدار الشهادة.');
+    }
+
+    return {
+      success: true,
+      message: data?.message || 'تم اعتماد حضور المتطوع وإصدار وثيقة الأثر بنجاح!',
       certificateCode: data?.certificate_code,
       hoursAwarded: data?.hours_awarded
     };
   }
 
   /**
-   * Fetch verified environmental impact metrics from real database rows
+   * General attendance verification handler (backward-compatible).
+   * If volunteerId is provided, delegates to organizer approval.
+   * Otherwise delegates to volunteerCheckIn (ignoring any self-selected hours).
+   */
+  public async verifyAttendance(params: {
+    campaignId: string;
+    volunteerId?: string;
+    checkInCode: string;
+    hours?: number;
+  }): Promise<AttendanceVerifyResult> {
+    if (params.volunteerId) {
+      return this.organizerApproveAttendance({
+        campaignId: params.campaignId,
+        volunteerId: params.volunteerId,
+        hours: params.hours
+      });
+    }
+
+    const res = await this.volunteerCheckIn(params.campaignId, params.checkInCode);
+    return {
+      success: res.success,
+      message: res.message
+    };
+  }
+
+  /**
+   * Fetch verified environmental impact metrics from real database rows.
+   * Honest metrics: returns 0 for unconfigured/offline states, never fabricated numbers.
    */
   public async getEnvironmentalImpact(): Promise<EnvironmentalImpactSummary> {
-    const fallback: EnvironmentalImpactSummary = {
-      completedCampaigns: 4,
-      activeCampaigns: 2,
-      verifiedVolunteers: 184,
-      verifiedVolunteerHours: 642,
-      treesPlanted: 140,
-      wasteCollectedKg: 1450,
-      verifiedReports: 12,
-      resolvedCleanups: 8
+    const emptyImpact: EnvironmentalImpactSummary = {
+      completedCampaigns: 0,
+      activeCampaigns: 0,
+      verifiedVolunteers: 0,
+      verifiedVolunteerHours: 0,
+      treesPlanted: 0,
+      wasteCollectedKg: 0,
+      verifiedReports: 0,
+      resolvedCleanups: 0
     };
 
     if (!isSupabaseConfigured()) {
-      return fallback;
+      return emptyImpact;
     }
 
     try {
@@ -385,7 +427,7 @@ class CampaignService {
       const { data, error } = await supabase.rpc('rpc_get_environmental_impact_summary');
 
       if (error || !data) {
-        return fallback;
+        return emptyImpact;
       }
 
       return {
@@ -399,7 +441,7 @@ class CampaignService {
         resolvedCleanups: Number(data.resolved_cleanups || 0)
       };
     } catch {
-      return fallback;
+      return emptyImpact;
     }
   }
 
@@ -474,9 +516,7 @@ class CampaignService {
       organizerRole: 'منسق بيئي معتمد',
       safetyEquipment: ['مستلزمات سلامة ميدانية', 'قفازات وقاية', 'مياه شرب معبأة'],
       status: (row.status as CampaignStatus) || 'upcoming',
-      certificateEligible: true,
-      checkInCode: row.check_in_code,
-      checkInCodeExpiresAt: row.check_in_code_expires_at
+      certificateEligible: true
     };
   }
 
