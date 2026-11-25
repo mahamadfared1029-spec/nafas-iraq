@@ -87,6 +87,14 @@ export class NafasNotificationService {
     const hazardPrefix = payload.isHazardous ? '🚨 [عاجل - خطر بيئي] ' : '';
     const subject = `${hazardPrefix}[NAFAS] بلاغ بيئي جديد — ${payload.governorate} (${payload.trackingNumber})`;
 
+    const safeTracking = escapeHtml(payload.trackingNumber);
+    const safeGov = escapeHtml(payload.governorate);
+    const safeNeighborhood = escapeHtml(payload.neighborhood || 'ميداني');
+    const safeCategory = escapeHtml(payload.categoryLabelAr);
+    const safeSeverity = escapeHtml(payload.severity);
+    const safeDate = escapeHtml(payload.date);
+    const safeAdminUrl = sanitizeUrl(payload.adminDashboardUrl);
+
     const text = `
 منظومة نَفَس العراقية — إشعار إداري ميداني
 --------------------------------------------------
@@ -104,14 +112,6 @@ ${payload.adminDashboardUrl}
 
 ملاحظة أمنية: هذا الإشعار مرسل إلى المشرف المعتمد لإجراء التدقيق الميداني وفق بروتوكول السلامة الوطنية.
 `.trim();
-
-    const safeTracking = escapeHtml(payload.trackingNumber);
-    const safeGov = escapeHtml(payload.governorate);
-    const safeNeighborhood = escapeHtml(payload.neighborhood || 'ميداني');
-    const safeCategory = escapeHtml(payload.categoryLabelAr);
-    const safeSeverity = escapeHtml(payload.severity);
-    const safeDate = escapeHtml(payload.date);
-    const safeAdminUrl = sanitizeUrl(payload.adminDashboardUrl);
 
     const html = `
 <!DOCTYPE html>
