@@ -38,6 +38,35 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'NGO',
+      '@id': 'https://mahamadfared1029-spec.github.io/nafas-iraq/#organization',
+      'name': 'نَفَس العراق | NAFAS Iraq',
+      'alternateName': ['NAFAS', 'نَفَس للبيئة الاجتماعية', 'Mesopotamia Green Breath'],
+      'url': 'https://mahamadfared1029-spec.github.io/nafas-iraq/',
+      'logo': 'https://mahamadfared1029-spec.github.io/nafas-iraq/brand/nafas-official-logo.png',
+      'description': 'المنظومة التكنولوجية المجتمعية لحماية وتوثيق بيئة العراق، وتحويل الوعي البيئي إلى أثر ميداني موثق بسواعد أهل الرافدين.',
+      'areaServed': {
+        '@type': 'Country',
+        'name': 'Iraq'
+      }
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://mahamadfared1029-spec.github.io/nafas-iraq/#website',
+      'url': 'https://mahamadfared1029-spec.github.io/nafas-iraq/',
+      'name': 'نَفَس العراق',
+      'inLanguage': ['ar-IQ', 'ckb', 'en'],
+      'publisher': {
+        '@id': 'https://mahamadfared1029-spec.github.io/nafas-iraq/#organization'
+      }
+    }
+  ]
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -46,6 +75,10 @@ export default function RootLayout({
   return (
     <html lang="ar-IQ" dir="rtl" className="scroll-smooth">
       <body className="min-h-screen flex flex-col bg-nafas-cream/40 text-nafas-ink">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <NafasProvider>
           {children}
         </NafasProvider>

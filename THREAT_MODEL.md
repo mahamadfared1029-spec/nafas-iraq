@@ -1,88 +1,106 @@
-# NAFAS Iraq — Comprehensive Threat Model
-**Methodology:** STRIDE (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege)  
-**Standard:** OWASP Threat Modeling Framework  
-**Date:** 24 November 2026  
-**Auditor:** NYX OMNI ULTIMATE V3 (SUPERMAN Edition)
+# NAFAS Threat Model & Security Architecture (THREAT_MODEL.md)
+> **Application:** NAFAS Iraq (نَفَس — نبض بلاد الرافدين)  
+> **Methodology:** STRIDE (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege) + LINDDUN (Privacy-specific)  
+> **Target Standard:** OWASP ASVS 5.0 (Level 2), NIST SP 800-53, Iraqi National Data Protection Principles  
+> **Audited by:** NAFAS Security Intelligence Lab
 
 ---
 
-## 1. System Overview & Asset Identification
+## 1. System Architecture & Trust Boundaries
 
-The NAFAS platform facilitates citizen reporting of environmental violations and coordinates volunteer reforestation initiatives across Iraq.
-
-### Core Assets to Protect:
-1. **Whistleblower & Citizen Identities:** Personal names, contact numbers, and precise geolocation of reporters reporting on powerful corporate/industrial violators.
-2. **Environmental Report Integrity:** Prevention of tampering, deletion, or falsification of legitimate pollution evidence.
-3. **Administrative Authority:** Access to moderation dashboards, campaign coordination, and founder controls.
-4. **Platform Availability & Public Trust:** Continuous uptime on zero-cost infrastructure and protection against denial of service.
+```
+[ UNTRUSTED ZONE: PUBLIC WEB CLIENTS / CITIZENS ]
+                  │
+                  ▼  (HTTPS / TLS 1.3)
+   ┌──────────────────────────────────────────────┐
+   │         Next.js App / Static Export          │
+   │  - Client State (Zustand / React Context)    │
+   │  - Canvas Image Redraw (EXIF Stripping)      │
+   │  - Location Validation (Iraq Bounding Box)   │
+   └──────────────────────────────────────────────┘
+                  │
+  [ TRUST BOUNDARY: API GATEWAY & AUTH TOKENS ]
+                  │
+                  ▼  (JWT Bearer / AAL2 Authenticator)
+   ┌──────────────────────────────────────────────┐
+   │         Supabase / PostgreSQL Engine         │
+   │  - Row Level Security (RLS) Enforcement      │
+   │  - PostGIS Spatial Boundary Containment      │
+   │  - Cryptographic Signing (pgcrypto / HMAC)   │
+   │  - Immutable Audit Trail (report_audit_logs) │
+   └──────────────────────────────────────────────┘
+                  │
+                  ▼
+   ┌──────────────────────────────────────────────┐
+   │        Encrypted Storage & Services          │
+   │  - S3 / Supabase Storage (Private Buckets)   │
+   │  - Resend SMTP (Sanitized HTML Alerts)       │
+   └──────────────────────────────────────────────┘
+```
 
 ---
 
-## 2. Threat Actors & Personas
+## 2. Threat Actor Taxonomy
 
-| Threat Actor | Motivation | Capability | Example Scenario |
-|---|---|---|---|
-| **Industrial / Polluting Violator** | Conceal illegal emissions, avoid municipal fines, or identify whistleblowers | Moderate / High | Attempting to query private reports via PostgREST to discover citizen reporter identities |
-| **Spam / Farming Bot** | Farm platform points, flood the map with junk reports, or cause reputation damage | Low / Moderate | Scripted automation creating hundreds of fake reports per minute |
-| **Compromised Administrative Staff** | Unauthorized status modification or suppression of legitimate reports | Insider Access | Moderator attempting privileged actions without MFA authorization |
-| **Curious External Attacker** | Opportunistic vulnerability scanning | Low | Scanning for hardcoded secrets, misconfigured CORS, or RLS bypasses |
+| Actor Profile | Motivation | Capability | Primary Vectors |
+| :--- | :--- | :--- | :--- |
+| **Malicious Polluter / Corporation** | Conceal illegal dumping, toxic burning, or river contamination | High (resources, legal pressure) | Doxxing whistleblowers via coordinates/UUIDs, deleting verified violation records. |
+| **Unethical Volunteer / Student** | Farm academic credit or unearned service certificates | Low to Medium | Replaying registration endpoints, forging digital seal hashes, spoofing organizer role. |
+| **Commercial Exploiter** | Fraudulently harvest partner discounts and merchant gifts | Low | Guessing static voucher codes, farming reward points via loop vulnerabilities. |
+| **Disruptive Spammer / Troll** | Flood the public map with bogus or offensive reports | Medium (scripting, bots) | Scripting report submissions, bypassing client-side location constraints. |
+| **Compromised Moderator / Insider** | Alter report outcomes or favor political/commercial entities | High (authorized access) | Modifying report status without valid field evidence or audit accountability. |
 
 ---
 
 ## 3. STRIDE Threat Analysis Matrix
 
-### 3.1 Spoofing (Identity Deception)
-- **Threat:** Attacker crafts requests claiming to be the Founder or another citizen.
-- **Mitigation:**
-  - Supabase Auth cryptographically signs all JWTs with RS256/HS256.
-  - Verification of `auth.uid() = id` in Row Level Security policies prevents impersonation.
-  - TOTP MFA (AAL2) required for administrative operations.
-- **Status:** **MITIGATED & VERIFIED**
+### S - Spoofing Identity
+- **Threat:** An unauthenticated user spoofs an `admin` or `moderator` to review reports or revoke certificates.
+- **Vulnerability:** Role stored in mutable client-side React state (`store.tsx`).
+- **Mitigation:** Strict JWT claims validated server-side by PostgreSQL `auth.jwt() -> role`, MFA (AAL2) mandatory for administrative mutations.
 
-### 3.2 Tampering (Data Manipulation)
-- **Threat:** Attacker modifies the approval status of an environmental report or edits another user's volunteer submission.
-- **Mitigation:**
-  - RLS policy `reports_update_staff_aal2` restricts status changes exclusively to verified staff at AAL2.
-  - Normal citizens can only update their own draft reports prior to submission.
-  - Points ledger is read-only to users and modified only by authenticated triggers.
-- **Status:** **MITIGATED & VERIFIED**
+### T - Tampering with Data
+- **Threat:** Citizen modifies an existing violation report to alter evidence or remove pollution records.
+- **Vulnerability:** Overly permissive or missing RLS UPDATE policies.
+- **Mitigation:** RLS `UPDATE` on `reports` restricted strictly to `admin` and `moderator`. Normal citizens cannot update existing reports once submitted (`status = 'submitted'`).
 
-### 3.3 Repudiation (Denial of Action)
-- **Threat:** An administrator deletes a report and denies responsibility.
-- **Mitigation:**
-  - `audit_logs` table records actor ID, target entity, previous state, new state, and UTC timestamp.
-  - Audit logs are append-only; updates and deletes are blocked by RLS policies.
-- **Status:** **MITIGATED & VERIFIED**
+### R - Repudiation
+- **Threat:** A moderator marks a hazardous pollution report as `rejected` or `duplicate` and denies having done so.
+- **Vulnerability:** Unauthenticated or client-generated audit log records.
+- **Mitigation:** Database trigger on `reports` automatically creates immutable records in `report_audit_logs` capturing `auth.uid()`, `previous_status`, `new_status`, and server timestamp `NOW()`.
 
-### 3.4 Information Disclosure (Privacy Breaches)
-- **Threat:** Exact GPS coordinates of sensitive reports or volunteer phone numbers leaked to public visitors.
+### I - Information Disclosure
+- **Threat:** Public queries leak whistleblower identities, unencrypted phone numbers, or exact residential GPS coordinates.
+- **Vulnerability:** Direct `SELECT * FROM reports` returns `reported_by` UUID, high-accuracy GPS, and photo metadata.
 - **Mitigation:**
-  - Database views separate public report data from sensitive private evidence.
-  - Neighborhood centroid aggregation applied to sensitive dispute cases.
-  - Volunteer contact numbers encrypted and restricted to verified campaign organizers.
-  - EXIF camera metadata automatically stripped from uploaded media.
-- **Status:** **MITIGATED & VERIFIED**
+  - `phone_number` encrypted with pgcrypto or masked.
+  - Public queries routed to `public_reports` view which masks coordinates to 2 decimal places (~1.1 km) for anonymous reports and returns `reported_by = NULL`.
+  - EXIF stripped from images prior to upload.
 
-### 3.5 Denial of Service (Resource Exhaustion)
-- **Threat:** Attacker floods database with massive image payloads or hundreds of rapid reports.
+### D - Denial of Service
+- **Threat:** Automated botnet floods platform with fake reports or exhausts browser storage via massive Base64 payloads.
+- **Vulnerability:** Client-side Base64 storage in `localStorage` without server rate limiting.
 - **Mitigation:**
-  - Client and storage payload cap: 10MB (10,485,760 bytes) per image.
-  - Account rate limiting: Maximum 5 reports/hour.
-  - Spatial deduplication: Reports within 50m of existing incidents are flagged rather than multiplied.
-  - GitHub Pages CDN absorbs edge traffic spikes.
-- **Status:** **MITIGATED & VERIFIED**
+  - Rate limiting (5 reports per hour per IP/user) enforced at API gateway / Supabase.
+  - Image payloads stored in object storage with 5MB caps and content-type enforcement.
 
-### 3.6 Elevation of Privilege (Unauthorized Superuser Access)
-- **Threat:** Citizen user modifies their profile `role` column to `admin` or executes administrative endpoints without MFA.
-- **Mitigation:**
-  - Public role simulator removed from production.
-  - Column-level privileges in PostgreSQL prevent users from modifying their own `role`.
-  - Migration 004 & 005 enforce `auth.jwt()->>'aal' = 'aal2'` in RLS.
-  - Tested in `phase1-final-integration-gate.test.ts` (passes).
-- **Status:** **MITIGATED & VERIFIED**
+### E - Elevation of Privilege
+- **Threat:** Citizen or Volunteer calls RPC or PATCH endpoint to assign themselves the `admin` role.
+- **Vulnerability:** Direct column updates on `users.role` without RLS protection.
+- **Mitigation:** `users.role` column modification restricted exclusively to `service_role` or Super Admin; RLS blocks user self-updates on `role`.
 
 ---
 
-## 4. Threat Modeling Summary & Continuous Verification
+## 4. Specific NAFAS Mission Security Objectives
 
-The STRIDE analysis confirms that defense-in-depth mitigations are active across all six threat vectors. Ongoing automated tests in GitHub Actions ensure that future commits cannot regress these security controls.
+### A. Whistleblower Protection Protocol
+- When `is_anonymous = true`:
+  - `reported_by` MUST be set to `NULL` in public views.
+  - Exact GPS coordinates (`lat`, `lng`) MUST be rounded to governorate or neighborhood centroid for public queries.
+  - Exact coordinates accessible ONLY by certified environmental response personnel with logged access.
+
+### B. Volunteer Hours & Certificate Integrity
+- Digital Seal MUST NOT be client-computed FNV-1a.
+- All certificates MUST be signed by a server-side HMAC-SHA256 or asymmetric key.
+- Public QR code MUST point to an authoritative verification endpoint (`https://nafas.iq/verify?code=NFS-CERT-...`).
+- Attendance verification requires organizer physical sign-off or geofenced check-in.

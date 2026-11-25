@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Canonical Sitemaps for Google, Bing, and major search engines
+Sitemap: https://mahamadfared1029-spec.github.io/nafas-iraq/sitemap.xml
+Host: https://mahamadfared1029-spec.github.io

@@ -35,6 +35,25 @@ export interface NotificationResult {
   timestamp: string;
 }
 
+function escapeHtml(str: string | null | undefined): string {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function sanitizeUrl(url: string | null | undefined): string {
+  if (!url) return '#';
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return escapeHtml(trimmed);
+  }
+  return '#';
+}
+
 export class NafasNotificationService {
   private static instance: NafasNotificationService;
   private sentHashes: Set<string> = new Set();
@@ -76,7 +95,7 @@ export class NafasNotificationService {
 الحي / المنطقة: ${payload.neighborhood || 'غير محدد بدقة'}
 الموقع التقريبي: ${payload.approximateLocation}
 التصنيف البيئي: ${payload.categoryLabelAr} (${payload.category})
-مستوى الخطورة: ${payload.severity} ${payload.isHazardous ? '⚠️ (مؤشر خطر نشط)' : ''}
+مستوى الخطورة: ${safeSeverity} ${payload.isHazardous ? '⚠️ (مؤشر خطر نشط)' : ''}
 تاريخ وتوقيت البلاغ: ${payload.date}
 حالة الاعتماد الأولية: ${payload.moderationStatus}
 
@@ -86,6 +105,14 @@ ${payload.adminDashboardUrl}
 ملاحظة أمنية: هذا الإشعار مرسل إلى المشرف المعتمد لإجراء التدقيق الميداني وفق بروتوكول السلامة الوطنية.
 `.trim();
 
+    const safeTracking = escapeHtml(payload.trackingNumber);
+    const safeGov = escapeHtml(payload.governorate);
+    const safeNeighborhood = escapeHtml(payload.neighborhood || 'ميداني');
+    const safeCategory = escapeHtml(payload.categoryLabelAr);
+    const safeSeverity = escapeHtml(payload.severity);
+    const safeDate = escapeHtml(payload.date);
+    const safeAdminUrl = sanitizeUrl(payload.adminDashboardUrl);
+
     const html = `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -94,40 +121,40 @@ ${payload.adminDashboardUrl}
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 1px solid #E5DCCD; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
     <div style="background-color: ${payload.isHazardous ? '#991B1B' : '#6B463B'}; color: #ffffff; padding: 20px; text-align: center;">
       <h2 style="margin: 0; font-size: 20px;">نَفَس | إشعار بلاغ بيئي جديد</h2>
-      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.9;">${payload.governorate} — ${payload.trackingNumber}</p>
+      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.9;">${safeGov} — ${safeTracking}</p>
     </div>
     <div style="padding: 24px; line-height: 1.6; font-size: 14px;">
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
         <tr>
           <td style="padding: 8px 0; color: #6B463B; font-weight: bold; width: 35%;">رقم التتبع:</td>
-          <td style="padding: 8px 0; font-family: monospace; font-size: 15px; font-weight: bold;">${payload.trackingNumber}</td>
+          <td style="padding: 8px 0; font-family: monospace; font-size: 15px; font-weight: bold;">${safeTracking}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #6B463B; font-weight: bold;">المحافظة:</td>
-          <td style="padding: 8px 0;">${payload.governorate}</td>
+          <td style="padding: 8px 0;">${safeGov}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #6B463B; font-weight: bold;">المنطقة:</td>
-          <td style="padding: 8px 0;">${payload.neighborhood || 'ميداني'}</td>
+          <td style="padding: 8px 0;">${safeNeighborhood}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #6B463B; font-weight: bold;">التصنيف:</td>
-          <td style="padding: 8px 0;">${payload.categoryLabelAr}</td>
+          <td style="padding: 8px 0;">${safeCategory}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #6B463B; font-weight: bold;">الأولوية والسلامة:</td>
           <td style="padding: 8px 0; color: ${payload.isHazardous ? '#DC2626' : '#222238'}; font-weight: ${payload.isHazardous ? 'bold' : 'normal'};">
-            ${payload.severity} ${payload.isHazardous ? '🚨 [يتطلب معالجة طارئة ومعدات حماية]' : ''}
+            ${safeSeverity} ${payload.isHazardous ? '🚨 [يتطلب معالجة طارئة ومعدات حماية]' : ''}
           </td>
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #6B463B; font-weight: bold;">التاريخ:</td>
-          <td style="padding: 8px 0;">${payload.date}</td>
+          <td style="padding: 8px 0;">${safeDate}</td>
         </tr>
       </table>
 
       <div style="text-align: center; margin: 28px 0 16px;">
-        <a href="${payload.adminDashboardUrl}" style="background-color: #62467D; color: #ffffff; padding: 12px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+        <a href="${safeAdminUrl}" style="background-color: #62467D; color: #ffffff; padding: 12px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
           فتح لوحة المشرف للمراجعة والاعتماد
         </a>
       </div>

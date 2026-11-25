@@ -18,9 +18,6 @@ import {
 } from './constants';
 import { TRANSLATIONS, TranslationDictionary } from './i18n';
 import { NafasApiClient } from './server/apiClient';
-import { nafasReports } from './reports/reportService';
-import { nafasAuth } from './auth/authService';
-import { nafasCampaigns } from './campaigns/campaignService';
 
 export interface UserPassport {
   userName: string;
@@ -114,25 +111,10 @@ const DEMO_FIXTURE_PASSPORT: UserPassport = {
 };
 
 export function NafasProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<Role>(() => {
-    const user = nafasAuth.getCurrentUser();
-    return user ? user.role : 'guest';
-  });
+  const [role, setRole] = useState<Role>('citizen');
   const [language, setLanguage] = useState<Language>('ar');
   const [season, setSeason] = useState<Season>('auto');
   const [selectedGovernorateId, setSelectedGovernorateId] = useState<string>('all');
-  
-  // Synchronize authoritative role directly from server session
-  useEffect(() => {
-    const unsub = nafasAuth.onAuthStateChange((session) => {
-      if (session?.user) {
-        setRole(session.user.role || 'citizen');
-      } else {
-        setRole('guest');
-      }
-    });
-    return unsub;
-  }, []);
   
   // Production default is strictly false: Zero fabricated reports on live public launch
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
@@ -151,29 +133,9 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     return [];
   });
 
-  const [campaigns, setCampaigns] = useState<VolunteerCampaign[]>(() => INITIAL_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<VolunteerCampaign[]>([]);
   const [userRegisteredCampaignIds, setUserRegisteredCampaignIds] = useState<string[]>([]);
   const [passport, setPassport] = useState<UserPassport>(CLEAN_ZERO_PASSPORT);
-
-  // Fetch live campaigns and user registrations on mount
-  useEffect(() => {
-    let isMounted = true;
-    nafasCampaigns.getCampaigns().then(camps => {
-      if (isMounted && camps && camps.length > 0) {
-        setCampaigns(camps);
-      }
-    }).catch(() => {});
-
-    if (nafasAuth.isAuthenticated()) {
-      nafasCampaigns.getUserRegistrations().then(regs => {
-        if (isMounted && regs) {
-          const registeredIds = regs.filter(r => r.status === 'registered').map(r => r.campaignId);
-          setUserRegisteredCampaignIds(registeredIds);
-        }
-      }).catch(() => {});
-    }
-    return () => { isMounted = false; };
-  }, []);
 
   // Synchronize reports to local storage for persistence across reloads
   useEffect(() => {
@@ -199,9 +161,6 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     setCampaigns([]);
     setUserRegisteredCampaignIds([]);
     setPassport(CLEAN_ZERO_PASSPORT);
-    try {
-      nafasReports.resetDemoData();
-    } catch (_) {}
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('nafas_user_reports');
@@ -299,25 +258,6 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
 
     setReports(prev => [createdReport, ...prev]);
 
-    // Send to central persistent reports store and notification outbox
-    try {
-      nafasReports.submitReport({
-        title: createdReport.title,
-        description: createdReport.description,
-        category: createdReport.category,
-        severity: createdReport.severity,
-        governorateId: createdReport.governorateId,
-        neighborhood: createdReport.neighborhood,
-        lat: createdReport.lat,
-        lng: createdReport.lng,
-        location_source: createdReport.location_source,
-        accuracy_m: createdReport.accuracy_m,
-        imageBeforeUrl: createdReport.imageBeforeUrl,
-        isAnonymous: createdReport.isAnonymous,
-        isHazardous: createdReport.isHazardous
-      }).catch(() => {});
-    } catch (_) {}
-
     // Send to backend API client if configured
     try {
       const api = NafasApiClient.getInstance();
@@ -396,10 +336,8 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
 
     if (success) {
       setUserRegisteredCampaignIds(prev => [...prev, campaignId]);
-      // Call backend RPC asynchronously
-      nafasCampaigns.registerForCampaign(campaignId).catch(err => {
-        console.warn('Backend campaign registration notice:', err?.message || err);
-      });
+      // Note: Civic reward points are strictly awarded upon verified attendance or verified remediation,
+      // never on prospective unverified registration, preventing registration loop farming.
     }
     return success;
   };
@@ -416,9 +354,6 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       }
       return c;
     }));
-    nafasCampaigns.cancelRegistration(campaignId).catch(err => {
-      console.warn('Backend campaign cancellation notice:', err?.message || err);
-    });
   };
 
   const verifyAttendance = (campaignId: string, attendeeName: string, hours: number): IssuedCertificate => {
