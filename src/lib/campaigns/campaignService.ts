@@ -333,6 +333,10 @@ class CampaignService {
       throw new Error(error.message || 'فشل تثبيت الحضور الميداني.');
     }
 
+    if (data && data.success === false) {
+      throw new Error(data.message || 'فشل تثبيت الحضور الميداني.');
+    }
+
     return {
       success: true,
       status: 'checked_in',

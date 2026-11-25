@@ -140,7 +140,7 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
   });
 
   describe('3. Field Attendance & Verification Security (TITAN Integrity Gate)', () => {
-    it('should generate a 6-digit dynamic field check-in code with expiration via RPC', async () => {
+    it('should generate an 8-character high-entropy alphanumeric check-in code (XXXX-XXXX format)', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
       vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
 
@@ -148,15 +148,17 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
         data: {
           success: true,
           campaign_id: 'CMP-BAG-2026-01',
-          check_in_code: 'F9A27E',
-          expires_at: '2026-11-25T15:00:00Z'
+          check_in_code: 'K7P9-M3W8',
+          expires_at: '2026-11-25T15:00:00Z',
+          valid_minutes: 120
         },
         error: null
       });
       vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
 
       const res = await nafasCampaigns.generateCheckInCode('CMP-BAG-2026-01', 120);
-      expect(res.code).toBe('F9A27E');
+      expect(res.code).toBe('K7P9-M3W8');
+      expect(res.code).toMatch(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/);
       expect(res.expiresAt).toBe('2026-11-25T15:00:00Z');
       expect(mockRpc).toHaveBeenCalledWith('rpc_generate_campaign_checkin_code', {
         p_campaign_id: 'CMP-BAG-2026-01',
@@ -178,25 +180,150 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
       });
       vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
 
-      const res = await nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'F9A27E');
+      const res = await nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'K7P9-M3W8');
       expect(res.success).toBe(true);
       expect(res.status).toBe('checked_in');
       expect(res.message).toContain('بانتظار الاعتماد النهائي لساعات التطوع');
       expect(mockRpc).toHaveBeenCalledWith('rpc_volunteer_checkin', {
         p_campaign_id: 'CMP-BAG-2026-01',
-        p_checkin_code: 'F9A27E'
+        p_checkin_code: 'K7P9-M3W8'
       });
     });
 
-    it('should allow organizer to approve attendance, award hours, and issue certificate', async () => {
+    it('should reject check-in for cancelled or no_show registrations', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      // 1. Cancelled
+      const mockRpcCancelled = vi.fn().mockResolvedValue({
+        data: {
+          success: false,
+          error: 'REGISTRATION_CANCELLED',
+          message: 'تم إلغاء تسجيلك في هذه الحملة سابقاً. لا يمكن تثبيت الحضور لحجز ملغى.'
+        },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpcCancelled } as any);
+
+      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'K7P9-M3W8')).rejects.toThrow(
+        /تم إلغاء تسجيلك في هذه الحملة سابقاً/
+      );
+
+      // 2. No-Show
+      const mockRpcNoShow = vi.fn().mockResolvedValue({
+        data: {
+          success: false,
+          error: 'REGISTRATION_NO_SHOW',
+          message: 'تم تسجيل حالتك كعدم حضور (غياب). تعذر تثبيت الحضور.'
+        },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpcNoShow } as any);
+
+      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'K7P9-M3W8')).rejects.toThrow(
+        /تم تسجيل حالتك كعدم حضور/
+      );
+    });
+
+    it('should track persistent failed attempts and enforce campaign lockout', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      // Consecutive failed attempt returning committed failure counter payload
+      const mockRpcWrong = vi.fn().mockResolvedValue({
+        data: {
+          success: false,
+          error: 'INVALID_CODE',
+          message: 'رمز الحضور الميداني غير صحيح.',
+          attempts_remaining: 24
+        },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpcWrong } as any);
+
+      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'WRONG123')).rejects.toThrow(
+        /رمز الحضور الميداني غير صحيح/
+      );
+
+      // Lockout reached
+      const mockRpcLocked = vi.fn().mockResolvedValue({
+        data: {
+          success: false,
+          error: 'CAMPAIGN_LOCKED',
+          message: 'تم قفل رمز الحضور بسبب تجاوز الحد الأقصى للمحاولات الخاطئة على مستوى الحملة.'
+        },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpcLocked } as any);
+
+      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'WRONG123')).rejects.toThrow(
+        /تجاوز الحد الأقصى للمحاولات الخاطئة/
+      );
+    });
+
+    it('should enforce per-user rate limit (5 failed attempts within 15 minutes)', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      const mockRpcUserRate = vi.fn().mockResolvedValue({
+        data: {
+          success: false,
+          error: 'USER_RATE_LIMITED',
+          message: 'تم تجاوز الحد المسموح به للمحاولات الخاطئة لحسابك (5 محاولات). يرجى الانتظار 15 دقيقة.'
+        },
+        error: null
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpcUserRate } as any);
+
+      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'WRONG123')).rejects.toThrow(
+        /تم تجاوز الحد المسموح به للمحاولات الخاطئة لحسابك/
+      );
+    });
+
+    it('should reject attendance approval if volunteer status is not checked_in', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      const mockRpcNotCheckedIn = vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'لا يمكن اعتماد الحضور: المتطوع لم يثبت حضوره الميداني بعد (حالة التسجيل الحالية: registered وليست checked_in).' }
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpcNotCheckedIn } as any);
+
+      await expect(nafasCampaigns.organizerApproveAttendance({
+        campaignId: 'CMP-BAG-2026-01',
+        volunteerId: 'vol-user-456',
+        hours: 4.0
+      })).rejects.toThrow(/المتطوع لم يثبت حضوره الميداني بعد/);
+    });
+
+    it('should enforce hours bounds between 0.5 and 12.0 hours', async () => {
+      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
+      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
+
+      const mockRpcInvalidHours = vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'ساعات التطوع المعتمدة يجب أن تكون بين 0.5 و 12 ساعة (القيمة المدخلة: 0.2).' }
+      });
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpcInvalidHours } as any);
+
+      await expect(nafasCampaigns.organizerApproveAttendance({
+        campaignId: 'CMP-BAG-2026-01',
+        volunteerId: 'vol-user-456',
+        hours: 0.2
+      })).rejects.toThrow(/ساعات التطوع المعتمدة يجب أن تكون بين 0.5 و 12 ساعة/);
+    });
+
+    it('should allow organizer to approve attendance for checked_in volunteer and issue certificate', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
       vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
 
       const mockRpc = vi.fn().mockResolvedValue({
         data: {
           success: true,
-          certificate_code: 'NFS-CERT-2026-A89BC1',
+          certificate_code: 'NFS-CERT-2026-A89BC1DE',
           hours_awarded: 4.0,
+          digital_seal_hash: '0x3f8a91b2c4d5e6f7',
           message: 'تم اعتماد حضور المتطوع وإصدار وثيقة الأثر بنجاح!'
         },
         error: null
@@ -210,7 +337,7 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
       });
 
       expect(res.success).toBe(true);
-      expect(res.certificateCode).toBe('NFS-CERT-2026-A89BC1');
+      expect(res.certificateCode).toBe('NFS-CERT-2026-A89BC1DE');
       expect(res.hoursAwarded).toBe(4.0);
       expect(mockRpc).toHaveBeenCalledWith('rpc_organizer_approve_attendance', {
         p_campaign_id: 'CMP-BAG-2026-01',
@@ -219,57 +346,21 @@ describe('NAFAS Phase 2A — Campaign Management & Volunteer Experience', () => 
       });
     });
 
-    it('should lock check-in when rate-limit brute-force threshold is reached', async () => {
+    it('should reject duplicate certificate issuance when certificate already exists', async () => {
       vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
       vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
 
-      const mockRpc = vi.fn().mockResolvedValue({
+      const mockRpcDup = vi.fn().mockResolvedValue({
         data: null,
-        error: { message: 'تم قفل رمز الحضور بسبب تجاوز الحد الأقصى للمحاولات الخاطئة.' }
+        error: { message: 'تم إصدار شهادة مشاركة مسبقاً لهذا المتطوع في هذه الحملة (رمز الوثيقة: NFS-CERT-2026-EXISTING).' }
       });
-      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpc } as any);
-
-      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'WRONG1')).rejects.toThrow(
-        /تجاوز الحد الأقصى للمحاولات الخاطئة/
-      );
-    });
-
-    it('should reject attendance check-in if code is expired or invalid in RPC response', async () => {
-      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
-      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
-
-      const mockRpc = vi.fn().mockResolvedValue({
-        data: null,
-        error: { message: 'رمز الحضور غير صحيح.' }
-      });
-
-      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({
-        rpc: mockRpc
-      } as any);
-
-      await expect(nafasCampaigns.volunteerCheckIn('CMP-BAG-2026-01', 'INVALID')).rejects.toThrow(
-        /رمز الحضور غير صحيح/
-      );
-    });
-
-    it('should prevent duplicate attendance approval for the same campaign in RPC response', async () => {
-      vi.spyOn(nafasAuth, 'isAuthenticated').mockReturnValue(true);
-      vi.spyOn(supabaseClientModule, 'isSupabaseConfigured').mockReturnValue(true);
-
-      const mockRpc = vi.fn().mockResolvedValue({
-        data: null,
-        error: { message: 'تم اعتماد حضور هذا المتطوع مسبقاً.' }
-      });
-
-      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({
-        rpc: mockRpc
-      } as any);
+      vi.spyOn(supabaseClientModule, 'getSupabaseClient').mockReturnValue({ rpc: mockRpcDup } as any);
 
       await expect(nafasCampaigns.organizerApproveAttendance({
         campaignId: 'CMP-BAG-2026-01',
         volunteerId: 'vol-user-456',
         hours: 4.0
-      })).rejects.toThrow(/تم اعتماد حضور هذا المتطوع مسبقاً/);
+      })).rejects.toThrow(/تم إصدار شهادة مشاركة مسبقاً/);
     });
   });
 

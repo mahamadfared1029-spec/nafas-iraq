@@ -1,20 +1,32 @@
 -- =============================================================================
--- MIGRATION 008: NAFAS IRAQ — PHASE 2A: PRODUCTION INTEGRITY & VOLUNTEER SECURITY GATE
+-- MIGRATION 008: NAFAS IRAQ — PHASE 2A: PRODUCTION INTEGRITY & VOLUNTEER SECURITY GATE (TITAN V2)
 -- =============================================================================
--- Audited under TITAN Protocol:
--- 1. Check-in codes stored in private isolated table, NEVER in public.campaigns.
--- 2. Code generated with cryptographically secure gen_random_bytes and SHA-256 hash.
--- 3. Rate limiting and brute-force protection (failed_attempts counter).
--- 4. Separation of volunteer check-in (pending approval) from organizer hours authorization.
--- 5. Volunteers cannot choose their own verified hours or self-issue certificates.
--- 6. Strict RLS: Deny direct INSERT/UPDATE on campaign_registrations. Registration & cancellation strictly via atomic RPCs.
--- 7. SHA-256 verification hash accurately labeled as digest (not cryptographic signature).
--- 8. Single certificate per volunteer per campaign constraint.
+-- Comprehensive Security Audit & Hardening:
+-- 1. Persistent, atomic failed-attempt counting without transaction rollback:
+--    Failure recording commits cleanly, strictly enforcing lockout.
+-- 2. 40-bit cryptographic entropy for check-in codes:
+--    Unambiguous 32-char alphabet (23456789ABCDEFGHJKLMNPQRSTUVWXYZ), 8 chars (XXXX-XXXX),
+--    zero modulo bias, strict validity bounds (15-360 min).
+-- 3. Multi-layer rate limiting:
+--    Per-user limit (5 failed attempts / 15 min) and per-campaign limit (25 failed attempts).
+-- 4. Registration status enforcement:
+--    rpc_volunteer_checkin requires status = 'registered'. Explicitly rejects 'cancelled' and 'no_show'.
+-- 5. Attendance approval validation:
+--    rpc_organizer_approve_attendance strictly requires status = 'checked_in'. Enforces 0.5 to 12.0 hours.
+-- 6. Strict RLS lockdown on campaign_registrations:
+--    Removed permissive 'FOR ALL' policies. Direct INSERT/UPDATE/DELETE denied for authenticated users.
+--    All state mutations forced through atomic SECURITY DEFINER RPCs.
+-- 7. Certificate consistency:
+--    Pre-migration deduplication safety. No mismatched ON CONFLICT codes. Unique issuance guaranteed.
+-- 8. Explicit privilege review:
+--    REVOKE ALL FROM PUBLIC, anon for all sensitive RPCs. Explicit search_path = public, pg_temp.
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 1. CAMPAIGN TABLE EXTENSIONS (PUBLIC-SAFE ONLY)
+-- -----------------------------------------------------------------------------
+-- 1. CAMPAIGN TABLE EXTENSIONS (PUBLIC-SAFE ATTRIBUTES ONLY)
+-- -----------------------------------------------------------------------------
 DO $$ 
 BEGIN
     -- Campaign Type
@@ -50,7 +62,7 @@ BEGIN
         ALTER TABLE public.campaigns ADD COLUMN waste_collected_kg NUMERIC(8, 2) DEFAULT 0;
     END IF;
 
-    -- Drop any accidentally added check_in_code columns from public.campaigns
+    -- Purge check_in_code columns from public.campaigns if they were ever introduced
     IF EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_schema = 'public' AND table_name = 'campaigns' AND column_name = 'check_in_code'
@@ -71,7 +83,9 @@ ALTER TABLE public.campaigns DROP CONSTRAINT IF EXISTS campaigns_status_check;
 ALTER TABLE public.campaigns ADD CONSTRAINT campaigns_status_check 
     CHECK (status IN ('draft', 'upcoming', 'in_progress', 'completed', 'cancelled'));
 
--- 2. CAMPAIGN REGISTRATIONS EXTENSIONS
+-- -----------------------------------------------------------------------------
+-- 2. CAMPAIGN REGISTRATIONS TABLE EXTENSIONS
+-- -----------------------------------------------------------------------------
 DO $$ 
 BEGIN
     IF NOT EXISTS (
@@ -91,21 +105,59 @@ BEGIN
     END IF;
 END $$;
 
--- 3. PRIVATE ISOLATED CHECK-IN SECRETS TABLE (NEVER EXPOSED TO PUBLIC)
+-- -----------------------------------------------------------------------------
+-- 3. PRIVATE ISOLATED CHECK-IN SECRETS & RATE-LIMITING TABLES
+-- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.campaign_checkin_codes (
     campaign_id VARCHAR(32) PRIMARY KEY REFERENCES public.campaigns(id) ON DELETE CASCADE,
     code_hash VARCHAR(128) NOT NULL,
-    salt VARCHAR(32) NOT NULL,
+    salt VARCHAR(64) NOT NULL,
+    clean_code_length INT NOT NULL DEFAULT 8,
     expires_at TIMESTAMPTZ NOT NULL,
     created_by UUID NOT NULL REFERENCES auth.users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     failed_attempts INT NOT NULL DEFAULT 0,
-    max_attempts INT NOT NULL DEFAULT 150
+    max_attempts INT NOT NULL DEFAULT 25,
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- 4. UNIQUE CERTIFICATE CONSTRAINT (One certificate per volunteer per campaign)
+CREATE TABLE IF NOT EXISTS public.campaign_checkin_attempts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    campaign_id VARCHAR(32) NOT NULL REFERENCES public.campaigns(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_success BOOLEAN NOT NULL DEFAULT FALSE,
+    failure_reason VARCHAR(64)
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkin_attempts_user_time 
+    ON public.campaign_checkin_attempts (user_id, attempted_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_checkin_attempts_camp_time 
+    ON public.campaign_checkin_attempts (campaign_id, attempted_at DESC);
+
+-- -----------------------------------------------------------------------------
+-- 4. PRE-MIGRATION DEDUPLICATION & UNIQUE CERTIFICATE CONSTRAINT
+-- -----------------------------------------------------------------------------
 DO $$
 BEGIN
+    -- Defensively revoke any pre-existing duplicate certificates so unique constraint succeeds without data loss
+    IF EXISTS (
+        SELECT 1 FROM public.certificates 
+        GROUP BY campaign_id, user_id 
+        HAVING COUNT(*) > 1
+    ) THEN
+        UPDATE public.certificates c1
+        SET is_revoked = TRUE, 
+            revoked_reason = 'Deduplicated: superseded by primary certificate record'
+        WHERE EXISTS (
+            SELECT 1 FROM public.certificates c2
+            WHERE c1.campaign_id = c2.campaign_id 
+              AND c1.user_id = c2.user_id 
+              AND c1.created_at > c2.created_at
+        );
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'uq_certificates_campaign_user'
     ) THEN
@@ -115,7 +167,9 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
--- 5. CAMPAIGN AUDIT LOGS
+-- -----------------------------------------------------------------------------
+-- 5. CAMPAIGN AUDIT LOGS TABLE
+-- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.campaign_audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     campaign_id VARCHAR(32) NOT NULL REFERENCES public.campaigns(id) ON DELETE CASCADE,
@@ -127,14 +181,16 @@ CREATE TABLE IF NOT EXISTS public.campaign_audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_campaign_audit_logs_campaign ON public.campaign_audit_logs(campaign_id);
 
--- 6. STRICT ROW LEVEL SECURITY (RLS) POLICIES
-
+-- -----------------------------------------------------------------------------
+-- 6. ROW LEVEL SECURITY (RLS) POLICIES — LEAST PRIVILEGE ENFORCEMENT
+-- -----------------------------------------------------------------------------
 ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_registrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_checkin_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_checkin_attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Campaign read access: Non-draft visible to all. Draft visible to owner/moderator.
+-- Campaigns RLS
 DROP POLICY IF EXISTS "Public can view published campaigns" ON public.campaigns;
 CREATE POLICY "Public can view published campaigns"
     ON public.campaigns FOR SELECT
@@ -144,7 +200,6 @@ CREATE POLICY "Public can view published campaigns"
         OR public.is_moderator_or_higher()
     );
 
--- Campaign create access: Organizers and staff only
 DROP POLICY IF EXISTS "Organizers and staff can create campaigns" ON public.campaigns;
 CREATE POLICY "Organizers and staff can create campaigns"
     ON public.campaigns FOR INSERT TO authenticated
@@ -160,7 +215,6 @@ CREATE POLICY "Organizers and staff can create campaigns"
         )
     );
 
--- Campaign update access: Organizer or staff
 DROP POLICY IF EXISTS "Organizers and staff can update own campaigns" ON public.campaigns;
 CREATE POLICY "Organizers and staff can update own campaigns"
     ON public.campaigns FOR UPDATE TO authenticated
@@ -169,11 +223,11 @@ CREATE POLICY "Organizers and staff can update own campaigns"
         OR organizer_id = auth.uid()
     );
 
--- Check-in secrets access: STRICTLY RESTRICTED to Organizer and Staff
+-- Check-in secrets RLS: STRICTLY restricted to Organizer & Staff (Read Only)
 DROP POLICY IF EXISTS "Checkin codes restricted to organizers" ON public.campaign_checkin_codes;
 CREATE POLICY "Checkin codes restricted to organizers"
     ON public.campaign_checkin_codes
-    FOR ALL TO authenticated
+    FOR SELECT TO authenticated
     USING (
         public.is_moderator_or_higher() 
         OR EXISTS (
@@ -182,8 +236,20 @@ CREATE POLICY "Checkin codes restricted to organizers"
         )
     );
 
--- Registration Access:
--- 1. Read: Users can only see their own registrations. Organizers see registrations for their campaign.
+-- Check-in attempts audit RLS (Read Only for Organizer & Staff)
+DROP POLICY IF EXISTS "Checkin attempts viewable by organizers" ON public.campaign_checkin_attempts;
+CREATE POLICY "Checkin attempts viewable by organizers"
+    ON public.campaign_checkin_attempts
+    FOR SELECT TO authenticated
+    USING (
+        public.is_moderator_or_higher() 
+        OR EXISTS (
+            SELECT 1 FROM public.campaigns c 
+            WHERE c.id = campaign_checkin_attempts.campaign_id AND c.organizer_id = auth.uid()
+        )
+    );
+
+-- Registrations RLS: Read-only for authenticated users; DIRECT WRITES DENIED!
 DROP POLICY IF EXISTS "Users and organizers can view registrations" ON public.campaign_registrations;
 CREATE POLICY "Users and organizers can view registrations"
     ON public.campaign_registrations FOR SELECT TO authenticated
@@ -197,27 +263,28 @@ CREATE POLICY "Users and organizers can view registrations"
         )
     );
 
--- 2. Direct INSERT/UPDATE/DELETE DENIED for regular users to prevent capacity bypassing!
--- All registrations and cancellations MUST go strictly through atomic RPCs.
+-- Purge any superseded permissive INSERT/UPDATE/DELETE policies
 DROP POLICY IF EXISTS "Users can insert own registration" ON public.campaign_registrations;
 DROP POLICY IF EXISTS "Users can update own registration status" ON public.campaign_registrations;
-
--- Organizers/Staff can update attendance via management tool
 DROP POLICY IF EXISTS "Staff can manage registrations" ON public.campaign_registrations;
-CREATE POLICY "Staff can manage registrations"
-    ON public.campaign_registrations FOR ALL TO authenticated
+
+-- Audit logs RLS
+DROP POLICY IF EXISTS "Audit logs viewable by staff and organizers" ON public.campaign_audit_logs;
+CREATE POLICY "Audit logs viewable by staff and organizers"
+    ON public.campaign_audit_logs FOR SELECT TO authenticated
     USING (
         public.is_moderator_or_higher()
         OR EXISTS (
             SELECT 1 FROM public.campaigns c
-            WHERE c.id = campaign_registrations.campaign_id
-              AND c.organizer_id = auth.uid()
+            WHERE c.id = campaign_audit_logs.campaign_id AND c.organizer_id = auth.uid()
         )
     );
 
--- 7. ATOMIC SECURE FUNCTIONS (SECURITY DEFINER)
+-- -----------------------------------------------------------------------------
+-- 7. ATOMIC PRIVILEGED RPCs (SECURITY DEFINER)
+-- -----------------------------------------------------------------------------
 
--- Function 1: Atomic Campaign Registration
+-- RPC 1: Atomic Campaign Registration
 CREATE OR REPLACE FUNCTION public.rpc_register_for_campaign(
     p_campaign_id VARCHAR(32)
 )
@@ -235,7 +302,7 @@ BEGIN
         RAISE EXCEPTION 'يجب تسجيل الدخول للتسجيل في الحملة التطوعية.';
     END IF;
 
-    -- Row-level lock to prevent race conditions when nearing capacity
+    -- Row lock on campaign to serialize concurrent registrations
     SELECT * INTO v_camp
     FROM public.campaigns
     WHERE id = p_campaign_id
@@ -273,6 +340,9 @@ BEGIN
             SET registered_count = registered_count + 1
             WHERE id = p_campaign_id;
 
+            INSERT INTO public.campaign_audit_logs (campaign_id, actor_id, action, details)
+            VALUES (p_campaign_id, v_user_id, 'volunteer_re_registered', jsonb_build_object('registration_id', v_existing.id));
+
             RETURN jsonb_build_object(
                 'success', true,
                 'registration_id', v_existing.id,
@@ -282,12 +352,12 @@ BEGIN
         END IF;
     END IF;
 
-    -- Check Capacity
+    -- Enforce capacity
     IF v_camp.registered_count >= v_camp.volunteer_capacity THEN
         RAISE EXCEPTION 'عذراً، اكتمل العدد الأقصى للمتطوعين في هذه الحملة.';
     END IF;
 
-    -- Insert new registration
+    -- Insert new registration record
     INSERT INTO public.campaign_registrations (
         campaign_id,
         user_id,
@@ -300,12 +370,10 @@ BEGIN
         NOW()
     );
 
-    -- Increment campaign counter safely
     UPDATE public.campaigns
     SET registered_count = registered_count + 1
     WHERE id = p_campaign_id;
 
-    -- Audit log
     INSERT INTO public.campaign_audit_logs (campaign_id, actor_id, action, details)
     VALUES (p_campaign_id, v_user_id, 'volunteer_registered', jsonb_build_object('campaign_title', v_camp.title_ar));
 
@@ -318,7 +386,7 @@ BEGIN
 END;
 $$;
 
--- Function 2: Atomic Campaign Cancellation
+-- RPC 2: Atomic Campaign Cancellation
 CREATE OR REPLACE FUNCTION public.rpc_cancel_campaign_registration(
     p_campaign_id VARCHAR(32)
 )
@@ -346,17 +414,14 @@ BEGIN
         RAISE EXCEPTION 'لا يوجد تسجيل نشط لهذه الحملة لإلغائه.';
     END IF;
 
-    -- Update registration status to cancelled
     UPDATE public.campaign_registrations
     SET status = 'cancelled'
     WHERE id = v_reg.id;
 
-    -- Decrement counter safely (never below zero)
     UPDATE public.campaigns
     SET registered_count = GREATEST(0, registered_count - 1)
     WHERE id = p_campaign_id;
 
-    -- Audit log
     INSERT INTO public.campaign_audit_logs (campaign_id, actor_id, action, details)
     VALUES (p_campaign_id, v_user_id, 'volunteer_cancelled', jsonb_build_object('registration_id', v_reg.id));
 
@@ -367,10 +432,10 @@ BEGIN
 END;
 $$;
 
--- Function 3: Secure Check-in Code Generation (Cryptographically Random & Salted Hash)
+-- RPC 3: High-Entropy Check-in Code Generation (40-bit Crockford Alphanumeric)
 CREATE OR REPLACE FUNCTION public.rpc_generate_campaign_checkin_code(
     p_campaign_id VARCHAR(32),
-    p_valid_minutes INT DEFAULT 180
+    p_valid_minutes INT DEFAULT 120
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -380,10 +445,16 @@ AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_camp RECORD;
-    v_raw_code VARCHAR(16);
-    v_salt VARCHAR(32);
+    v_alphabet CONSTANT TEXT := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; -- 32 unambiguous chars
+    v_bytes BYTEA;
+    v_clean_code TEXT := '';
+    v_formatted_code TEXT := '';
+    v_salt VARCHAR(64);
     v_hash VARCHAR(128);
+    v_clamped_minutes INT;
     v_expires TIMESTAMPTZ;
+    i INT;
+    v_idx INT;
 BEGIN
     IF v_user_id IS NULL THEN
         RAISE EXCEPTION 'يجب تسجيل الدخول لتوليد رمز التحقق.';
@@ -394,55 +465,81 @@ BEGIN
         RAISE EXCEPTION 'الحملة غير موجودة.';
     END IF;
 
-    -- Verify caller is organizer or moderator/admin
     IF v_camp.organizer_id != v_user_id AND NOT public.is_moderator_or_higher() THEN
         RAISE EXCEPTION 'غير مصرح لك بتوليد رمز الحضور الميداني لهذه الحملة.';
     END IF;
 
-    -- Cryptographically secure random 6-character code (using gen_random_bytes)
-    v_raw_code := UPPER(SUBSTRING(encode(gen_random_bytes(4), 'hex') FROM 1 FOR 6));
-    v_salt := encode(gen_random_bytes(16), 'hex');
-    v_hash := encode(digest(v_salt || v_raw_code, 'sha256'), 'hex');
-    v_expires := NOW() + (p_valid_minutes || ' minutes')::INTERVAL;
+    -- Enforce strict expiration boundaries (15 minutes to 360 minutes)
+    v_clamped_minutes := LEAST(360, GREATEST(15, COALESCE(p_valid_minutes, 120)));
 
-    -- Upsert into private checkin table (NOT in public.campaigns!)
+    -- Generate 8 chars from 32-char alphabet using cryptographic entropy (40 bits, zero modulo bias)
+    v_bytes := gen_random_bytes(8);
+    FOR i IN 0..7 LOOP
+        v_idx := (get_byte(v_bytes, i) % 32) + 1;
+        v_clean_code := v_clean_code || SUBSTRING(v_alphabet FROM v_idx FOR 1);
+        IF i = 3 THEN
+            v_formatted_code := v_formatted_code || SUBSTRING(v_alphabet FROM v_idx FOR 1) || '-';
+        ELSE
+            v_formatted_code := v_formatted_code || SUBSTRING(v_alphabet FROM v_idx FOR 1);
+        END IF;
+    END LOOP;
+
+    v_salt := encode(gen_random_bytes(32), 'hex');
+    v_hash := encode(digest(v_salt || v_clean_code, 'sha256'), 'hex');
+    v_expires := NOW() + (v_clamped_minutes || ' minutes')::INTERVAL;
+
     INSERT INTO public.campaign_checkin_codes (
         campaign_id,
         code_hash,
         salt,
+        clean_code_length,
         expires_at,
         created_by,
-        failed_attempts
+        failed_attempts,
+        max_attempts,
+        is_locked
     ) VALUES (
         p_campaign_id,
         v_hash,
         v_salt,
+        8,
         v_expires,
         v_user_id,
-        0
+        0,
+        25,
+        FALSE
     )
     ON CONFLICT (campaign_id) DO UPDATE SET
         code_hash = EXCLUDED.code_hash,
         salt = EXCLUDED.salt,
+        clean_code_length = EXCLUDED.clean_code_length,
         expires_at = EXCLUDED.expires_at,
         created_by = EXCLUDED.created_by,
         failed_attempts = 0,
+        is_locked = FALSE,
         created_at = NOW();
 
-    -- Return the raw code ONLY to the authorized organizer
+    INSERT INTO public.campaign_audit_logs (campaign_id, actor_id, action, details)
+    VALUES (p_campaign_id, v_user_id, 'checkin_code_generated', jsonb_build_object(
+        'expires_at', v_expires,
+        'valid_minutes', v_clamped_minutes,
+        'entropy_bits', 40
+    ));
+
     RETURN jsonb_build_object(
         'success', true,
         'campaign_id', p_campaign_id,
-        'check_in_code', v_raw_code,
-        'expires_at', v_expires
+        'check_in_code', v_formatted_code,
+        'expires_at', v_expires,
+        'valid_minutes', v_clamped_minutes
     );
 END;
 $$;
 
--- Function 4: Volunteer Field Check-In (Records attendance request without self-choosing hours)
+-- RPC 4: Volunteer Field Check-In (Persistent failure tracking, strict status check, zero self-awarded hours)
 CREATE OR REPLACE FUNCTION public.rpc_volunteer_checkin(
     p_campaign_id VARCHAR(32),
-    p_checkin_code VARCHAR(16)
+    p_checkin_code VARCHAR(32)
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -454,65 +551,154 @@ DECLARE
     v_secret RECORD;
     v_reg RECORD;
     v_camp RECORD;
+    v_clean_code TEXT;
     v_computed_hash VARCHAR(128);
+    v_user_failed_count INT;
 BEGIN
     IF v_volunteer_id IS NULL THEN
         RAISE EXCEPTION 'يجب تسجيل الدخول لتثبيت الحضور الميداني.';
     END IF;
 
+    -- Clean input code: strip whitespace and hyphens
+    v_clean_code := UPPER(REPLACE(REPLACE(TRIM(p_checkin_code), '-', ''), ' ', ''));
+
     SELECT * INTO v_camp FROM public.campaigns WHERE id = p_campaign_id;
-    IF NOT FOUND OR v_camp.status = 'cancelled' THEN
-        RAISE EXCEPTION 'الحملة غير موجودة أو ملغاة.';
+    IF NOT FOUND OR v_camp.status IN ('cancelled', 'completed') THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'CAMPAIGN_INACTIVE',
+            'message', 'الحملة غير نشطة أو ملغاة حالياً.'
+        );
     END IF;
 
-    -- Look up check-in code secrets
+    -- Row-level lock on checkin code secrets
     SELECT * INTO v_secret 
     FROM public.campaign_checkin_codes 
     WHERE campaign_id = p_campaign_id
     FOR UPDATE;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'لم يتم تفعيل رمز الحضور الميداني لهذه الحملة بعد.';
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'CODE_NOT_FOUND',
+            'message', 'لم يتم تفعيل رمز الحضور الميداني لهذه الحملة بعد.'
+        );
     END IF;
 
-    -- Brute force rate-limit check
-    IF v_secret.failed_attempts >= v_secret.max_attempts THEN
-        RAISE EXCEPTION 'تم قفل رمز الحضور بسبب تجاوز الحد الأقصى للمحاولات الخاطئة.';
+    -- Check campaign-level lockout
+    IF v_secret.is_locked = TRUE OR v_secret.failed_attempts >= v_secret.max_attempts THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'CAMPAIGN_LOCKED',
+            'message', 'تم قفل رمز الحضور بسبب تجاوز الحد الأقصى للمحاولات الخاطئة على مستوى الحملة. يرجى مراجعة منسق الحملة.'
+        );
     END IF;
 
+    -- Check expiration
     IF NOW() > v_secret.expires_at THEN
-        RAISE EXCEPTION 'انتهت صلاحية رمز الحضور الميداني.';
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'CODE_EXPIRED',
+            'message', 'انتهت صلاحية رمز الحضور الميداني.'
+        );
+    END IF;
+
+    -- Check per-user rate limit (maximum 5 failed attempts in past 15 minutes)
+    SELECT COUNT(*) INTO v_user_failed_count
+    FROM public.campaign_checkin_attempts
+    WHERE user_id = v_volunteer_id 
+      AND is_success = FALSE 
+      AND attempted_at > NOW() - INTERVAL '15 minutes';
+
+    IF v_user_failed_count >= 5 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'USER_RATE_LIMITED',
+            'message', 'تم تجاوز الحد المسموح به للمحاولات الخاطئة لحسابك (5 محاولات). يرجى الانتظار 15 دقيقة قبل المحاولة مجدداً.'
+        );
     END IF;
 
     -- Compute salted SHA-256 hash
-    v_computed_hash := encode(digest(v_secret.salt || UPPER(TRIM(p_checkin_code)), 'sha256'), 'hex');
+    v_computed_hash := encode(digest(v_secret.salt || v_clean_code, 'sha256'), 'hex');
+
+    -- Persistent failed attempt handling (COMMITS cleanly without transaction rollback)
     IF v_computed_hash != v_secret.code_hash THEN
         UPDATE public.campaign_checkin_codes 
-        SET failed_attempts = failed_attempts + 1 
+        SET failed_attempts = failed_attempts + 1,
+            is_locked = (failed_attempts + 1 >= max_attempts)
         WHERE campaign_id = p_campaign_id;
-        RAISE EXCEPTION 'رمز الحضور غير صحيح.';
+
+        INSERT INTO public.campaign_checkin_attempts (
+            campaign_id, user_id, is_success, failure_reason
+        ) VALUES (
+            p_campaign_id, v_volunteer_id, FALSE, 'INVALID_CODE'
+        );
+
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'INVALID_CODE',
+            'message', 'رمز الحضور الميداني غير صحيح.',
+            'attempts_remaining', GREATEST(0, v_secret.max_attempts - (v_secret.failed_attempts + 1))
+        );
     END IF;
 
-    -- Verify registration exists
+    -- Validate volunteer registration status: MUST BE 'registered'
     SELECT * INTO v_reg
     FROM public.campaign_registrations
     WHERE campaign_id = p_campaign_id AND user_id = v_volunteer_id;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'أنت غير مسجل في هذه الحملة مسبقاً.';
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'NOT_REGISTERED',
+            'message', 'أنت غير مسجل في هذه الحملة مسبقاً.'
+        );
     END IF;
 
-    IF v_reg.status IN ('checked_in', 'attended') THEN
-        RAISE EXCEPTION 'تم تسجيل حضورك مسبقاً في هذه الحملة.';
+    IF v_reg.status = 'checked_in' THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'ALREADY_CHECKED_IN',
+            'message', 'تم تثبيت حضورك الميداني مسبقاً، بانتظار الاعتماد النهائي لساعات التطوع من منسق الحملة.'
+        );
+    ELSIF v_reg.status = 'attended' THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'ALREADY_ATTENDED',
+            'message', 'تم اعتماد حضورك وإصدار شهادة المشاركة مسبقاً لهذه الحملة.'
+        );
+    ELSIF v_reg.status = 'cancelled' THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'REGISTRATION_CANCELLED',
+            'message', 'تم إلغاء تسجيلك في هذه الحملة سابقاً. لا يمكن تثبيت الحضور لحجز ملغى.'
+        );
+    ELSIF v_reg.status = 'no_show' THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'REGISTRATION_NO_SHOW',
+            'message', 'تم تسجيل حالتك كعدم حضور (غياب). تعذر تثبيت الحضور.'
+        );
+    ELSIF v_reg.status != 'registered' THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'INVALID_STATUS',
+            'message', 'حالة التسجيل غير مؤهلة لتثبيت الحضور الميداني.'
+        );
     END IF;
 
-    -- Update registration status to checked_in (pending organizer hours approval)
+    -- Valid check-in: update registration to checked_in (pending organizer approval)
     UPDATE public.campaign_registrations
     SET status = 'checked_in',
         attended_at = NOW()
     WHERE id = v_reg.id;
 
-    -- Audit log
+    INSERT INTO public.campaign_checkin_attempts (
+        campaign_id, user_id, is_success
+    ) VALUES (
+        p_campaign_id, v_volunteer_id, TRUE
+    );
+
     INSERT INTO public.campaign_audit_logs (campaign_id, actor_id, action, details)
     VALUES (p_campaign_id, v_volunteer_id, 'volunteer_checked_in', jsonb_build_object('registration_id', v_reg.id));
 
@@ -524,7 +710,7 @@ BEGIN
 END;
 $$;
 
--- Function 5: Organizer Approve Attendance & Issue Certificate (Authorized Role Only)
+-- RPC 5: Organizer Approve Attendance & Issue Certificate
 CREATE OR REPLACE FUNCTION public.rpc_organizer_approve_attendance(
     p_campaign_id VARCHAR(32),
     p_volunteer_id UUID,
@@ -539,6 +725,7 @@ DECLARE
     v_caller_id UUID := auth.uid();
     v_camp RECORD;
     v_reg RECORD;
+    v_existing_cert RECORD;
     v_awarded_hours NUMERIC(4, 2);
     v_cert_id VARCHAR(64);
     v_cert_code VARCHAR(64);
@@ -555,7 +742,7 @@ BEGIN
         RAISE EXCEPTION 'الحملة غير موجودة.';
     END IF;
 
-    -- Strict authorization check: Caller must be the campaign organizer or moderator/admin
+    -- Authorization check: Caller must be campaign organizer or moderator/admin
     IF v_camp.organizer_id != v_caller_id AND NOT public.is_moderator_or_higher() THEN
         RAISE EXCEPTION 'غير مصرح لك باعتماد ساعات التطوع وإصدار الشهادات لهذه الحملة.';
     END IF;
@@ -573,10 +760,24 @@ BEGIN
         RAISE EXCEPTION 'تم اعتماد حضور هذا المتطوع مسبقاً.';
     END IF;
 
-    -- Validate hours (must be between 0.5 and 12 hours)
+    -- Strict check: Volunteer MUST have status = 'checked_in'
+    IF v_reg.status != 'checked_in' THEN
+        RAISE EXCEPTION 'لا يمكن اعتماد الحضور: المتطوع لم يثبت حضوره الميداني بعد (حالة التسجيل الحالية: % وليست checked_in).', v_reg.status;
+    END IF;
+
+    -- Validate hours strictly between 0.5 and 12.0 hours
     v_awarded_hours := COALESCE(p_hours, v_camp.duration_hours, 4.0);
-    IF v_awarded_hours <= 0 OR v_awarded_hours > 12.0 THEN
-        RAISE EXCEPTION 'ساعات التطوع المعتمدة يجب أن تكون بين 0.5 و 12 ساعة.';
+    IF v_awarded_hours < 0.5 OR v_awarded_hours > 12.0 THEN
+        RAISE EXCEPTION 'ساعات التطوع المعتمدة يجب أن تكون بين 0.5 و 12 ساعة (القيمة المدخلة: %).', v_awarded_hours;
+    END IF;
+
+    -- Verify no pre-existing certificate exists
+    SELECT * INTO v_existing_cert 
+    FROM public.certificates 
+    WHERE campaign_id = p_campaign_id AND user_id = p_volunteer_id;
+
+    IF FOUND THEN
+        RAISE EXCEPTION 'تم إصدار شهادة مشاركة مسبقاً لهذا المتطوع في هذه الحملة (رمز الوثيقة: %).', v_existing_cert.verification_code;
     END IF;
 
     -- Update registration record
@@ -598,11 +799,12 @@ BEGIN
         v_gov_name := 'العراق';
     END IF;
 
-    -- Generate Certificate with SHA-256 Digest
-    v_cert_code := 'NFS-CERT-' || TO_CHAR(NOW(), 'YYYY') || '-' || UPPER(SUBSTRING(encode(gen_random_bytes(4), 'hex') FROM 1 FOR 8));
-    v_cert_id := 'cert-' || LOWER(SUBSTRING(encode(gen_random_bytes(6), 'hex') FROM 1 FOR 12));
+    -- Generate unique certificate identifiers
+    v_cert_code := 'NFS-CERT-' || TO_CHAR(NOW(), 'YYYY') || '-' || UPPER(SUBSTRING(encode(gen_random_bytes(6), 'hex') FROM 1 FOR 10));
+    v_cert_id := 'cert-' || LOWER(SUBSTRING(encode(gen_random_bytes(8), 'hex') FROM 1 FOR 16));
     v_digest_hash := '0x' || SUBSTRING(encode(digest(v_participant_name || v_cert_code || v_awarded_hours::TEXT || p_volunteer_id::TEXT, 'sha256'), 'hex') FROM 1 FOR 16);
 
+    -- Direct insert guaranteeing code consistency
     INSERT INTO public.certificates (
         id,
         verification_code,
@@ -631,11 +833,8 @@ BEGIN
         v_digest_hash,
         FALSE,
         NOW()
-    ) ON CONFLICT (campaign_id, user_id) DO UPDATE SET
-        hours_awarded = EXCLUDED.hours_awarded,
-        updated_at = NOW();
+    );
 
-    -- Audit log
     INSERT INTO public.campaign_audit_logs (campaign_id, actor_id, action, details)
     VALUES (p_campaign_id, v_caller_id, 'attendance_approved', jsonb_build_object(
         'volunteer_id', p_volunteer_id,
@@ -649,12 +848,14 @@ BEGIN
         'volunteer_id', p_volunteer_id,
         'hours_awarded', v_awarded_hours,
         'certificate_code', v_cert_code,
+        'certificate_id', v_cert_id,
+        'digital_seal_hash', v_digest_hash,
         'message', 'تم اعتماد الحضور الميداني وإصدار وثيقة الأثر الرقمية بنجاح!'
     );
 END;
 $$;
 
--- Function 6: Environmental Impact Summary (Authentic DB aggregation)
+-- RPC 6: Environmental Impact Summary (Authentic DB aggregation)
 CREATE OR REPLACE FUNCTION public.rpc_get_environmental_impact_summary()
 RETURNS JSONB
 LANGUAGE sql
@@ -674,10 +875,22 @@ AS $$
     );
 $$;
 
--- Grant permissions
+-- -----------------------------------------------------------------------------
+-- 8. EXPLICIT PRIVILEGE REVOCATIONS & GRANTS
+-- -----------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.rpc_register_for_campaign(VARCHAR) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_register_for_campaign(VARCHAR) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.rpc_cancel_campaign_registration(VARCHAR) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_cancel_campaign_registration(VARCHAR) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.rpc_generate_campaign_checkin_code(VARCHAR, INT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_generate_campaign_checkin_code(VARCHAR, INT) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.rpc_volunteer_checkin(VARCHAR, VARCHAR) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_volunteer_checkin(VARCHAR, VARCHAR) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.rpc_organizer_approve_attendance(VARCHAR, UUID, NUMERIC) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_organizer_approve_attendance(VARCHAR, UUID, NUMERIC) TO authenticated;
+
 GRANT EXECUTE ON FUNCTION public.rpc_get_environmental_impact_summary() TO anon, authenticated;

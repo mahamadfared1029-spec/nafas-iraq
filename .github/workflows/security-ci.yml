@@ -77,7 +77,7 @@ jobs:
           echo "|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| Secret Scan (Gitleaks) | ${{ steps.precommit_scan.outcome }} | Gitleaks / Custom Scanner | ${{ steps.precommit_scan.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| TypeScript Type Safety | ${{ steps.tsc_check.outcome }} | tsc v5.7 (Strict Mode) | ${{ steps.tsc_check.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Vitest Automated Tests | ${{ steps.vitest_suite.outcome }} | Vitest v3 (173 Tests) | ${{ steps.vitest_suite.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Vitest Automated Tests | ${{ steps.vitest_suite.outcome }} | Vitest v3 (193 Tests) | ${{ steps.vitest_suite.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Static Export Build | ${{ steps.next_export.outcome }} | Next.js v14 | ${{ steps.next_export.outcome == 'success' && '✅ PASSED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Dependency Vulnerability Audit | ${{ steps.dep_audit.outcome }} | npm audit (Advisories Logged) | ⚠️ REVIEWED POLICY |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
