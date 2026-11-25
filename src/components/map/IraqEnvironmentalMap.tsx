@@ -274,22 +274,45 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     // Convert store campaigns into pin items
     const storeCampaignPins: MapPinItem[] = campaigns.map(c => {
       const gov = IRAQ_GOVERNORATES.find(g => g.id === c.governorateId);
-      const isPlanting = (c.targetTrees || 0) > 0;
+      const isPlanting = c.campaignType === 'reforestation' || (c.targetTrees || 0) > 0;
+      
+      let catLabel = 'حملة بيئية مجتمعية';
+      let pinColor = '#2563EB';
+      if (c.campaignType === 'reforestation') {
+        catLabel = 'حملة تشجير وتخضير';
+        pinColor = '#16A34A';
+      } else if (c.campaignType === 'river_protection') {
+        catLabel = 'حماية وتطهير الأنهر';
+        pinColor = '#0284C7';
+      } else if (c.campaignType === 'cleanup') {
+        catLabel = 'حملة تنظيف ميداني';
+        pinColor = '#D97706';
+      } else if (c.campaignType === 'recycling') {
+        catLabel = 'فرز وإعادة تدوير';
+        pinColor = '#059669';
+      } else if (c.campaignType === 'education') {
+        catLabel = 'توعية بيئية وتدريب';
+        pinColor = '#7C3AED';
+      } else if (c.campaignType === 'biodiversity') {
+        catLabel = 'حماية التنوع الأحيائي';
+        pinColor = '#15803D';
+      }
+
       return {
         id: `campaign-${c.id}`,
         type: isPlanting ? 'planting' : 'cleanup',
         title: c.titleAr,
-        categoryLabelAr: isPlanting ? 'حملة تشجير وتخضير' : 'حملة تنظيف مسطحات',
+        categoryLabelAr: catLabel,
         governorateId: c.governorateId,
         neighborhood: c.meetingArea,
-        lat: gov ? gov.lat : 33.3152,
-        lng: gov ? gov.lng : 44.3661,
-        status: c.status === 'upcoming' ? 'upcoming' : 'in_progress',
-        statusLabelAr: c.status === 'upcoming' ? 'حملة قادمة' : 'قيد التنفيذ',
+        lat: c.meetingCoordinates?.lat || (gov ? gov.lat : 33.3152),
+        lng: c.meetingCoordinates?.lng || (gov ? gov.lng : 44.3661),
+        status: c.status === 'upcoming' ? 'upcoming' : c.status === 'completed' ? 'resolved' : 'in_progress',
+        statusLabelAr: c.status === 'upcoming' ? 'حملة قادمة (التسجيل متاح)' : c.status === 'completed' ? 'مكتملة وموثقة' : 'قيد التنفيذ الميداني',
         organizerOrReporter: c.organizer,
         summary: c.descriptionAr,
-        color: isPlanting ? '#16A34A' : '#2563EB',
-        targetCount: c.targetTrees,
+        color: pinColor,
+        targetCount: c.targetTrees || (c.wasteCollectedKg ? Math.round(c.wasteCollectedKg) : undefined),
         volunteerCount: c.registeredCount,
         dateOrTime: `${c.date} • ${c.startTime || '09:00 ص'}`,
         refId: c.id

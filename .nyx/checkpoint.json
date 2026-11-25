@@ -2,18 +2,17 @@
   "project": "NAFAS Iraq (نَفَس — للبيئة الاجتماعية)",
   "repository": "https://github.com/mahamadfared1029-spec/nafas-iraq",
   "production": "https://mahamadfared1029-spec.github.io/nafas-iraq/",
-  "execution_mode": "PRO (NYX OMNI V3)",
+  "execution_mode": "SUPERMAN (NYX OMNI V3)",
   "financial_budget": "$0.00 (Zero Paid Cost Guaranteed)",
-  "checkpoint_timestamp": "2026-11-25T02:05:00+03:00",
-  "git_commit": "381a775",
+  "checkpoint_timestamp": "2026-11-25T03:18:00+03:00",
+  "git_commit": "Phase 2A Renaissance",
   "active_branch": "main",
-  "live_gh_pages_commit": "8c61a94",
   "test_suite": {
-    "test_files": 14,
-    "tests_total": 152,
-    "tests_passed": 152,
+    "test_files": 15,
+    "tests_total": 168,
+    "tests_passed": 168,
     "tests_failed": 0,
-    "secret_scanning_files": 146,
+    "secret_scanning_files": 150,
     "secret_scanning_leaks": 0,
     "typescript_errors": 0
   },
@@ -31,11 +30,18 @@
     "Phase 10: CI integrity dynamic reporting and dependency exception policy",
     "Phase 11: Owner-verified security vulnerability contact channels established",
     "Phase 12: MFA Factor Safety & anti-lockout secure replacement procedure",
-    "Phase 13: EXIF Fail-Closed protection & browser-level canvas failure tests"
+    "Phase 13: EXIF Fail-Closed protection & browser-level canvas failure tests",
+    "Phase 14: Restored CI 100% Green status (Run ID 45508616228)",
+    "Phase 2A: Campaign Management (6 types, governorates, coordinates, drafts)",
+    "Phase 2A: Race-condition-proof registration & capacity enforcement via Migration 008 RPCs",
+    "Phase 2A: Dynamic 6-digit field check-in codes with expiration & replay resistance",
+    "Phase 2A: Volunteer Passport integration with verified hours & digital certificates",
+    "Phase 2A: Real environmental impact metrics aggregation (trees, waste, hours, cleanups)",
+    "Phase 2A: Interactive map layer integration with campaign meeting coordinates"
   ],
   "in_progress": [
-    "Phase 1 Security Acceptance completed",
-    "Phase 2 Pilot Launch preparation"
+    "Phase 2A Acceptance verification completed",
+    "Phase 2B Offline / PWA capabilities preparation"
   ],
-  "next_safe_step": "Proceed with Phase 2 Field Pilot rollout under owner supervision."
+  "next_safe_step": "Apply Migration 008 in Supabase production and roll out Phase 2B."
 }

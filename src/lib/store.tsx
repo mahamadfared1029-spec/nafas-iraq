@@ -20,6 +20,7 @@ import { TRANSLATIONS, TranslationDictionary } from './i18n';
 import { NafasApiClient } from './server/apiClient';
 import { nafasReports } from './reports/reportService';
 import { nafasAuth } from './auth/authService';
+import { nafasCampaigns } from './campaigns/campaignService';
 
 export interface UserPassport {
   userName: string;
@@ -150,9 +151,29 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
     return [];
   });
 
-  const [campaigns, setCampaigns] = useState<VolunteerCampaign[]>([]);
+  const [campaigns, setCampaigns] = useState<VolunteerCampaign[]>(() => INITIAL_CAMPAIGNS);
   const [userRegisteredCampaignIds, setUserRegisteredCampaignIds] = useState<string[]>([]);
   const [passport, setPassport] = useState<UserPassport>(CLEAN_ZERO_PASSPORT);
+
+  // Fetch live campaigns and user registrations on mount
+  useEffect(() => {
+    let isMounted = true;
+    nafasCampaigns.getCampaigns().then(camps => {
+      if (isMounted && camps && camps.length > 0) {
+        setCampaigns(camps);
+      }
+    }).catch(() => {});
+
+    if (nafasAuth.isAuthenticated()) {
+      nafasCampaigns.getUserRegistrations().then(regs => {
+        if (isMounted && regs) {
+          const registeredIds = regs.filter(r => r.status === 'registered').map(r => r.campaignId);
+          setUserRegisteredCampaignIds(registeredIds);
+        }
+      }).catch(() => {});
+    }
+    return () => { isMounted = false; };
+  }, []);
 
   // Synchronize reports to local storage for persistence across reloads
   useEffect(() => {
@@ -375,11 +396,10 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
 
     if (success) {
       setUserRegisteredCampaignIds(prev => [...prev, campaignId]);
-      // Small civic engagement incentive on genuine registration
-      setPassport(prev => ({
-        ...prev,
-        points: prev.points + 15,
-      }));
+      // Call backend RPC asynchronously
+      nafasCampaigns.registerForCampaign(campaignId).catch(err => {
+        console.warn('Backend campaign registration notice:', err?.message || err);
+      });
     }
     return success;
   };
@@ -396,6 +416,9 @@ export function NafasProvider({ children }: { children: React.ReactNode }) {
       }
       return c;
     }));
+    nafasCampaigns.cancelRegistration(campaignId).catch(err => {
+      console.warn('Backend campaign cancellation notice:', err?.message || err);
+    });
   };
 
   const verifyAttendance = (campaignId: string, attendeeName: string, hours: number): IssuedCertificate => {

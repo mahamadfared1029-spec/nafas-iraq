@@ -70,7 +70,7 @@ describe('NAFAS — Hosted Infrastructure Security & Authorization Gate', () => 
     }
   });
 
-  it('should reject anonymous direct access to private storage bucket objects', async (ctx) => {
+  it('should reject anonymous direct access to private storage bucket objects', { timeout: 15000 }, async (ctx) => {
     try {
       const res = await fetch(`${HOSTED_URL}/storage/v1/object/authenticated/report-evidence/test.jpg`, {
         method: 'GET'

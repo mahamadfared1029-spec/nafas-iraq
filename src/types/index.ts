@@ -136,6 +136,16 @@ export interface AdminAuditLogItem {
   createdAt: string;
 }
 
+export type CampaignType = 
+  | 'reforestation' 
+  | 'cleanup' 
+  | 'recycling' 
+  | 'education' 
+  | 'river_protection' 
+  | 'biodiversity';
+
+export type CampaignStatus = 'draft' | 'upcoming' | 'in_progress' | 'completed' | 'cancelled';
+
 export interface VolunteerCampaign {
   id: string;
   titleAr: string;
@@ -144,30 +154,42 @@ export interface VolunteerCampaign {
   descriptionAr: string;
   descriptionKu: string;
   descriptionEn: string;
+  campaignType: CampaignType;
   governorateId: string;
   meetingArea: string;
+  meetingCoordinates?: { lat: number; lng: number };
   date: string;
   startTime: string;
   durationHours: number;
   targetTrees: number;
+  treesPlanted?: number;
+  wasteCollectedKg?: number;
   volunteerCapacity: number;
   registeredCount: number;
   confirmedCount: number;
   organizer: string;
+  organizerId?: string;
   organizerRole: string;
   safetyEquipment: string[];
-  status: 'upcoming' | 'in_progress' | 'completed' | 'cancelled';
+  status: CampaignStatus;
   certificateEligible: boolean;
   partnerRewardsNotice?: string;
+  checkInCode?: string;
+  checkInCodeExpiresAt?: string;
 }
 
 export interface UserRegistration {
   id: string;
   campaignId: string;
+  campaignTitle?: string;
+  governorateId?: string;
+  date?: string;
   userName: string;
   userPhone: string; // masked in UI
   registeredAt: string;
   attended: boolean;
+  attendedAt?: string;
+  status: 'registered' | 'attended' | 'cancelled' | 'no_show';
   verifiedHours: number;
   certificateIssued: boolean;
 }
