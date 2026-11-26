@@ -295,7 +295,13 @@ class NafasAuthService {
     });
 
     if (authError) {
-      throw new Error(`فشل إنشاء الحساب عبر خادم المصادقة: ${authError.message}`);
+      if (authError.message?.toLowerCase().includes('only request this after') || authError.status === 429) {
+        throw new Error('تم إرسال طلب قبل قليل. يرجى الانتظار 20 ثانية قبل المحاولة مرة أخرى، أو تفقد بريدك الإلكتروني لتأكيد الحساب.');
+      }
+      if (authError.message?.toLowerCase().includes('already registered')) {
+        throw new Error('هذا البريد الإلكتروني مسجل مسبقاً. يمكنك تسجيل الدخول مباشرة أو استعادة كلمة المرور.');
+      }
+      throw new Error(`فشل إنشاء الحساب: ${authError.message}`);
     }
 
     if (!authData.user) {
@@ -385,7 +391,13 @@ class NafasAuthService {
     });
 
     if (authError) {
-      throw new Error(`بيانات تسجيل الدخول غير صحيحة: ${authError.message}`);
+      if (authError.message?.toLowerCase().includes('email not confirmed')) {
+        throw new Error('حسابك بانتظار التفعيل: يرجى فتح بريدك الإلكتروني والضغط على رابط التأكيد ثم تسجيل الدخول.');
+      }
+      if (authError.message?.toLowerCase().includes('invalid login credentials')) {
+        throw new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+      }
+      throw new Error(`تعذر تسجيل الدخول: ${authError.message}`);
     }
 
     if (!authData.user || !authData.session) {

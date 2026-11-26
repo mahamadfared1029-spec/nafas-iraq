@@ -641,115 +641,80 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
               )}
             </div>
 
-            {/* MANDATORY WARNING BANNER: ABSENCE OF HAZARD TAG != SAFE */}
-            <div className="p-3.5 rounded-2xl bg-stone-100 border border-stone-200 text-stone-700 text-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-nafas-blue shrink-0" />
-                <span>
-                  <strong>قاعدة أمان المنصة:</strong> غياب وسام الخطر عن نبتة لا يثبت أمانها للاستهلاك الآدمي أو البيطري، بل يعني أن السجل قيد التوثيق والتدقيق.
-                </span>
-              </div>
+            {/* Compact Safety Note */}
+            <div className="px-4 py-2.5 rounded-xl bg-stone-100/80 border border-stone-200 text-stone-600 text-[11px] flex items-center gap-2">
+              <Info className="w-4 h-4 text-nafas-blue shrink-0" />
+              <span>
+                لا يُستخدم أي نبات بري أو منزلي للأكل أو العلاج دون التأكد من هويته الكاملة.
+              </span>
             </div>
 
-            {/* Plant Grid Cards */}
+            {/* Clean & Simple Plant Grid Cards */}
             {filteredPlants.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredPlants.map(plant => {
                   const hazard = getPlantHazard(plant.id);
                   const severity = hazard?.severity || plant.hazards?.severity || 'not_assessed';
                   const primaryCommonName = plant.locale?.common_names?.[0]?.name || plant.taxon.scientific_name;
-                  const kurdishName = plant.locale?.common_names?.find(cn => cn.language === 'ckb-Latn' || cn.language === 'ckb');
 
                   return (
                     <div
                       key={plant.id}
-                      className="bg-nafas-ivory rounded-3xl border border-nafas-reed/15 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4 group"
+                      onClick={() => openPlantDetail(plant)}
+                      className="bg-nafas-ivory rounded-2xl border border-nafas-reed/20 p-5 shadow-sm hover:shadow-md hover:border-nafas-blue/40 transition-all flex flex-col justify-between space-y-4 cursor-pointer group"
                     >
-                      <div className="space-y-3">
-                        {/* Badges Bar */}
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px]">
-                          <span className="font-sans px-2.5 py-0.5 rounded-md bg-stone-100 text-stone-600 font-bold border border-stone-200">
-                            {plant.taxon.family}
-                          </span>
-
-                          {/* Severity badge */}
-                          {severity === 'critical' ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-bold border border-red-200 flex items-center gap-1">
-                              <ShieldAlert className="w-3 h-3 text-red-600" />
-                              <span>شديد السمية</span>
-                            </span>
-                          ) : severity === 'high' ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 font-bold border border-orange-200 flex items-center gap-1">
-                              <Flame className="w-3 h-3 text-orange-600" />
-                              <span>عالي الخطورة</span>
-                            </span>
-                          ) : severity === 'moderate' ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold border border-amber-200 flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3 text-amber-600" />
-                              <span>متوسط الخطورة</span>
-                            </span>
-                          ) : severity === 'low' ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold border border-blue-200">
-                              منخفض الخطورة
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium border border-stone-200">
-                              التقييم غير متوفر
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Title & Latin Taxon */}
-                        <div>
-                          <h3 className="text-xl font-black text-nafas-silt group-hover:text-nafas-blue transition-colors">
+                      <div className="space-y-2.5">
+                        {/* Single Clear Status Badge */}
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-lg font-black text-nafas-silt group-hover:text-nafas-blue transition-colors truncate">
                             {primaryCommonName}
                           </h3>
-                          <p className="text-xs font-sans italic text-stone-500 tracking-wide mt-0.5">
-                            {plant.taxon.scientific_name} {plant.taxon.authority}
-                          </p>
-                          {kurdishName && (
-                            <p className="text-[11px] text-stone-600 font-medium mt-1">
-                              بالكردية: <span className="font-sans font-bold">{kurdishName.name}</span>
-                            </p>
+
+                          {severity === 'critical' ? (
+                            <span className="shrink-0 text-[10px] px-2.5 py-1 rounded-full bg-red-100 text-red-800 font-bold border border-red-200">
+                              شديد السمية
+                            </span>
+                          ) : severity === 'high' ? (
+                            <span className="shrink-0 text-[10px] px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 font-bold border border-orange-200">
+                              عالي الخطورة
+                            </span>
+                          ) : severity === 'moderate' ? (
+                            <span className="shrink-0 text-[10px] px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold border border-amber-200">
+                              يحتاج حذر
+                            </span>
+                          ) : severity === 'low' ? (
+                            <span className="shrink-0 text-[10px] px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                              خطورة منخفضة
+                            </span>
+                          ) : (
+                            <span className="shrink-0 text-[10px] px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 font-medium border border-stone-200">
+                              قيد المراجعة
+                            </span>
                           )}
                         </div>
 
-                        {/* Short Description */}
+                        {/* Short Plain Description */}
                         <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed">
-                          {plant.locale?.description || 'الوصف قيد المراجعة في العينات العراقية.'}
+                          {plant.locale?.description || 'اضغط لعرض معلومات النبات وطرق العناية.'}
                         </p>
-
-                        {/* Distribution Tag */}
-                        <div className="pt-1 flex flex-wrap gap-1 text-[11px]">
-                          {plant.distributions?.[0] && (
-                            <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-700">
-                              📍 {plant.distributions[0].region_ar || 'مثبت قطرياً على مستوى العراق'}
-                            </span>
-                          )}
-                          {plant.review_status === 'hold_distribution_review' && (
-                            <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold">
-                              حجب التوزع
-                            </span>
-                          )}
-                        </div>
                       </div>
 
-                      {/* Card Footer Actions */}
+                      {/* Simple Card Footer */}
                       <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
-                        <button
-                          onClick={() => openPlantDetail(plant)}
-                          className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition-colors flex items-center gap-1.5"
-                        >
-                          <BookOpen className="w-3.5 h-3.5 text-stone-600" />
-                          <span>التفاصيل والأدلة</span>
-                        </button>
+                        <span className="text-xs font-bold text-nafas-blue group-hover:underline flex items-center gap-1">
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>عرض التفاصيل والعناية</span>
+                        </span>
 
                         <button
-                          onClick={() => launchTriageForPlant(plant.id)}
-                          className="px-3.5 py-2 rounded-xl bg-nafas-misty hover:bg-nafas-misty/80 text-nafas-blue text-xs font-bold transition-colors flex items-center gap-1.5"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            launchTriageForPlant(plant.id);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-[11px] font-bold transition-colors"
                         >
-                          <HeartHandshake className="w-3.5 h-3.5 text-nafas-blue" />
-                          <span>فحص النبتة</span>
+                          طوارئ
                         </button>
                       </div>
                     </div>
