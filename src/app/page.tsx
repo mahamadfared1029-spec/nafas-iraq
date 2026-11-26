@@ -21,6 +21,7 @@ import { AuthModal, AuthModalMode } from '@/components/auth/AuthModal';
 import { FounderCommandCenter } from '@/components/admin/FounderCommandCenter';
 import { SectionSearchModal } from '@/components/layout/SectionSearchModal';
 import { HelpCenterModal } from '@/components/support/HelpCenterModal';
+import { NafasAssistantWidget } from '@/components/support/NafasAssistantWidget';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
 import { getBasePath } from '@/lib/basePath';
 import { nafasAuth } from '@/lib/auth/authService';
@@ -489,6 +490,33 @@ export default function HomePage() {
       <HelpCenterModal
         isOpen={helpModalOpen}
         onClose={() => setHelpModalOpen(false)}
+      />
+
+      <NafasAssistantWidget
+        onSelectView={(viewId) => navigateTo(viewId)}
+        onOpenReport={() => {
+          handleRequireAuth(
+            () => {
+              setPinnedCoords(null);
+              setReportModalOpen(true);
+            },
+            'register',
+            'يرجى تسجيل الدخول أو إنشاء حساب مواطن للمشاركة في الإبلاغ عن الانتهاكات البيئية.'
+          );
+        }}
+        onOpenPassport={() => {
+          handleRequireAuth(
+            () => setPassportModalOpen(true),
+            'login',
+            'جواز نَفَس البيئي مخصص للمواطنين المسجلين.'
+          );
+        }}
+        onOpenHelp={() => setHelpModalOpen(true)}
+        onOpenAuth={() => {
+          setAuthModalMode('login');
+          setAuthNotice(null);
+          setAuthModalOpen(true);
+        }}
       />
 
     </div>

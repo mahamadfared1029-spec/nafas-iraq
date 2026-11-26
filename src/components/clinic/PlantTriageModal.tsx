@@ -919,11 +919,13 @@ export const PlantTriageModal: React.FC<PlantTriageModalProps> = ({
                             {idx + 1}
                           </span>
                           <span className="text-base font-black text-nafas-silt">
-                            {cand.problem.problem_ar}
+                            {cand.problem.problem_ar || (cand.problem as any).name}
                           </span>
-                          <span className="text-stone-400 font-sans text-[11px]">
-                            ({cand.problem.problem_en})
-                          </span>
+                          {cand.problem.problem_en && cand.problem.problem_en !== cand.problem.id && (
+                            <span className="text-stone-400 font-sans text-[11px]">
+                              ({cand.problem.problem_en})
+                            </span>
+                          )}
                         </div>
 
                         <div className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -948,7 +950,7 @@ export const PlantTriageModal: React.FC<PlantTriageModalProps> = ({
                           إجراءات الرعاية والإنقاذ الآمنة:
                         </span>
                         <ul className="list-disc list-inside space-y-1 text-stone-700 text-[11px]">
-                          {cand.nextSteps.map((step, sIdx) => (
+                          {(cand.nextSteps || []).map((step, sIdx) => (
                             <li key={sIdx}>{step}</li>
                           ))}
                         </ul>

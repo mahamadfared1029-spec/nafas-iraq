@@ -6,7 +6,19 @@
 import { ProblemRecord, ProblemMatchCandidate, PlantTriageAnswers } from '@/types/plants';
 import rawData from '@/data/nafas-plants.json';
 
-const problems: ProblemRecord[] = (rawData as any).problems || [];
+const rawProblems: any[] = (rawData as any).problems || [];
+
+const problems: ProblemRecord[] = rawProblems.map((p) => ({
+  ...p,
+  problem_ar: p.problem_ar || p.name || p.id,
+  problem_en: p.problem_en || p.id,
+  safe_management_ar: Array.isArray(p.safe_management_ar)
+    ? p.safe_management_ar
+    : [p.check, p.safe_care].filter(Boolean),
+  escalation_criteria_ar: p.escalation_criteria_ar || p.refer_when || '',
+  symptoms_ar: Array.isArray(p.symptoms_ar) ? p.symptoms_ar : (p.signs ? [p.signs] : []),
+  likely_causes_ar: Array.isArray(p.likely_causes_ar) ? p.likely_causes_ar : (p.possibilities ? [p.possibilities] : [])
+}));
 
 /**
  * Diagnostic reasons explanation for the user ("لماذا نسأل هذا السؤال؟")

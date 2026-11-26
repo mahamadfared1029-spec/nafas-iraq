@@ -21,7 +21,11 @@ interface HelpCenterModalProps {
   onClose: () => void;
 }
 
-const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'bvbuhh9@gmail.com';
+const getSupportEndpoint = () => {
+  // Keep personal support email out of visible UI while routing FormSubmit messages directly
+  const target = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || ['bvbuhh9', 'gmail.com'].join('@');
+  return `https://formsubmit.co/ajax/${target}`;
+};
 
 const FAQ_ITEMS = [
   {
@@ -65,12 +69,6 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  const mailtoHref = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
-    `[دعم نَفَس] ${category} — ${name || 'مستخدم'}`
-  )}&body=${encodeURIComponent(
-    `الاسم: ${name}\nالبريد: ${senderEmail}\nالتصنيف: ${category}\n\nالرسالة:\n${message}`
-  )}`;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSendError(null);
@@ -82,7 +80,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
 
     setSending(true);
     try {
-      const res = await fetch(`https://formsubmit.co/ajax/${SUPPORT_EMAIL}`, {
+      const res = await fetch(getSupportEndpoint(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,7 +187,7 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
                   <span>تواصل مباشر مع فريق الدعم</span>
                 </h3>
                 <p className="text-[11px] text-stone-500 mt-0.5">
-                  تصل رسالتك مباشرة إلى البريد الرسمي للدعم ({SUPPORT_EMAIL})
+                  أرسل استفسارك أو مشكلتك وسيتواصل معك فريق الدعم عبر بريدك الإلكتروني.
                 </p>
               </div>
             </div>
@@ -280,11 +278,11 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                <div className="pt-1">
                   <button
                     type="submit"
                     disabled={sending}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-nafas-blue hover:bg-nafas-blue-dark text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                    className="w-full py-3 px-4 rounded-xl bg-nafas-blue hover:bg-nafas-blue-dark text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
                   >
                     {sending ? (
                       <>
@@ -298,14 +296,6 @@ export const HelpCenterModal: React.FC<HelpCenterModalProps> = ({ isOpen, onClos
                       </>
                     )}
                   </button>
-
-                  <a
-                    href={mailtoHref}
-                    className="py-2.5 px-4 rounded-xl border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>إرسال عبر تطبيق البريد</span>
-                  </a>
                 </div>
               </form>
             )}

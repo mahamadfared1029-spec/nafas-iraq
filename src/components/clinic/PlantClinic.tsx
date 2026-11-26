@@ -831,76 +831,68 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {botanicalData.problems.map(prob => (
-                <div 
-                  key={prob.id}
-                  className="p-6 rounded-3xl bg-nafas-ivory border border-stone-200 shadow-sm space-y-4 text-xs"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-3">
-                    <div>
-                      <h4 className="text-lg font-black text-nafas-silt">
-                        {prob.problem_ar}
-                      </h4>
-                      <p className="text-stone-500 font-sans text-xs italic">
-                        {prob.problem_en}
-                      </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {botanicalData.problems.map((prob: any) => {
+                const title = prob.problem_ar || prob.name || prob.id;
+                const signsText = prob.signs || (prob.primary_symptoms || []).join('، ');
+                const causesText = prob.possibilities || (prob.environmental_triggers || []).join('، ');
+                const careSteps = Array.isArray(prob.safe_management_ar)
+                  ? prob.safe_management_ar
+                  : [prob.check, prob.safe_care].filter(Boolean);
+                const escalateText = prob.escalation_criteria_ar || prob.refer_when;
+
+                return (
+                  <div
+                    key={prob.id}
+                    className="p-5 rounded-2xl bg-nafas-ivory border border-stone-200 shadow-sm space-y-3 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2 border-b border-stone-100 pb-2.5">
+                      <h4 className="text-base font-black text-nafas-silt">{title}</h4>
+                      <button
+                        type="button"
+                        onClick={() => launchTriageForPlant()}
+                        className="px-3 py-1 rounded-lg bg-nafas-misty text-nafas-blue font-bold text-[11px] hover:bg-nafas-blue hover:text-white transition-colors"
+                      >
+                        فحص هذه المشكلة
+                      </button>
                     </div>
 
-                    <span className="px-3 py-1 rounded-full bg-nafas-misty text-nafas-blue font-bold text-xs">
-                      {prob.category === 'water' ? 'إجهاد مائي' :
-                       prob.category === 'pest' ? 'آفة حشرية' :
-                       prob.category === 'disease' ? 'مرض فطري/بكتيري' :
-                       prob.category === 'climate' ? 'إجهاد مناخي' :
-                       prob.category === 'soil' ? 'ملوحة وتربة' : prob.category}
-                    </span>
-                  </div>
+                    {signsText && (
+                      <div>
+                        <span className="font-bold text-stone-900">العلامات: </span>
+                        <span className="text-stone-700">{signsText}</span>
+                      </div>
+                    )}
 
-                  {/* Primary Symptoms */}
-                  <div className="space-y-1">
-                    <span className="font-bold text-stone-900 block">الأعراض الرئيسية:</span>
-                    <ul className="list-disc list-inside space-y-0.5 text-stone-700 text-[11px]">
-                      {prob.primary_symptoms?.map((s, idx) => (
-                        <li key={idx}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
+                    {causesText && (
+                      <div>
+                        <span className="font-bold text-stone-900">الأسباب المحتملة: </span>
+                        <span className="text-stone-700">{causesText}</span>
+                      </div>
+                    )}
 
-                  {/* Environmental Triggers */}
-                  <div className="space-y-1">
-                    <span className="font-bold text-stone-900 block">المحفزات البيئية العراقية:</span>
-                    <ul className="list-disc list-inside space-y-0.5 text-stone-700 text-[11px]">
-                      {prob.environmental_triggers?.map((t, idx) => (
-                        <li key={idx}>{t}</li>
-                      ))}
-                    </ul>
-                  </div>
+                    {careSteps.length > 0 && (
+                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1">
+                        <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                          <Sprout className="w-4 h-4 text-emerald-700" />
+                          <span>طريقة العناية الآمنة:</span>
+                        </span>
+                        <ul className="list-disc list-inside space-y-0.5 text-emerald-950 text-[11px]">
+                          {careSteps.map((sm: string, idx: number) => (
+                            <li key={idx}>{sm}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                  {/* Safe Management */}
-                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-1">
-                    <span className="font-bold text-emerald-900 flex items-center gap-1.5">
-                      <Sprout className="w-4 h-4 text-emerald-700" />
-                      إجراءات المكافحة الآمنة:
-                    </span>
-                    <ul className="list-disc list-inside space-y-1 text-emerald-950 text-[11px]">
-                      {prob.safe_management_ar?.map((sm, idx) => (
-                        <li key={idx}>{sm}</li>
-                      ))}
-                    </ul>
+                    {escalateText && (
+                      <div className="text-[11px] text-stone-500 pt-1">
+                        <strong>متى تستشير مختصاً: </strong>{escalateText}
+                      </div>
+                    )}
                   </div>
-
-                  {/* Mandatory Chemical Warning */}
-                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-[11px]">
-                    <span className="font-bold text-amber-900 block mb-0.5">تحذير المبيدات:</span>
-                    {prob.chemical_warning_ar}
-                  </div>
-
-                  {/* Escalation criteria */}
-                  <div className="text-[11px] text-stone-500 pt-1">
-                    <strong>متى يُطلب فحص مخبري: </strong>{prob.escalation_criteria_ar}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
