@@ -248,23 +248,11 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
               </button>
 
               <button
-                onClick={() => setShow3dOrchid(!show3dOrchid)}
-                className={`px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border shadow-sm ${
-                  show3dOrchid
-                    ? 'bg-purple-900 text-white border-purple-950'
-                    : 'bg-purple-100/90 text-purple-900 border-purple-300 hover:bg-purple-200'
-                }`}
-              >
-                <Sparkles className="w-4 h-4 text-purple-600" />
-                <span>{show3dOrchid ? 'إخفاء مجسم الأوركيد 3D' : 'مجسم الأوركيد 3D'}</span>
-              </button>
-
-              <button
                 onClick={() => setActiveTab('triage')}
                 className="px-4 py-2.5 rounded-2xl bg-red-50 text-red-700 border border-red-300 font-bold text-xs sm:text-sm hover:bg-red-100 transition-all flex items-center gap-2"
               >
                 <Flame className="w-4 h-4 text-red-600" />
-                <span>إسعاف التسمم (122)</span>
+                <span>إسعاف التسمم (911)</span>
               </button>
             </div>
           </div>
@@ -747,14 +735,14 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* Card A: Emergency 122 Protocol */}
+              {/* Card A: Emergency 911 Protocol */}
               <div className="p-8 rounded-3xl bg-red-600 text-white space-y-5 shadow-lg flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
                     <ShieldAlert className="w-6 h-6 text-amber-300" />
                   </div>
                   <h3 className="text-2xl font-black">
-                    بروتوكول إسعاف الطوارئ الفوري (122)
+                    بروتوكول إسعاف الطوارئ الفوري (911)
                   </h3>
                   <p className="text-xs sm:text-sm text-red-50 leading-relaxed">
                     إذا كان هناك اشتباه بتسمم طفل أو شخص أو حيوان أليف نتيجة ابتلاع بذور، أوراق، أو ملامسة عصارة كاوية للعين، افتح البروتوكول فوراً دون أي قيود أو تسجيل دخول.
@@ -763,11 +751,11 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
 
                 <div className="space-y-2 pt-4 border-t border-red-500">
                   <a
-                    href="tel:122"
+                    href="tel:911"
                     className="w-full py-3 rounded-2xl bg-amber-400 text-stone-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-amber-300 transition-all shadow-md"
                   >
                     <PhoneCall className="w-4 h-4" />
-                    <span>اتصال فوري بالإسعاف الوطني (122)</span>
+                    <span>اتصال فوري بالطوارئ (911)</span>
                   </a>
 
                   <button

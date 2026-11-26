@@ -220,7 +220,7 @@ export const PlantTriageModal: React.FC<PlantTriageModalProps> = ({
           {/* PATHWAY 1: EMERGENCY EXPOSURE PROTOCOL */}
           {pathway === 'exposure_emergency' && (
             <div className="space-y-6">
-              {/* Emergency Banner with 122 call button */}
+              {/* Emergency Banner with 911 call button */}
               <div className="p-5 sm:p-6 rounded-3xl bg-red-600 text-white space-y-4 shadow-lg">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2 font-black text-lg sm:text-xl">
@@ -229,18 +229,18 @@ export const PlantTriageModal: React.FC<PlantTriageModalProps> = ({
                   </div>
 
                   <a
-                    href="tel:122"
+                    href="tel:911"
                     className="px-5 py-2.5 rounded-2xl bg-amber-400 text-stone-950 font-black text-sm flex items-center gap-2 hover:bg-amber-300 transition-all shadow-md shrink-0"
                   >
                     <PhoneCall className="w-4 h-4 text-stone-950" />
-                    <span>اتصال فوري بالطوارئ (122)</span>
+                    <span>اتصال فوري بالطوارئ (911)</span>
                   </a>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-red-700/80 border border-red-500 text-xs text-red-50 space-y-1.5">
                   <div className="font-bold text-amber-200 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-300" />
-                    <span>اطلب الإسعاف فوراً (122) دون أي تأخير عند ظهور أي من هذه العلامات:</span>
+                    <span>اطلب الطوارئ فوراً (911) دون أي تأخير عند ظهور أي من هذه العلامات:</span>
                   </div>
                   <ul className="list-disc list-inside grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
                     {EMERGENCY_EXPOSURE_PROTOCOL.priorityCall.criticalSigns.map((sign, idx) => (
@@ -360,11 +360,11 @@ export const PlantTriageModal: React.FC<PlantTriageModalProps> = ({
                 </button>
 
                 <a
-                  href="tel:122"
+                  href="tel:911"
                   className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-black text-xs hover:bg-red-700 flex items-center gap-2 shadow-sm"
                 >
                   <PhoneCall className="w-4 h-4" />
-                  <span>اتصال بالطوارئ 122</span>
+                  <span>اتصال بالطوارئ 911</span>
                 </a>
               </div>
             </div>

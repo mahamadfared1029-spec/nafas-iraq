@@ -251,9 +251,9 @@ describe('4. GIS Governorate Mapping & Distribution Evidence (ربط الخري�
 });
 
 describe('5. Stepped Triage & Emergency Protocol Engine (التشخيص والإسعاف)', () => {
-  it('should provide complete emergency first-aid protocols with 122 priority without login or photo', () => {
-    expect(EMERGENCY_EXPOSURE_PROTOCOL.priorityCall.number).toBe('122');
-    expect(EMERGENCY_EXPOSURE_PROTOCOL.priorityCall.telLink).toBe('tel:122');
+  it('should provide complete emergency first-aid protocols with 911 priority without login or photo', () => {
+    expect(EMERGENCY_EXPOSURE_PROTOCOL.priorityCall.number).toBe('911');
+    expect(EMERGENCY_EXPOSURE_PROTOCOL.priorityCall.telLink).toBe('tel:911');
     expect(EMERGENCY_EXPOSURE_PROTOCOL.priorityCall.criticalSigns.length).toBeGreaterThanOrEqual(3);
 
     // Ingestion protocol forbids inducing vomiting

@@ -100,6 +100,10 @@ export interface UserProfile {
   role: Role;
   governorateId: string;
   phoneMasked?: string;
+  avatarUrl?: string;
+  bio?: string;
+  phone?: string;
+  specialty?: string;
   isVerifiedVolunteer?: boolean;
   points?: number;
   mfaEnabled?: boolean;

@@ -196,9 +196,9 @@ export function matchPlantProblems(answers: PlantTriageAnswers): {
 export const EMERGENCY_EXPOSURE_PROTOCOL = {
   generalTitle: 'بروتوكول الطوارئ والإسعاف الأولي الفوري عند التعرض للنباتات',
   priorityCall: {
-    number: '122',
-    label: 'الإسعاف الوطني العراقي (122)',
-    telLink: 'tel:122',
+    number: '911',
+    label: 'الطوارئ الموحدة (911)',
+    telLink: 'tel:911',
     criticalSigns: [
       'صعوبة حادة أو تزييق في التنفس',
       'تشنجات عضلية أو حركات لا إرادية',

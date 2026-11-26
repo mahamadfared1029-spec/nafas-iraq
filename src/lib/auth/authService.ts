@@ -158,12 +158,17 @@ class NafasAuthService {
         updated_at: user.updated_at || user.created_at
       };
 
+      const extras = this.getProfileExtras(activeProfile.id);
       const userProfile: UserProfile = {
         id: activeProfile.id,
         email: activeProfile.email,
         fullName: activeProfile.full_name,
         role: activeProfile.role as Role,
         governorateId: activeProfile.governorate_id,
+        avatarUrl: extras.avatarUrl ?? user.user_metadata?.avatar_url,
+        bio: extras.bio ?? user.user_metadata?.bio,
+        phone: extras.phone ?? user.user_metadata?.phone,
+        specialty: extras.specialty ?? user.user_metadata?.specialty,
         points: activeProfile.points || 0,
         isVerifiedVolunteer: Boolean(activeProfile.is_verified_volunteer),
         mfaEnabled: Boolean(activeProfile.mfa_enabled),
@@ -204,6 +209,89 @@ class NafasAuthService {
       }
       this.notifyListeners();
     }
+  }
+
+  private getProfileExtras(userId: string): { avatarUrl?: string; bio?: string; phone?: string; specialty?: string } {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(`nafas_profile_extras_${userId}`);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return {};
+  }
+
+  private saveProfileExtras(userId: string, extras: { avatarUrl?: string; bio?: string; phone?: string; specialty?: string }): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(`nafas_profile_extras_${userId}`, JSON.stringify(extras));
+    } catch (_) {}
+  }
+
+  public async updateProfile(params: {
+    fullName: string;
+    governorateId: string;
+    bio?: string;
+    phone?: string;
+    specialty?: string;
+    avatarUrl?: string;
+  }): Promise<UserProfile> {
+    const user = this.getCurrentUser();
+    if (!user) {
+      throw new Error('يجب تسجيل الدخول لتحديث الملف الشخصي.');
+    }
+
+    const now = new Date().toISOString();
+    const extras = {
+      avatarUrl: params.avatarUrl,
+      bio: params.bio,
+      phone: params.phone,
+      specialty: params.specialty
+    };
+    this.saveProfileExtras(user.id, extras);
+
+    if (this.isConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        await supabase.auth.updateUser({
+          data: {
+            full_name: params.fullName,
+            governorate_id: params.governorateId,
+            bio: params.bio || '',
+            phone: params.phone || '',
+            specialty: params.specialty || ''
+          }
+        });
+        await supabase
+          .from('profiles')
+          .update({
+            full_name: params.fullName,
+            governorate_id: params.governorateId,
+            updated_at: now
+          })
+          .eq('id', user.id);
+      } catch (_) {}
+    }
+
+    const updatedUser: UserProfile = {
+      ...user,
+      fullName: params.fullName,
+      governorateId: params.governorateId,
+      avatarUrl: params.avatarUrl,
+      bio: params.bio,
+      phone: params.phone,
+      specialty: params.specialty,
+      updatedAt: now
+    };
+
+    if (this.currentSession) {
+      this.currentSession = {
+        ...this.currentSession,
+        user: updatedUser
+      };
+      this.notifyListeners();
+    }
+
+    return updatedUser;
   }
 
   private notifyListeners(): void {
@@ -470,12 +558,17 @@ class NafasAuthService {
       }
     } catch (_) {}
 
+    const extras = this.getProfileExtras(profile.id);
     const userProfile: UserProfile = {
       id: profile.id,
       email: profile.email,
       fullName: profile.full_name,
       role: profile.role as Role,
       governorateId: profile.governorate_id,
+      avatarUrl: extras.avatarUrl ?? authData.user.user_metadata?.avatar_url,
+      bio: extras.bio ?? authData.user.user_metadata?.bio,
+      phone: extras.phone ?? authData.user.user_metadata?.phone,
+      specialty: extras.specialty ?? authData.user.user_metadata?.specialty,
       points: profile.points,
       isVerifiedVolunteer: profile.is_verified_volunteer,
       mfaEnabled: Boolean(profile.mfa_enabled),

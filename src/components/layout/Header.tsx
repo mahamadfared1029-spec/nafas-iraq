@@ -31,6 +31,7 @@ import { NafasLogo } from '../brand/NafasLogo';
 interface HeaderProps {
   onOpenReportModal: () => void;
   onOpenPassportModal: () => void;
+  onOpenProfileModal?: () => void;
   onOpenAuthModal?: (mode?: 'login' | 'register' | 'mfa-enroll') => void;
   onOpenCommandCenter?: () => void;
   onOpenSearchModal?: () => void;
@@ -42,6 +43,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onOpenReportModal,
   onOpenPassportModal,
+  onOpenProfileModal,
   onOpenAuthModal,
   onOpenCommandCenter,
   onOpenSearchModal,
@@ -89,7 +91,6 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'planting', label: t.plantingNav, icon: Sprout },
     { id: 'atlas', label: t.atlasNav, icon: BookOpen },
     { id: 'clinic', label: t.clinicNav, icon: HeartHandshake },
-    { id: 'orchid-3d', label: 'أوركيد 3D', icon: Sparkles },
   ];
 
   return (
@@ -213,13 +214,30 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 )}
 
+                {onOpenProfileModal && (
+                  <button
+                    onClick={onOpenProfileModal}
+                    className="px-2.5 py-1.5 rounded-xl border border-nafas-reed/40 bg-nafas-ivory hover:bg-nafas-misty/30 text-nafas-silt text-xs font-bold flex items-center gap-1.5 transition-all"
+                    title="تعديل الملف الشخصي (الاسم والصورة والنبذة)"
+                  >
+                    {authUser.avatarUrl ? (
+                      <img
+                        src={authUser.avatarUrl}
+                        alt={authUser.fullName}
+                        className="w-5 h-5 rounded-full object-cover border border-nafas-blue/40"
+                      />
+                    ) : (
+                      <UserCircle className="w-4 h-4 text-nafas-blue" />
+                    )}
+                    <span className="max-w-[90px] truncate">{authUser.fullName.split(' ')[0]}</span>
+                  </button>
+                )}
+
                 <button
                   onClick={onOpenPassportModal}
-                  className="px-3 py-2 rounded-xl border border-nafas-blue/30 text-nafas-silt hover:bg-nafas-misty/30 text-xs font-bold flex items-center gap-1.5 transition-all"
+                  className="px-2.5 py-1.5 rounded-xl border border-nafas-blue/30 text-nafas-silt hover:bg-nafas-misty/30 text-xs font-bold flex items-center gap-1.5 transition-all"
                   title="جواز نَفَس للمواطن"
                 >
-                  <UserCircle className="w-4 h-4 text-nafas-blue" />
-                  <span className="max-w-[100px] truncate">{authUser.fullName.split(' ')[0]}</span>
                   <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-nafas-misty text-nafas-silt font-mono">
                     {passport.points}ن
                   </span>
@@ -434,6 +452,18 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="pt-2 border-t border-nafas-reed/30 flex flex-col gap-2">
+            {authUser && onOpenProfileModal && (
+              <button
+                onClick={() => {
+                  onOpenProfileModal();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full py-2.5 rounded-xl border border-nafas-reed/40 text-nafas-silt font-bold text-xs flex items-center justify-center gap-2 bg-nafas-ivory"
+              >
+                <UserCircle className="w-4 h-4 text-nafas-blue" />
+                <span>تعديل الملف الشخصي</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 onOpenPassportModal();

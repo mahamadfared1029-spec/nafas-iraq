@@ -22,6 +22,7 @@ import { FounderCommandCenter } from '@/components/admin/FounderCommandCenter';
 import { SectionSearchModal } from '@/components/layout/SectionSearchModal';
 import { HelpCenterModal } from '@/components/support/HelpCenterModal';
 import { NafasAssistantWidget } from '@/components/support/NafasAssistantWidget';
+import { ProfileModal } from '@/components/profile/ProfileModal';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
 import { getBasePath } from '@/lib/basePath';
 import { nafasAuth } from '@/lib/auth/authService';
@@ -47,7 +48,6 @@ const VALID_VIEWS = [
   'planting', 
   'atlas', 
   'clinic', 
-  'orchid-3d',
   'admin'
 ];
 
@@ -55,7 +55,7 @@ function parseViewFromHash(): string {
   if (typeof window === 'undefined') return 'home';
   const cleanHash = window.location.hash.replace(/^#\/?/, '').trim();
   if (cleanHash === 'map3d') return 'map-3d';
-  if (cleanHash === 'orchid' || cleanHash === 'clinic-3d') return 'orchid-3d';
+  if (cleanHash === 'orchid' || cleanHash === 'clinic-3d' || cleanHash === 'orchid-3d') return 'clinic';
   return VALID_VIEWS.includes(cleanHash) && cleanHash !== 'home' ? cleanHash : 'home';
 }
 
@@ -69,6 +69,7 @@ export default function HomePage() {
   const [rewardsModalOpen, setRewardsModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('login');
   const [authNotice, setAuthNotice] = useState<string | null>(null);
@@ -230,6 +231,13 @@ export default function HomePage() {
             'جواز نَفَس البيئي مخصص للمواطنين المسجلين لجمع نقاط الأثر ونيل الأوسمة والشهادات.'
           );
         }}
+        onOpenProfileModal={() => {
+          handleRequireAuth(
+            () => setProfileModalOpen(true),
+            'login',
+            'يرجى تسجيل الدخول لتعديل ملفك الشخصي.'
+          );
+        }}
         onOpenAuthModal={(mode?: AuthModalMode) => {
           setAuthModalMode(mode || 'login');
           setAuthNotice(null);
@@ -370,10 +378,10 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* 6. Plant Clinic View (Standard or 3D Orchid) */}
-              {(currentView === 'clinic' || currentView === 'orchid-3d') && (
+              {/* 6. Plant Clinic View */}
+              {currentView === 'clinic' && (
                 <div className="max-w-5xl mx-auto px-4">
-                  <PlantClinic initialShow3D={currentView === 'orchid-3d'} />
+                  <PlantClinic />
                 </div>
               )}
 
@@ -490,6 +498,11 @@ export default function HomePage() {
       <HelpCenterModal
         isOpen={helpModalOpen}
         onClose={() => setHelpModalOpen(false)}
+      />
+
+      <ProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
       />
 
       <NafasAssistantWidget
