@@ -1,4 +1,4 @@
-﻿User-agent: *
+User-agent: *
 Allow: /
 
 # Canonical Sitemaps for Google, Bing, and major search engines
