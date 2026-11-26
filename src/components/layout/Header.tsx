@@ -19,7 +19,9 @@ import {
   ShieldAlert,
   LogIn,
   LogOut,
-  PlayCircle
+  PlayCircle,
+  Search,
+  HelpCircle
 } from 'lucide-react';
 import { useNafas } from '@/lib/store';
 import { Role, UserProfile } from '@/types';
@@ -31,6 +33,8 @@ interface HeaderProps {
   onOpenPassportModal: () => void;
   onOpenAuthModal?: (mode?: 'login' | 'register' | 'mfa-enroll') => void;
   onOpenCommandCenter?: () => void;
+  onOpenSearchModal?: () => void;
+  onOpenHelpModal?: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }
@@ -40,6 +44,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPassportModal,
   onOpenAuthModal,
   onOpenCommandCenter,
+  onOpenSearchModal,
+  onOpenHelpModal,
   activeTab,
   setActiveTab
 }) => {
@@ -145,7 +151,32 @@ export const Header: React.FC<HeaderProps> = ({
           </nav>
 
           {/* Desktop Action CTAs */}
-          <div className="hidden sm:flex items-center gap-2.5">
+          <div className="hidden sm:flex items-center gap-2">
+            {/* Search Sections Button */}
+            {onOpenSearchModal && (
+              <button
+                onClick={onOpenSearchModal}
+                className="p-2 rounded-xl border border-nafas-reed/35 bg-nafas-ivory hover:bg-nafas-misty/40 text-nafas-silt transition-colors"
+                title="بحث عن الأقسام"
+                aria-label="بحث عن الأقسام"
+              >
+                <Search className="w-4 h-4 text-nafas-blue" />
+              </button>
+            )}
+
+            {/* Help Center Button */}
+            {onOpenHelpModal && (
+              <button
+                onClick={onOpenHelpModal}
+                className="px-2.5 py-2 rounded-xl border border-nafas-reed/35 bg-nafas-ivory hover:bg-nafas-misty/40 text-nafas-silt text-xs font-bold flex items-center gap-1 transition-colors"
+                title="مركز المساعدة والدعم"
+                aria-label="مركز المساعدة والدعم"
+              >
+                <HelpCircle className="w-4 h-4 text-nafas-blue" />
+                <span className="hidden md:inline">المساعدة</span>
+              </button>
+            )}
+
             {/* Command Center for Super Admin & Staff */}
             {authUser && (authUser.role === 'super_admin' || authUser.role === 'moderator' || authUser.role === 'admin') && onOpenCommandCenter && (
               <button
@@ -224,7 +255,25 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Mobile Right Controls */}
-          <div className="lg:hidden flex items-center gap-2">
+          <div className="lg:hidden flex items-center gap-1.5">
+            {onOpenSearchModal && (
+              <button
+                onClick={onOpenSearchModal}
+                className="p-2 rounded-xl border border-nafas-reed/30 bg-nafas-ivory text-nafas-blue hover:bg-nafas-misty/40 transition-colors"
+                aria-label="بحث عن الأقسام"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+            )}
+            {onOpenHelpModal && (
+              <button
+                onClick={onOpenHelpModal}
+                className="p-2 rounded-xl border border-nafas-reed/30 bg-nafas-ivory text-nafas-blue hover:bg-nafas-misty/40 transition-colors"
+                aria-label="مركز المساعدة"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            )}
             {/* Quick Auth / Status Pill on Mobile */}
             {authUser ? (
               <button

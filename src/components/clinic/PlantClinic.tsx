@@ -223,53 +223,48 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
             <OrchidMotif size="xl" />
           </div>
 
-          <div className="relative z-10 max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-nafas-misty text-nafas-blue text-xs font-bold border border-nafas-blue/20">
+          <div className="relative z-10 max-w-3xl space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-nafas-misty text-nafas-blue text-xs font-bold border border-nafas-blue/20">
               <Sprout className="w-4 h-4 text-nafas-blue" />
-              <span>الصيدلية النباتية في نَفَس • الإصدار العلمي 1.0.0</span>
+              <span>دليل النباتات والعناية والإسعاف</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl font-black text-nafas-silt tracking-tight">
-              الصيدلية النباتية والتوزع النباتي العراقي
+            <h1 className="text-2xl sm:text-3xl font-black text-nafas-silt tracking-tight">
+              الصيدلية النباتية
             </h1>
 
             <p className="text-sm text-stone-700 leading-relaxed">
-              منظومة علمية ومجتمعية متكاملة لتوثيق النباتات الأصيلة والبرية في العراق، فرز مخاطر التسمم المنزلي والإسعاف الأولي، وتشخيص آفات النباتات وفق خصوصية التربة والمناخ الرافديني.
+              ابحث عن أي نبات بسهولة لتعرف إن كان آمناً أم ساماً، وكيف تعتني به أو تتصرف في الحالات الطارئة.
             </p>
 
-            {/* Quick Action Buttons for Emergency & Triage */}
-            <div className="flex flex-wrap gap-3 pt-2">
+            {/* Quick Action Buttons */}
+            <div className="flex flex-wrap gap-2.5 pt-2">
               <button
                 onClick={() => launchTriageForPlant()}
-                className="px-5 py-3 rounded-2xl bg-nafas-blue text-nafas-ivory font-black text-xs sm:text-sm hover:bg-nafas-blue/90 shadow-sm transition-all flex items-center gap-2"
+                className="px-4 py-2.5 rounded-2xl bg-nafas-blue text-nafas-ivory font-bold text-xs sm:text-sm hover:bg-nafas-blue/90 shadow-sm transition-all flex items-center gap-2"
               >
                 <HeartHandshake className="w-4 h-4" />
-                <span>بدء الفحص النباتي والإسعاف الأولي</span>
+                <span>فحص نبات أو مشكلة</span>
               </button>
 
               <button
                 onClick={() => setShow3dOrchid(!show3dOrchid)}
-                className={`px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border shadow-sm ${
+                className={`px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border shadow-sm ${
                   show3dOrchid
-                    ? 'bg-purple-900 text-white border-purple-950 ring-2 ring-purple-400/50'
+                    ? 'bg-purple-900 text-white border-purple-950'
                     : 'bg-purple-100/90 text-purple-900 border-purple-300 hover:bg-purple-200'
                 }`}
               >
-                <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
-                <span>{show3dOrchid ? 'إخفاء مجسم الأوركيد 3D' : 'فتح مجسم الأوركيد الحيّ (3D WebGL)'}</span>
-                <span className="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-full font-black">
-                  3D
-                </span>
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                <span>{show3dOrchid ? 'إخفاء مجسم الأوركيد 3D' : 'مجسم الأوركيد 3D'}</span>
               </button>
 
               <button
-                onClick={() => {
-                  setActiveTab('triage');
-                }}
-                className="px-5 py-3 rounded-2xl bg-red-50 text-red-700 border border-red-300 font-bold text-xs sm:text-sm hover:bg-red-100 transition-all flex items-center gap-2"
+                onClick={() => setActiveTab('triage')}
+                className="px-4 py-2.5 rounded-2xl bg-red-50 text-red-700 border border-red-300 font-bold text-xs sm:text-sm hover:bg-red-100 transition-all flex items-center gap-2"
               >
                 <Flame className="w-4 h-4 text-red-600" />
-                <span>بروتوكول إسعاف الطوارئ (122)</span>
+                <span>إسعاف التسمم (122)</span>
               </button>
             </div>
           </div>
@@ -368,11 +363,11 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
         {/* Navigation Tabs Bar */}
         <div className="flex flex-wrap items-center gap-2 border-b border-nafas-reed/20 pb-2">
           {[
-            { id: 'catalog', label: 'فهرس النباتات العراقية', icon: Sprout, count: filteredPlants.length },
-            { id: 'triage', label: 'التشخيص الذكي والإسعاف', icon: HeartHandshake },
-            { id: 'problems', label: 'دليل الآفات والمشكلات', icon: AlertTriangle, count: botanicalData.problems.length },
-            { id: 'calendar', label: 'التقويم الزراعي والمحاصيل', icon: Calendar, count: botanicalData.seasonal_care.length },
-            { id: 'policies', label: 'المصادر والسياسات العلمية', icon: BookOpen, count: botanicalData.sources.length }
+            { id: 'catalog', label: 'دليل النباتات', icon: Sprout, count: filteredPlants.length },
+            { id: 'problems', label: 'مشاكل النباتات', icon: AlertTriangle, count: botanicalData.problems.length },
+            { id: 'calendar', label: 'مواسم العناية', icon: Calendar, count: botanicalData.seasonal_care.length },
+            { id: 'triage', label: 'الطوارئ والإسعاف', icon: HeartHandshake },
+            { id: 'policies', label: 'المصادر العلمية', icon: BookOpen }
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -414,7 +409,7 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="ابحث بالاسم العربي (الدفلة، الخروع، الحنظل)، السوراني (Gazna، Kurade)، اللاتيني (Nerium oleander) أو المرادفات..."
+                  placeholder="ابحث باسم النبات (مثال: الدفلة، السدر، الخروع، النعناع...)"
                   className="w-full pr-12 pl-10 py-3.5 rounded-2xl border border-stone-300 bg-white text-xs sm:text-sm text-stone-900 focus:ring-2 focus:ring-nafas-blue outline-none"
                 />
                 {searchQuery && (
@@ -426,6 +421,49 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
                     <X className="w-4 h-4" />
                   </button>
                 )}
+              </div>
+
+              {/* Simple Quick Chips */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                    activeFiltersCount === 0
+                      ? 'bg-nafas-blue text-white border-nafas-blue'
+                      : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  جميع النباتات
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearAllFilters();
+                    setSelectedStatus('native');
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                    selectedStatus === 'native'
+                      ? 'bg-emerald-700 text-white border-emerald-700'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  نباتات عراقية أصيلة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearAllFilters();
+                    setSelectedRoute('ingestion');
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                    selectedRoute === 'ingestion'
+                      ? 'bg-red-700 text-white border-red-700'
+                      : 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100'
+                  }`}
+                >
+                  تحذير: سامة عند البلع
+                </button>
               </div>
 
               {/* Shared Folk Name Warning Banner */}

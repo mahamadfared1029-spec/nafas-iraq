@@ -19,6 +19,8 @@ import { RewardsModal } from '@/components/rewards/RewardsModal';
 import { CertificateModal } from '@/components/certificates/CertificateModal';
 import { AuthModal, AuthModalMode } from '@/components/auth/AuthModal';
 import { FounderCommandCenter } from '@/components/admin/FounderCommandCenter';
+import { SectionSearchModal } from '@/components/layout/SectionSearchModal';
+import { HelpCenterModal } from '@/components/support/HelpCenterModal';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
 import { getBasePath } from '@/lib/basePath';
 import { nafasAuth } from '@/lib/auth/authService';
@@ -64,6 +66,8 @@ export default function HomePage() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const [rewardsModalOpen, setRewardsModalOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('login');
   const [authNotice, setAuthNotice] = useState<string | null>(null);
@@ -237,6 +241,8 @@ export default function HomePage() {
             'مركز القيادة والرقابة البيئية مخصص للمشرفين العامين وأعضاء الكادر الإداري المعتمدين.'
           );
         }}
+        onOpenSearchModal={() => setSearchModalOpen(true)}
+        onOpenHelpModal={() => setHelpModalOpen(true)}
       />
 
       {/* 2. Main Content Area */}
@@ -454,6 +460,35 @@ export default function HomePage() {
           setCommandCenterOpen(false);
           if (currentView === 'admin') navigateTo('home');
         }}
+      />
+
+      <SectionSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+        onSelectView={(viewId) => navigateTo(viewId)}
+        onOpenReport={() => {
+          handleRequireAuth(
+            () => {
+              setPinnedCoords(null);
+              setReportModalOpen(true);
+            },
+            'register',
+            'يرجى تسجيل الدخول أو إنشاء حساب مواطن للمشاركة في الإبلاغ عن الانتهاكات البيئية.'
+          );
+        }}
+        onOpenPassport={() => {
+          handleRequireAuth(
+            () => setPassportModalOpen(true),
+            'login',
+            'جواز نَفَس البيئي مخصص للمواطنين المسجلين.'
+          );
+        }}
+        onOpenHelp={() => setHelpModalOpen(true)}
+      />
+
+      <HelpCenterModal
+        isOpen={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
       />
 
     </div>
