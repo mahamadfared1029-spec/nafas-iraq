@@ -39,6 +39,7 @@ export type AuthModalMode =
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAuthSuccess?: () => void;
   initialMode?: AuthModalMode;
   notice?: string | null;
 }
@@ -64,7 +65,7 @@ function getFormattedQrCode(raw: string): string {
   return `data:image/svg+xml;utf-8,${encodeURIComponent(svgContent)}`;
 }
 
-export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode = 'login', notice }: AuthModalProps) {
   const [mode, setMode] = useState<AuthModalMode>(initialMode);
   
   // Form fields
@@ -133,12 +134,18 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
     checkGoogle();
   }, []);
 
-  // Sync mode with prop changes & detect recovery hashes in URL
+  // Sync mode with prop changes & reset transient messages when modal opens
   useEffect(() => {
-    if (initialMode) {
-      setMode(initialMode);
+    if (isOpen) {
+      setError(null);
+      setSuccessMessage(null);
+      setLoading(false);
+      setGoogleLoading(false);
+      if (initialMode) {
+        setMode(initialMode);
+      }
     }
-  }, [initialMode]);
+  }, [isOpen, initialMode]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -205,7 +212,8 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
       setSuccessMessage('تم تسجيل الدخول بنجاح! أهلاً بك.');
       setTimeout(() => {
         onClose();
-      }, 700);
+        onAuthSuccess?.();
+      }, 450);
     } catch (err: any) {
       setError(err?.message || 'فشل تسجيل الدخول. يرجى التحقق من البيانات.');
     } finally {
@@ -233,7 +241,8 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
       setSuccessMessage('تم تأكيد المصادقة الثنائية (AAL2) وتسجيل الدخول بنجاح!');
       setTimeout(() => {
         onClose();
-      }, 700);
+        onAuthSuccess?.();
+      }, 450);
     } catch (err: any) {
       setError(err?.message || 'رمز التحقق غير صحيح أو منتهي الصلاحية.');
     } finally {
@@ -257,9 +266,15 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', notice }: Au
         governorateId
       });
       setSuccessMessage(res.messageAr);
-      setTimeout(() => {
-        onClose();
-      }, 900);
+      if (res.hasSession || nafasAuth.isAuthenticated()) {
+        setTimeout(() => {
+          onClose();
+          onAuthSuccess?.();
+        }, 500);
+      } else {
+        // Email confirmation required by Supabase: keep modal open and switch to login mode
+        setMode('login');
+      }
     } catch (err: any) {
       setError(err?.message || 'فشل إنشاء الحساب.');
     } finally {

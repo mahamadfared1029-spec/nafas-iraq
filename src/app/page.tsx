@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import NafasIntroOverlay from '@/components/intro/NafasIntroOverlay';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -71,9 +71,11 @@ export default function HomePage() {
   const [selectedReport, setSelectedReport] = useState<EnvironmentalReport | null>(null);
   const [selectedCertificate, setSelectedCertificate] = useState<IssuedCertificate | null>(null);
   const [pinnedCoords, setPinnedCoords] = useState<{ lat: number; lng: number; governorateId: string } | null>(null);
+  const pendingActionRef = useRef<(() => void) | null>(null);
 
   const handleRequireAuth = (action: () => void, mode: AuthModalMode = 'login', noticeText?: string) => {
     if (!nafasAuth.isAuthenticated()) {
+      pendingActionRef.current = action;
       setAuthModalMode(mode);
       setAuthNotice(noticeText || 'يرجى تسجيل الدخول أو إنشاء حساب للمتابعة.');
       setAuthModalOpen(true);
@@ -81,6 +83,19 @@ export default function HomePage() {
     }
     action();
   };
+
+  useEffect(() => {
+    const unsub = nafasAuth.onAuthStateChange((session) => {
+      if (session && pendingActionRef.current) {
+        const action = pendingActionRef.current;
+        pendingActionRef.current = null;
+        setAuthModalOpen(false);
+        setAuthNotice(null);
+        action();
+      }
+    });
+    return unsub;
+  }, []);
 
   // Sync with browser back navigation, initial hash, and refresh
   useEffect(() => {
@@ -250,13 +265,7 @@ export default function HomePage() {
                 'جواز نَفَس البيئي مخصص للمواطنين المسجلين لجمع نقاط الأثر ونيل الأوسمة والشهادات.'
               );
             }}
-            onOpenRewardsModal={() => {
-              handleRequireAuth(
-                () => setRewardsModalOpen(true),
-                'login',
-                'استبدال النقاط بالمكافآت البيئية يتطلب حساباً موثقاً.'
-              );
-            }}
+            onOpenRewardsModal={() => setRewardsModalOpen(true)}
           />
         )}
 
@@ -426,6 +435,14 @@ export default function HomePage() {
         onClose={() => {
           setAuthModalOpen(false);
           setAuthNotice(null);
+          pendingActionRef.current = null;
+        }}
+        onAuthSuccess={() => {
+          const action = pendingActionRef.current;
+          pendingActionRef.current = null;
+          if (action && nafasAuth.isAuthenticated()) {
+            action();
+          }
         }}
         initialMode={authModalMode}
         notice={authNotice}

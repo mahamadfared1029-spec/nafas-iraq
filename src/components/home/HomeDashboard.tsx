@@ -25,7 +25,8 @@ import {
   ShieldCheck,
   Compass,
   PlayCircle,
-  Box
+  Box,
+  Lock
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -91,11 +92,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     },
     {
       id: 'rewards',
-      title: 'المكافآت والشركاء',
-      description: 'استبدل ساعاتك التطوعية بخصومات ومزايا',
+      title: 'الشراكات والهدايا',
+      description: 'مزايا الشركاء واستبدال نقاط الأثر — مغلق حالياً',
       icon: Gift,
-      badge: `${passport.points} نقطة`,
-      color: 'text-amber-800 bg-amber-500/10 border-amber-500/20'
+      badge: 'قريباً',
+      locked: true,
+      color: 'text-stone-500 bg-stone-200/70 border-stone-300'
     },
     {
       id: 'passport',
@@ -405,10 +407,15 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {navModules.map(module => {
             const Icon = module.icon;
+            const isLocked = Boolean((module as { locked?: boolean }).locked);
             return (
               <button
                 key={module.id}
+                type="button"
+                disabled={isLocked}
+                aria-disabled={isLocked}
                 onClick={() => {
+                  if (isLocked) return;
                   if (module.id === 'rewards' && onOpenRewardsModal) {
                     onOpenRewardsModal();
                   } else if (module.id === 'passport') {
@@ -417,30 +424,52 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     onNavigate(module.id);
                   }
                 }}
-                className="bg-nafas-ivory hover:bg-nafas-sand/40 border border-nafas-reed/30 hover:border-nafas-reed rounded-2xl p-4 text-right transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between group active:scale-95"
+                className={
+                  isLocked
+                    ? 'bg-stone-100/80 border border-stone-300/80 rounded-2xl p-4 text-right flex flex-col justify-between opacity-75 cursor-not-allowed relative overflow-hidden'
+                    : 'bg-nafas-ivory hover:bg-nafas-sand/40 border border-nafas-reed/30 hover:border-nafas-reed rounded-2xl p-4 text-right transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between group active:scale-95'
+                }
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-xs ${module.color}`}>
-                      <Icon className="w-5 h-5" />
+                      {isLocked ? <Lock className="w-5 h-5 text-stone-500" /> : <Icon className="w-5 h-5" />}
                     </div>
                     {module.badge && (
-                      <span className="text-[10px] font-bold text-nafas-silt/70 bg-nafas-sand/50 px-2 py-0.5 rounded-md border border-nafas-reed/20">
+                      <span
+                        className={
+                          isLocked
+                            ? 'text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md border border-amber-300'
+                            : 'text-[10px] font-bold text-nafas-silt/70 bg-nafas-sand/50 px-2 py-0.5 rounded-md border border-nafas-reed/20'
+                        }
+                      >
                         {module.badge}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-sm font-bold text-nafas-silt group-hover:text-nafas-blue transition-colors">
+                  <h4 className={isLocked ? 'text-sm font-bold text-stone-600' : 'text-sm font-bold text-nafas-silt group-hover:text-nafas-blue transition-colors'}>
                     {module.title}
                   </h4>
-                  <p className="text-[11px] text-nafas-silt/70 leading-relaxed mt-1 line-clamp-2">
+                  <p className={isLocked ? 'text-[11px] text-stone-500 leading-relaxed mt-1 line-clamp-2' : 'text-[11px] text-nafas-silt/70 leading-relaxed mt-1 line-clamp-2'}>
                     {module.description}
                   </p>
                 </div>
 
-                <div className="mt-3 pt-2 border-t border-nafas-reed/20 flex items-center justify-between text-[11px] font-bold text-nafas-blue group-hover:underline">
-                  <span>فتح الشاشة</span>
-                  <ChevronLeft className="w-3.5 h-3.5" />
+                <div className="mt-3 pt-2 border-t border-nafas-reed/20 flex items-center justify-between text-[11px] font-bold">
+                  {isLocked ? (
+                    <>
+                      <span className="text-amber-700 flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        <span>مغلق — قريباً</span>
+                      </span>
+                      <span className="text-[10px] text-stone-400">قريباً</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-nafas-blue group-hover:underline">فتح الشاشة</span>
+                      <ChevronLeft className="w-3.5 h-3.5 text-nafas-blue" />
+                    </>
+                  )}
                 </div>
               </button>
             );

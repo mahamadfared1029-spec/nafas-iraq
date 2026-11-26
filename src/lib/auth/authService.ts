@@ -180,7 +180,28 @@ class NafasAuthService {
 
       this.notifyListeners();
     } catch (_) {
-      this.currentSession = null;
+      if (session?.user) {
+        const user = session.user;
+        this.currentSession = {
+          token: session.access_token,
+          user: {
+            id: user.id,
+            email: user.email || '',
+            fullName: user.user_metadata?.full_name || user.user_metadata?.name || 'مواطن نَفَس',
+            role: 'citizen',
+            governorateId: user.user_metadata?.governorate_id || 'baghdad',
+            points: 0,
+            isVerifiedVolunteer: false,
+            mfaEnabled: false,
+            isSuspended: false,
+            createdAt: user.created_at,
+            updatedAt: user.updated_at || user.created_at
+          },
+          expiresAt: session.expires_at ? session.expires_at * 1000 : Date.now() + 3600 * 1000
+        };
+      } else {
+        this.currentSession = null;
+      }
       this.notifyListeners();
     }
   }
@@ -238,7 +259,7 @@ class NafasAuthService {
   /**
    * User Registration with Genuine Identity Provider
    */
-  public async signUp(params: SignUpParams): Promise<{ success: boolean; user?: UserProfile; messageAr: string }> {
+  public async signUp(params: SignUpParams): Promise<{ success: boolean; hasSession: boolean; user?: UserProfile; messageAr: string }> {
     const email = params.email.trim().toLowerCase();
     const fullName = params.fullName.trim();
     const password = params.password;
@@ -330,10 +351,11 @@ class NafasAuthService {
 
     return {
       success: true,
+      hasSession: Boolean(authData.session),
       user: userProfile,
       messageAr: authData.session 
         ? 'تم إنشاء الحساب وتسجيل الدخول بنجاح!' 
-        : 'تم إنشاء الحساب بنجاح. يرجى مراجعة بريدك الإلكتروني لتأكيد التسجيل قبل تسجيل الدخول.'
+        : 'تم إنشاء الحساب بنجاح! يرجى فتح بريدك الإلكتروني والضغط على رابط التأكيد لتفعيل الحساب، ثم تسجيل الدخول.'
     };
   }
 
@@ -370,15 +392,39 @@ class NafasAuthService {
       throw new Error('فشل تسجيل الدخول: جلسة المصادقة مفقودة.');
     }
 
-    // Retrieve authoritative profile from database
-    const { data: profile, error: profileError } = await supabase
+    // Retrieve authoritative profile from database (with auto-bootstrap if awaiting trigger)
+    let { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', authData.user.id)
       .single();
 
     if (profileError || !profile) {
-      throw new Error('تعذر تحميل الملف الشخصي للمستخدم من قاعدة البيانات الرسمية.');
+      const now = new Date().toISOString();
+      const initialProfile = {
+        id: authData.user.id,
+        email: authData.user.email || email,
+        full_name: authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || 'مواطن نَفَس',
+        role: 'citizen' as Role,
+        governorate_id: authData.user.user_metadata?.governorate_id || 'baghdad',
+        points: 0,
+        is_verified_volunteer: false,
+        mfa_enabled: false,
+        is_suspended: false,
+        created_at: now,
+        updated_at: now
+      };
+      try {
+        await supabase.from('profiles').upsert(initialProfile, { onConflict: 'id' });
+        const { data: refetched } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+        profile = refetched || initialProfile;
+      } catch (_) {
+        profile = initialProfile;
+      }
     }
 
     if (profile.is_suspended) {
