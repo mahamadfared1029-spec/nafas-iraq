@@ -375,7 +375,7 @@ export default function HomePage() {
               {/* 5. Heritage Atlas View */}
               {currentView === 'atlas' && (
                 <div className="max-w-5xl mx-auto px-4">
-                  <HeritageAtlas />
+                  <HeritageAtlas onNavigate={navigateTo} />
                 </div>
               )}
 

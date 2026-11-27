@@ -242,10 +242,14 @@ export interface PlantingRecommendation {
 export interface HeritageChapter {
   id: string;
   governorateId: string;
+  governorateNameAr: string;
+  era: string;
   titleAr: string;
   historicalLandmark: string;
   naturalHeritage: string;
   traditionalEcology: string;
+  ecoInnovation: string;
+  historicalFact: string;
   historicalQuote: string;
   modernChallenge: string;
   conservationHope: string;
