@@ -111,6 +111,7 @@ function mapSupabaseRow(row: any): CommunityTree {
       ? row.tree_type
       : 'palm') as CommunityTreeType,
     message: String(row.message || '').slice(0, 120),
+    isAdmin: Boolean(row.is_admin),
     createdAt: String(row.created_at || new Date().toISOString()),
     updatedAt: String(row.updated_at || row.created_at || new Date().toISOString()),
   };
@@ -132,7 +133,7 @@ export const communityTreesService = {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('community_trees')
-        .select('id, user_id, author_name, governorate_id, lat, lng, tree_type, message, created_at, updated_at')
+        .select('id, user_id, author_name, governorate_id, lat, lng, tree_type, message, is_admin, created_at, updated_at')
         .order('created_at', { ascending: true })
         .limit(1000);
 
@@ -175,11 +176,12 @@ export const communityTreesService = {
                 lng: typeof input.lng === 'number' && Number.isFinite(input.lng) ? input.lng : null,
                 tree_type: input.treeType,
                 message: cleanMessage,
+                is_admin: Boolean(input.isAdmin),
                 updated_at: now,
               },
               { onConflict: 'user_id' }
             )
-            .select('id, user_id, author_name, governorate_id, lat, lng, tree_type, message, created_at, updated_at')
+            .select('id, user_id, author_name, governorate_id, lat, lng, tree_type, message, is_admin, created_at, updated_at')
             .single();
 
           if (!error && data) {

@@ -8,6 +8,7 @@ create table if not exists public.community_trees (
   lng double precision,
   tree_type text not null check (tree_type in ('palm', 'sidr', 'oak', 'orange')),
   message text not null check (char_length(trim(message)) between 1 and 120),
+  is_admin boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
