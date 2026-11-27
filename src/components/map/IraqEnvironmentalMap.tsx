@@ -216,6 +216,9 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     })();
     setCommunityTrees(nextList);
     sendCommunityTreesTo3D(nextList, enrichedTree.id);
+    if (map3dIframeRef.current) {
+      map3dIframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   };
 
   // Pin category filtering (for field_reports mode): 'all' | 'planting' | 'cleanup' | 'pollution' | 'activity'
@@ -1036,7 +1039,12 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => focusTreeOn3D(myCommunityTree.id)}
+                    onClick={() => {
+                      focusTreeOn3D(myCommunityTree.id);
+                      if (map3dIframeRef.current) {
+                        map3dIframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }}
                     className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-colors shadow-sm"
                   >
                     شاهد شجرتي
