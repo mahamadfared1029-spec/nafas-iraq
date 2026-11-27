@@ -206,7 +206,7 @@ export default function HomePage() {
   const activeHeader = viewHeaders[currentView];
 
   return (
-    <div className="min-h-screen flex flex-col bg-nafas-sand text-nafas-silt pb-20 sm:pb-8 selection:bg-nafas-orchid/20 selection:text-nafas-orchid">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip flex flex-col bg-nafas-sand text-nafas-silt pb-20 sm:pb-8 selection:bg-nafas-orchid/20 selection:text-nafas-orchid">
       
       {/* 0. Cinematic Mesopotamian Opening Scene (Intact & Preserved) */}
       <NafasIntroOverlay />

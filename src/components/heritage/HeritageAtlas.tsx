@@ -259,18 +259,18 @@ export const HeritageAtlas: React.FC<HeritageAtlasProps> = ({ onNavigate }) => {
           role="dialog"
           aria-modal="true"
           aria-label="المشهد السينمائي لتاريخ حمورابي البيئي"
-          className={`fixed inset-0 z-50 bg-[#0D0C14] flex flex-col justify-between overflow-hidden select-none ${
+          className={`fixed inset-0 w-full h-[100dvh] z-50 bg-[#0D0C14] flex flex-col justify-between overflow-hidden select-none ${
             introExiting ? 'nafas-cinematic-exit' : ''
           }`}
         >
           {/* Top Letterbox Bar */}
-          <div className="h-12 sm:h-16 bg-black border-b border-amber-500/20 px-4 sm:px-8 flex items-center justify-between relative z-20">
-            <span className="text-[11px] sm:text-xs font-arabic text-amber-200/80 tracking-wide">
+          <div className="h-12 sm:h-16 bg-black border-b border-amber-500/20 px-4 sm:px-8 flex items-center justify-between gap-2 relative z-20">
+            <span className="text-[11px] sm:text-xs font-arabic text-amber-200/80 tracking-wide truncate">
               أطلس نَفَس السينمائي — ذاكرة وادي الرافدين
             </span>
             <button
               onClick={closeIntro}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-amber-500/25 border border-amber-400/40 text-amber-100 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-amber-500/25 border border-amber-400/40 text-amber-100 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400"
             >
               <span>تخطّي ← (ESC)</span>
               <X className="w-3.5 h-3.5" />
@@ -380,8 +380,8 @@ export const HeritageAtlas: React.FC<HeritageAtlasProps> = ({ onNavigate }) => {
           </div>
 
           {/* Bottom Letterbox Bar with Shot Progress */}
-          <div className="h-12 sm:h-16 bg-black border-t border-amber-500/20 px-4 sm:px-8 flex items-center justify-between relative z-20">
-            <div className="flex items-center gap-2">
+          <div className="h-12 sm:h-16 bg-black border-t border-amber-500/20 px-4 sm:px-8 flex items-center justify-between gap-2 relative z-20">
+            <div className="flex items-center gap-2 shrink-0">
               {[1, 2, 3].map((step) => (
                 <span
                   key={step}
@@ -395,7 +395,7 @@ export const HeritageAtlas: React.FC<HeritageAtlasProps> = ({ onNavigate }) => {
                 />
               ))}
             </div>
-            <span className="text-[11px] text-white/60">مشهد افتتاحي — أطلس التراث البيئي</span>
+            <span className="text-[11px] text-white/60 truncate">مشهد افتتاحي — أطلس التراث البيئي</span>
           </div>
         </div>
       )}

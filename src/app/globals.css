@@ -30,11 +30,17 @@
   --color-blue: #62467D;
 }
 
+html {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   background-color: var(--color-limestone);
   color: var(--color-midnight);
   font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
+  max-width: 100%;
+  overflow-x: clip;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
