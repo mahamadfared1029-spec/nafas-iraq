@@ -26,7 +26,8 @@ import {
   Compass,
   PlayCircle,
   Box,
-  Lock
+  Lock,
+  Droplets
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -474,6 +475,32 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             );
           })}
         </div>
+      </section>
+
+      {/* =========================================================================
+          C2. RIVER JOURNEY SCROLLYTELLING SHOWCASE BANNER
+          ========================================================================= */}
+      <section className="rounded-3xl bg-gradient-to-l from-[#0B2538] via-[#134E4A] to-[#0A192F] text-white p-5 sm:p-7 border border-sky-400/30 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="space-y-1.5 text-right">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-sky-500/20 border border-sky-300/40 text-sky-200 text-[11px] font-bold">
+            <Droplets className="w-3.5 h-3.5 text-sky-300" />
+            <span>تجربة تفاعلية سينمائية • 6 محطات</span>
+          </div>
+          <h3 className="text-lg sm:text-2xl font-black text-white">
+            رحلة قطرة ماء — من زاخو إلى الفاو
+          </h3>
+          <p className="text-xs sm:text-sm text-white/80 max-w-2xl leading-relaxed">
+            تتبّع مسار دجلة والفرات عبر 1,850 كم من المنبع الجبلي إلى المصب، واستكشف عدسة الزمن لكل محطة بين التاريخ والتحدي والأمل.
+          </p>
+        </div>
+
+        <button
+          onClick={() => onNavigate('river-journey')}
+          className="shrink-0 px-5 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-sky-300"
+        >
+          <Droplets className="w-4 h-4" />
+          <span>ابدأ رحلة قطرة ماء — من زاخو إلى الفاو</span>
+        </button>
       </section>
 
       {/* =========================================================================

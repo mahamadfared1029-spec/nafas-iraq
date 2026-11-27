@@ -105,6 +105,14 @@ const SECTIONS: SearchableSection[] = [
     actionType: 'view'
   },
   {
+    id: 'river-journey',
+    title: 'رحلة قطرة ماء — من زاخو إلى الفاو',
+    subtitle: 'تجربة تفاعلية بالتمرير عبر 6 محطات على طول دجلة والفرات',
+    keywords: ['رحلة', 'قطرة', 'ماء', 'زاخو', 'الفاو', 'دجلة', 'الفرات', 'نهر', 'river'],
+    icon: Sparkles,
+    actionType: 'view'
+  },
+  {
     id: 'impact',
     title: 'أثر نَفَس والشفافية',
     subtitle: 'إحصائيات الأثر البيئي الموثق ومقارنات قبل وبعد',

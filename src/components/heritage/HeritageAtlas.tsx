@@ -426,6 +426,14 @@ export const HeritageAtlas: React.FC<HeritageAtlasProps> = ({ onNavigate }) => {
               <Play className="w-3.5 h-3.5" />
               <span>إعادة المشهد السينمائي لحمورابي</span>
             </button>
+
+            <button
+              onClick={() => goToSection('river-journey')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-sky-500/25 hover:bg-sky-500/40 border border-sky-300/50 text-sky-100 text-xs font-bold transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+            >
+              <Droplets className="w-3.5 h-3.5 text-sky-300" />
+              <span>ابدأ رحلة قطرة ماء — من زاخو إلى الفاو</span>
+            </button>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">

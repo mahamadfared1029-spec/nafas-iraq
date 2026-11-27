@@ -11,6 +11,7 @@ import { PublicImpactDashboard } from '@/components/impact/PublicImpactDashboard
 import { BeforeAfterShowcase } from '@/components/home/BeforeAfterShowcase';
 import { PlantingGuide } from '@/components/education/PlantingGuide';
 import { HeritageAtlas } from '@/components/heritage/HeritageAtlas';
+import { RiverJourney } from '@/components/journey/RiverJourney';
 import { PlantClinic } from '@/components/clinic/PlantClinic';
 import { ReportSubmissionModal } from '@/components/reports/ReportSubmissionModal';
 import { ReportDetailModal } from '@/components/reports/ReportDetailModal';
@@ -36,7 +37,8 @@ import {
   HeartHandshake,
   Box,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Droplets
 } from 'lucide-react';
 
 const VALID_VIEWS = [
@@ -47,6 +49,7 @@ const VALID_VIEWS = [
   'impact', 
   'planting', 
   'atlas', 
+  'river-journey',
   'clinic', 
   'orchid-3d',
   'admin'
@@ -180,6 +183,11 @@ export default function HomePage() {
       title: 'أطلس تراث العراق البيئي — روح الرافدين',
       subtitle: 'تاريخ الأهوار، زقورة أور، جنائن بابل، وحكمة الأسلاف في إدارة المياه والأرض',
       icon: BookOpen
+    },
+    'river-journey': {
+      title: 'رحلة قطرة ماء — من زاخو إلى الفاو',
+      subtitle: 'تجربة تفاعلية بالتمرير تتتبع مسار دجلة والفرات عبر 6 محطات من الشمال إلى المصب',
+      icon: Droplets
     },
     clinic: {
       title: 'صيدلية نَفَس النباتية',
@@ -376,6 +384,25 @@ export default function HomePage() {
               {currentView === 'atlas' && (
                 <div className="max-w-5xl mx-auto px-4">
                   <HeritageAtlas onNavigate={navigateTo} />
+                </div>
+              )}
+
+              {/* 5b. River Journey Scrollytelling View */}
+              {currentView === 'river-journey' && (
+                <div className="max-w-6xl mx-auto px-3 sm:px-4">
+                  <RiverJourney
+                    onNavigate={navigateTo}
+                    onOpenReportModal={() => {
+                      handleRequireAuth(
+                        () => {
+                          setPinnedCoords(null);
+                          setReportModalOpen(true);
+                        },
+                        'register',
+                        'يرجى تسجيل الدخول أو إنشاء حساب مواطن للمشاركة في الإبلاغ عن الانتهاكات البيئية.'
+                      );
+                    }}
+                  />
                 </div>
               )}
 
