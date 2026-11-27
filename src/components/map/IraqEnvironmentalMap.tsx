@@ -1157,6 +1157,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
         isOpen={plantTreeModalOpen}
         onClose={() => setPlantTreeModalOpen(false)}
         existingTree={myCommunityTree}
+        isAuthenticated={Boolean(authUserId)}
         defaultAuthorName={authUserName}
         defaultGovernorateId={selectedGovernorateId !== 'all' ? selectedGovernorateId : 'baghdad'}
         onSubmit={handlePlantOrUpdateTree}

@@ -13,6 +13,7 @@ interface PlantTreeModalProps {
   isOpen: boolean;
   onClose: () => void;
   existingTree: CommunityTree | null;
+  isAuthenticated?: boolean;
   defaultAuthorName?: string;
   defaultGovernorateId?: string;
   onSubmit: (payload: {
@@ -29,6 +30,7 @@ export const PlantTreeModal: React.FC<PlantTreeModalProps> = ({
   isOpen,
   onClose,
   existingTree,
+  isAuthenticated = false,
   defaultAuthorName = '',
   defaultGovernorateId = 'baghdad',
   onSubmit,
@@ -240,6 +242,11 @@ export const PlantTreeModal: React.FC<PlantTreeModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+          {!isAuthenticated && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold leading-relaxed">
+              تنبيه: أنت غير مسجّل الدخول حالياً — ستُحفظ شجرتك على هذا الجهاز فقط. سجّل الدخول بحسابك لتظهر شجرتك لجميع العراقيين على الخريطة.
+            </div>
+          )}
           {error && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-bold">
               {error}
