@@ -1,20 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { RIVER_STATIONS, RiverStation } from '@/data/riverJourneyData';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { RIVER_SCENES, RiverVisualScene } from '@/data/riverJourneyData';
 import {
   ArrowRight,
   Droplets,
-  MapPin,
-  BookOpen,
-  AlertTriangle,
   Sparkles,
-  Users,
-  Leaf,
-  ChevronDown,
-  RotateCcw,
+  ShieldAlert,
   Megaphone,
-  Waves,
+  Users,
+  ChevronDown,
 } from 'lucide-react';
 
 interface RiverJourneyProps {
@@ -22,23 +17,59 @@ interface RiverJourneyProps {
   onOpenReportModal?: () => void;
 }
 
-type LensTab = 'history' | 'challenge' | 'hope';
+interface Ripple {
+  x: number;
+  y: number;
+  radius: number;
+  maxRadius: number;
+  alpha: number;
+  color: string;
+}
 
-const RIVER_SVG_LENGTH = 980;
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  alpha: number;
+}
 
 export const RiverJourney: React.FC<RiverJourneyProps> = ({
   onNavigate,
   onOpenReportModal,
 }) => {
-  const [activeStationIndex, setActiveStationIndex] = useState(0);
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [activeLensByStation, setActiveLensByStation] = useState<Record<string, LensTab>>({});
+  const [nafasImpact, setNafasImpact] = useState(true);
+  const [visitorDrops, setVisitorDrops] = useState(0);
 
-  const journeyContainerRef = useRef<HTMLDivElement | null>(null);
-  const stationRefs = useRef<(HTMLElement | null)[]>([]);
-  const heroRef = useRef<HTMLElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const ripplesRef = useRef<Ripple[]>([]);
+  const trailRef = useRef<{ x: number; y: number; alpha: number }[]>([]);
+  const particlesRef = useRef<Particle[]>([]);
+  const stateRef = useRef({
+    sceneIndex: 0,
+    progress: 0,
+    impact: true,
+    reducedMotion: false,
+  });
 
-  const activeStation = RIVER_STATIONS[activeStationIndex] || RIVER_STATIONS[0];
+  const activeScene: RiverVisualScene = RIVER_SCENES[activeSceneIndex] || RIVER_SCENES[0];
+
+  useEffect(() => {
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    stateRef.current = {
+      sceneIndex: activeSceneIndex,
+      progress: scrollProgress,
+      impact: nafasImpact,
+      reducedMotion: Boolean(reduced),
+    };
+  }, [activeSceneIndex, scrollProgress, nafasImpact]);
 
   const goToView = (viewId: string) => {
     if (onNavigate) {
@@ -50,552 +81,612 @@ export const RiverJourney: React.FC<RiverJourneyProps> = ({
     }
   };
 
-  // Scroll-linked river SVG progress (0 to 1)
-  useEffect(() => {
-    let rafId = 0;
+  const spawnRipple = useCallback((x: number, y: number, color = 'rgba(56, 189, 248, 0.85)', maxRadius = 90) => {
+    ripplesRef.current.push({
+      x,
+      y,
+      radius: 6,
+      maxRadius,
+      alpha: 0.9,
+      color,
+    });
+    if (ripplesRef.current.length > 24) {
+      ripplesRef.current.shift();
+    }
+  }, []);
 
-    const updateProgress = () => {
-      const container = journeyContainerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const viewportHeight = window.innerHeight || 800;
-      const totalScrollable = Math.max(container.offsetHeight - viewportHeight * 0.55, 1);
-      const scrolled = Math.min(Math.max(-rect.top + viewportHeight * 0.25, 0), totalScrollable);
-      setScrollProgress(scrolled / totalScrollable);
-    };
+  // Scroll listener -> updates progress (0..1) and activeSceneIndex (0..5)
+  useEffect(() => {
+    let rafScroll = 0;
 
     const handleScroll = () => {
-      if (rafId) return;
-      rafId = window.requestAnimationFrame(() => {
-        updateProgress();
-        rafId = 0;
+      if (rafScroll) return;
+      rafScroll = window.requestAnimationFrame(() => {
+        rafScroll = 0;
+        const el = containerRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const vh = window.innerHeight || 800;
+        const maxScroll = Math.max(el.offsetHeight - vh, 1);
+        const current = Math.min(Math.max(-rect.top, 0), maxScroll);
+        const p = current / maxScroll;
+        setScrollProgress(p);
+
+        const nextIdx = Math.min(
+          RIVER_SCENES.length - 1,
+          Math.max(0, Math.floor(p * RIVER_SCENES.length))
+        );
+        setActiveSceneIndex((prev) => {
+          if (prev !== nextIdx) {
+            const canvas = canvasRef.current;
+            if (canvas) {
+              spawnRipple(canvas.clientWidth * 0.5, canvas.clientHeight * 0.48, 'rgba(94, 234, 212, 0.9)', 110);
+            }
+          }
+          return nextIdx;
+        });
       });
     };
 
-    updateProgress();
+    handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-      if (rafId) window.cancelAnimationFrame(rafId);
+      if (rafScroll) window.cancelAnimationFrame(rafScroll);
+    };
+  }, [spawnRipple]);
+
+  // Initialize Canvas particles
+  useEffect(() => {
+    const pts: Particle[] = [];
+    for (let i = 0; i < 42; i++) {
+      pts.push({
+        x: Math.random(),
+        y: Math.random(),
+        vx: (Math.random() - 0.5) * 0.0012,
+        vy: 0.001 + Math.random() * 0.0025,
+        size: 1.5 + Math.random() * 2.5,
+        alpha: 0.25 + Math.random() * 0.55,
+      });
+    }
+    particlesRef.current = pts;
+  }, []);
+
+  // HTML5 Canvas 2D Render Loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId = 0;
+    let time = 0;
+
+    const resizeCanvas = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = canvas.clientWidth || window.innerWidth;
+      const h = canvas.clientHeight || window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    resizeCanvas();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resizeCanvas) : null;
+    if (ro) ro.observe(canvas);
+    window.addEventListener('resize', resizeCanvas);
+
+    const render = () => {
+      const { sceneIndex, progress, impact, reducedMotion } = stateRef.current;
+      const scene = RIVER_SCENES[sceneIndex] || RIVER_SCENES[0];
+      const w = canvas.clientWidth || window.innerWidth;
+      const h = canvas.clientHeight || window.innerHeight;
+
+      if (!reducedMotion) {
+        time += 0.016 * scene.flowSpeed;
+      }
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. Flowing River Artery across the stage
+      const riverWidth = impact ? scene.protectedWidth : scene.unprotectedWidth;
+      const riverColor = impact ? scene.protectedRiverColor : scene.unprotectedRiverColor;
+      const centerX = w * 0.5;
+
+      ctx.save();
+      ctx.beginPath();
+      for (let y = 0; y <= h; y += 16) {
+        const wave = Math.sin(y * 0.012 - time * 2.2) * (impact ? 26 : 14);
+        const x = centerX + wave;
+        if (y === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.lineCap = 'round';
+      ctx.lineWidth = riverWidth;
+      ctx.strokeStyle = riverColor;
+      ctx.shadowColor = impact ? 'rgba(56, 189, 248, 0.55)' : 'rgba(120, 100, 80, 0.25)';
+      ctx.shadowBlur = impact ? 28 : 8;
+      ctx.stroke();
+
+      // Inner bright water current lines
+      ctx.beginPath();
+      for (let y = 0; y <= h; y += 16) {
+        const wave = Math.sin(y * 0.012 - time * 2.2 + 0.6) * (impact ? 20 : 10);
+        const x = centerX + wave;
+        if (y === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.lineWidth = Math.max(4, riverWidth * 0.18);
+      ctx.strokeStyle = impact ? 'rgba(224, 242, 254, 0.45)' : 'rgba(214, 200, 180, 0.2)';
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. Scene-specific Canvas Particles (waterfall spray, dust, sea shimmer)
+      particlesRef.current.forEach((p) => {
+        if (!reducedMotion) {
+          p.y += p.vy * scene.flowSpeed;
+          p.x += p.vx + Math.sin(time + p.y * 6) * 0.0005;
+          if (p.y > 1) {
+            p.y = 0;
+            p.x = Math.random();
+          }
+          if (p.x < 0) p.x = 1;
+          if (p.x > 1) p.x = 0;
+        }
+
+        // Dust disappears when NAFAS impact is ON in middle scenes
+        const isDustScene = scene.particleMode === 'dust' || scene.particleMode === 'sunset' || scene.particleMode === 'noria';
+        if (isDustScene && impact) {
+          // Draw soft clean mist instead of dust
+          ctx.fillStyle = `rgba(186, 230, 253, ${p.alpha * 0.35})`;
+        } else if (isDustScene && !impact) {
+          ctx.fillStyle = `rgba(217, 179, 130, ${p.alpha * 0.65})`;
+        } else if (scene.particleMode === 'waterfall' || scene.particleMode === 'sea') {
+          ctx.fillStyle = `rgba(165, 243, 252, ${p.alpha * 0.65})`;
+        } else {
+          ctx.fillStyle = `rgba(110, 231, 183, ${p.alpha * 0.45})`;
+        }
+
+        ctx.beginPath();
+        ctx.arc(p.x * w, p.y * h, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 3. Hero Water Drop + Animated Trail
+      const dropY = h * (0.24 + progress * 0.48);
+      const dropX = centerX + Math.sin(dropY * 0.012 - time * 2.2) * (impact ? 26 : 14);
+
+      if (!reducedMotion) {
+        trailRef.current.push({ x: dropX, y: dropY, alpha: 0.7 });
+        if (trailRef.current.length > 16) trailRef.current.shift();
+      }
+
+      trailRef.current.forEach((t, i) => {
+        t.alpha *= 0.91;
+        const r = Math.max(2, (i / 16) * 11);
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(56, 189, 248, ${t.alpha * 0.45})`;
+        ctx.fill();
+      });
+
+      // Hero Drop Body (teardrop silhouette + specular highlight)
+      ctx.save();
+      ctx.translate(dropX, dropY);
+      ctx.beginPath();
+      ctx.moveTo(0, -18);
+      ctx.bezierCurveTo(13, -4, 15, 14, 0, 16);
+      ctx.bezierCurveTo(-15, 14, -13, -4, 0, -18);
+      ctx.closePath();
+      const dropGrad = ctx.createRadialGradient(-4, -3, 2, 0, 2, 18);
+      dropGrad.addColorStop(0, '#FFFFFF');
+      dropGrad.addColorStop(0.35, impact ? '#7DD3FC' : '#CBD5E1');
+      dropGrad.addColorStop(1, impact ? '#0284C7' : '#64748B');
+      ctx.fillStyle = dropGrad;
+      ctx.shadowColor = impact ? 'rgba(56, 189, 248, 0.9)' : 'rgba(148, 163, 184, 0.5)';
+      ctx.shadowBlur = 18;
+      ctx.fill();
+
+      // Specular glint
+      ctx.beginPath();
+      ctx.arc(-4, 2, 2.8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.shadowBlur = 0;
+      ctx.fill();
+      ctx.restore();
+
+      // 4. Expanding Ripples
+      ripplesRef.current = ripplesRef.current.filter((rp) => rp.alpha > 0.03);
+      ripplesRef.current.forEach((rp) => {
+        if (!reducedMotion) {
+          rp.radius += 2.2;
+          rp.alpha *= 0.95;
+        } else {
+          rp.alpha = 0;
+        }
+        ctx.beginPath();
+        ctx.arc(rp.x, rp.y, rp.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = rp.color.replace(/[\d.]+\)$/, `${rp.alpha.toFixed(2)})`);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+
+      animId = window.requestAnimationFrame(render);
+    };
+
+    animId = window.requestAnimationFrame(render);
+    return () => {
+      window.cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resizeCanvas);
+      if (ro) ro.disconnect();
     };
   }, []);
 
-  // IntersectionObserver for dynamic atmosphere transitions per station
-  useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
+  const handleStagePointer = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    spawnRipple(e.clientX - rect.left, e.clientY - rect.top, 'rgba(56, 189, 248, 0.75)', 70);
+  };
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const idxAttr = entry.target.getAttribute('data-station-index');
-            if (idxAttr !== null) {
-              const parsed = Number(idxAttr);
-              if (!Number.isNaN(parsed)) {
-                setActiveStationIndex(parsed);
-              }
-            }
-          }
-        });
-      },
-      {
-        rootMargin: '-25% 0px -40% 0px',
-        threshold: 0.2,
-      }
-    );
+  const scrollToScene = (idx: number) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const vh = window.innerHeight || 800;
+    const maxScroll = Math.max(el.offsetHeight - vh, 1);
+    const targetTop = el.offsetTop + (idx / Math.max(RIVER_SCENES.length - 1, 1)) * maxScroll;
+    window.scrollTo({ top: targetTop, behavior: 'smooth' });
+  };
 
-    stationRefs.current.forEach((el) => {
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  const scrollToStation = (idx: number) => {
-    setActiveStationIndex(idx);
-    const el = stationRefs.current[idx];
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const handleDropVisitorDroplet = () => {
+    setVisitorDrops((c) => c + 1);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const cx = (canvas.clientWidth || 360) * (0.35 + Math.random() * 0.3);
+      const cy = (canvas.clientHeight || 640) * (0.45 + Math.random() * 0.25);
+      spawnRipple(cx, cy, 'rgba(45, 212, 191, 0.95)', 130);
     }
   };
 
-  const restartJourney = () => {
-    setActiveStationIndex(0);
-    if (heroRef.current) {
-      heroRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const getLensTab = (stationId: string): LensTab =>
-    activeLensByStation[stationId] || 'history';
-
-  const setLensTab = (stationId: string, tab: LensTab) => {
-    setActiveLensByStation((prev) => ({ ...prev, [stationId]: tab }));
-  };
-
-  // Compute droplet Y position along SVG viewBox height (0..780)
-  const clampedProgress = Math.min(Math.max(scrollProgress, 0), 1);
-  const strokeDashoffset = RIVER_SVG_LENGTH * (1 - clampedProgress);
-  const dropletY = 24 + clampedProgress * 736;
-  const dropletX = 60 + Math.sin(clampedProgress * Math.PI * 5) * 26;
+  // Extra palm trees bloomed at Al-Faw (capped visually at 10 icons so layout stays clean)
+  const bloomedPalmsCount = Math.min(visitorDrops, 10);
 
   return (
     <div
+      ref={containerRef}
       style={{
-        background: `linear-gradient(160deg, ${activeStation.bgFrom} 0%, ${activeStation.bgTo} 100%)`,
-        transition: 'background 850ms ease',
+        background: `linear-gradient(170deg, ${activeScene.bgFrom} 0%, ${activeScene.bgTo} 100%)`,
+        transition: 'background 900ms ease',
       }}
-      className="min-h-screen w-full rounded-3xl overflow-hidden text-white font-arabic relative shadow-2xl border border-white/10"
+      className="relative w-full min-h-[540vh] rounded-3xl font-arabic text-white select-none border border-white/10 shadow-2xl"
     >
-      {/* Sticky HUD Bar */}
-      <div className="sticky top-[65px] z-30 bg-[#0A1320]/85 backdrop-blur-md border-b border-white/15 px-3 sm:px-6 py-3">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          {/* Back Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => goToView('home')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-300"
-            >
-              <ArrowRight className="w-3.5 h-3.5" />
-              <span>الرئيسية</span>
-            </button>
-            <button
-              onClick={() => goToView('atlas')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-sky-200 text-xs font-bold border border-white/15 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-300"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>أطلس التراث</span>
-            </button>
-          </div>
-
-          {/* Active Station & Distance */}
-          <div className="flex items-center gap-2 sm:gap-3 text-xs">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-200 font-bold">
-              <Droplets className="w-3.5 h-3.5 text-sky-300" />
-              <span>{activeStation.nameAr}</span>
-            </span>
-            <span className="text-amber-200 font-bold">{activeStation.distanceLabel}</span>
-          </div>
-
-          {/* Quick Jump Station Dots */}
-          <div className="flex items-center gap-1.5" aria-label="التنقل السريع بين محطات النهر">
-            {RIVER_STATIONS.map((st, idx) => {
-              const isActive = idx === activeStationIndex;
-              return (
-                <button
-                  key={st.id}
-                  onClick={() => scrollToStation(idx)}
-                  title={`${st.order}. ${st.nameAr} (${st.distanceLabel})`}
-                  aria-label={`الانتقال إلى ${st.nameAr}`}
-                  className={`h-2.5 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-sky-300 ${
-                    isActive
-                      ? 'w-7 bg-sky-300 shadow-sm'
-                      : 'w-2.5 bg-white/30 hover:bg-white/60'
-                  }`}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Mobile Thin Progress Bar */}
-        <div className="mt-2.5 h-1 w-full bg-white/10 rounded-full overflow-hidden lg:hidden">
-          <div
-            style={{ width: `${Math.round(clampedProgress * 100)}%` }}
-            className="h-full bg-gradient-to-l from-sky-300 to-emerald-300 transition-all duration-150"
-          />
-        </div>
-      </div>
-
-      {/* 1. Full-Viewport Hero */}
-      <section
-        ref={heroRef}
-        className="min-h-[82vh] flex flex-col items-center justify-center text-center px-4 sm:px-8 py-16 relative overflow-hidden"
+      {/* Sticky Full-Viewport Visual Stage */}
+      <div
+        onPointerMove={handleStagePointer}
+        className="sticky top-0 h-[100dvh] w-full overflow-hidden rounded-3xl flex flex-col justify-between"
       >
-        {/* Subtle SVG Water Ripples */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
+        {/* HTML5 Canvas 2D Layer */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full pointer-events-none z-10"
+          aria-hidden="true"
+        />
+
+        {/* Parallax SVG Landscapes Layer */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          {/* Scene 1: Zakho Mountains & Waterfall */}
           <svg
-            viewBox="0 0 1200 600"
-            preserveAspectRatio="none"
-            className="w-full h-full"
+            viewBox="0 0 1200 700"
+            preserveAspectRatio="xMidYMax slice"
+            className={`absolute inset-0 w-full h-full transition-all duration-700 ${
+              activeSceneIndex === 0 ? 'opacity-90 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
             aria-hidden="true"
           >
+            <polygon points="0,700 220,260 480,700" fill="rgba(15, 23, 42, 0.65)" />
+            <polygon points="280,700 580,180 880,700" fill="rgba(19, 78, 74, 0.55)" />
+            <polygon points="720,700 1000,240 1200,700" fill="rgba(15, 23, 42, 0.7)" />
+            <path d="M565 215 L595 215 L615 700 L545 700 Z" fill="rgba(94, 234, 212, 0.35)" />
+          </svg>
+
+          {/* Scene 2: Nineveh Jarwana Arches & Samarra Malwiya */}
+          <svg
+            viewBox="0 0 1200 700"
+            preserveAspectRatio="xMidYMax slice"
+            className={`absolute inset-0 w-full h-full transition-all duration-700 ${
+              activeSceneIndex === 1 ? 'opacity-85 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+            aria-hidden="true"
+          >
+            {/* Jarwana Aqueduct Arches */}
             <path
-              d="M0 320 Q 300 240 600 320 T 1200 320 L 1200 600 L 0 600 Z"
-              fill="rgba(56, 189, 248, 0.25)"
+              d="M40 520 L420 520 L420 700 L350 700 L350 590 A35 35 0 0 0 280 590 L280 700 L210 700 L210 590 A35 35 0 0 0 140 590 L140 700 L40 700 Z"
+              fill="rgba(15, 23, 42, 0.55)"
             />
+            {/* Malwiya Spiral Silhouette */}
             <path
-              d="M0 390 Q 300 470 600 390 T 1200 390 L 1200 600 L 0 600 Z"
-              fill="rgba(20, 184, 166, 0.22)"
+              d="M930 700 L965 360 L1025 360 L1060 700 Z"
+              fill="rgba(15, 23, 42, 0.6)"
+            />
+            <line x1="942" y1="620" x2="1048" y2="600" stroke="rgba(125, 211, 252, 0.35)" strokeWidth="4" />
+            <line x1="950" y1="540" x2="1040" y2="520" stroke="rgba(125, 211, 252, 0.35)" strokeWidth="4" />
+            <line x1="958" y1="460" x2="1032" y2="440" stroke="rgba(125, 211, 252, 0.35)" strokeWidth="4" />
+          </svg>
+
+          {/* Scene 3: Baghdad Bridges & Domes at Sunset */}
+          <svg
+            viewBox="0 0 1200 700"
+            preserveAspectRatio="xMidYMax slice"
+            className={`absolute inset-0 w-full h-full transition-all duration-700 ${
+              activeSceneIndex === 2 ? 'opacity-85 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+            aria-hidden="true"
+          >
+            <circle cx="600" cy="340" r="110" fill="rgba(251, 146, 60, 0.22)" />
+            {/* Bridge Arches */}
+            <path
+              d="M0 540 L1200 540 L1200 565 L0 565 Z"
+              fill="rgba(15, 23, 42, 0.65)"
+            />
+            <path d="M120 540 Q260 440 400 540" fill="none" stroke="rgba(253, 186, 116, 0.45)" strokeWidth="5" />
+            <path d="M800 540 Q940 440 1080 540" fill="none" stroke="rgba(253, 186, 116, 0.45)" strokeWidth="5" />
+            {/* Domes & Minarets */}
+            <path d="M160 540 C160 470 240 470 240 540 Z" fill="rgba(15, 23, 42, 0.7)" />
+            <rect x="920" y="420" width="16" height="120" fill="rgba(15, 23, 42, 0.7)" />
+          </svg>
+
+          {/* Scene 4: Rotating Noria & Babylon Ishtar Gate */}
+          <svg
+            viewBox="0 0 1200 700"
+            preserveAspectRatio="xMidYMax slice"
+            className={`absolute inset-0 w-full h-full transition-all duration-700 ${
+              activeSceneIndex === 3 ? 'opacity-90 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+            aria-hidden="true"
+          >
+            {/* Rotating Wooden Noria */}
+            <g transform="translate(260, 480)">
+              <g>
+                <animateTransform
+                  attributeName="transform"
+                  type="rotate"
+                  from="0 0 0"
+                  to="360 0 0"
+                  dur="14s"
+                  repeatCount="indefinite"
+                />
+                <circle cx="0" cy="0" r="105" fill="none" stroke="rgba(252, 211, 77, 0.65)" strokeWidth="7" />
+                <circle cx="0" cy="0" r="78" fill="none" stroke="rgba(217, 119, 6, 0.45)" strokeWidth="3" />
+                <line x1="-105" y1="0" x2="105" y2="0" stroke="rgba(252, 211, 77, 0.5)" strokeWidth="3" />
+                <line x1="0" y1="-105" x2="0" y2="105" stroke="rgba(252, 211, 77, 0.5)" strokeWidth="3" />
+                <line x1="-74" y1="-74" x2="74" y2="74" stroke="rgba(252, 211, 77, 0.4)" strokeWidth="2.5" />
+                <line x1="-74" y1="74" x2="74" y2="-74" stroke="rgba(252, 211, 77, 0.4)" strokeWidth="2.5" />
+              </g>
+            </g>
+            {/* Ishtar Gate Silhouette */}
+            <path
+              d="M880 700 L880 430 L1060 430 L1060 700 L1000 700 L1000 560 A30 30 0 0 0 940 560 L940 700 Z"
+              fill="rgba(30, 58, 138, 0.45)"
+              stroke="rgba(252, 211, 77, 0.45)"
+              strokeWidth="2"
             />
           </svg>
-        </div>
 
-        <div className="relative z-10 max-w-3xl mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-500/20 border border-sky-300/40 text-sky-200 text-xs font-bold">
-            <Waves className="w-4 h-4" />
-            <span>تجربة سرد بصري تفاعلية (Scrollytelling) • 1,850 كم</span>
-          </div>
-
-          <div className="w-16 h-16 mx-auto rounded-full bg-sky-400/20 border border-sky-300/50 flex items-center justify-center shadow-lg">
-            <Droplets className="w-8 h-8 text-sky-300" />
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-tight">
-            رحلة قطرة ماء: من جبال زاخو إلى شط العرب والفاو
-          </h1>
-
-          <p className="text-sm sm:text-lg text-white/85 max-w-2xl mx-auto leading-relaxed">
-            رافق قطرة ماء عراقية عبر 6 محطات تاريخية وبيئية من ثلوج فيشخابور وزاخو حتى التقاء دجلة
-            والفرات في الفاو، واكتشف كيف نصنع الأمل لكل شريان حياة في بلاد الرافدين.
-          </p>
-
-          <div className="pt-4">
-            <button
-              onClick={() => scrollToStation(0)}
-              className="inline-flex flex-col items-center gap-2 text-sky-200 hover:text-white transition-colors focus:outline-none"
+          {/* Scene 5: Marshes (Reeds, Mashoof, Birds, Cracked Earth vs Lush Water) */}
+          <svg
+            viewBox="0 0 1200 700"
+            preserveAspectRatio="xMidYMax slice"
+            className={`absolute inset-0 w-full h-full transition-all duration-700 ${
+              activeSceneIndex === 4 ? 'opacity-90 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+            aria-hidden="true"
+          >
+            {/* Cracked dry earth when unprotected */}
+            {!nafasImpact && (
+              <g stroke="rgba(217, 119, 6, 0.35)" strokeWidth="2">
+                <path d="M80 620 L150 650 L120 690" fill="none" />
+                <path d="M980 610 L1050 645 L1010 690" fill="none" />
+              </g>
+            )}
+            {/* Swaying Reeds */}
+            <g stroke={nafasImpact ? 'rgba(52, 211, 153, 0.6)' : 'rgba(180, 140, 90, 0.45)'} strokeWidth="4" strokeLinecap="round">
+              <path d="M140 700 Q155 560 175 490" fill="none" />
+              <path d="M170 700 Q180 570 198 510" fill="none" />
+              <path d="M1020 700 Q1005 560 985 485" fill="none" />
+              <path d="M1050 700 Q1035 575 1015 515" fill="none" />
+            </g>
+            {/* Floating Mashoof Boat */}
+            <path
+              d="M520 575 Q600 610 680 575 L655 595 L545 595 Z"
+              fill="rgba(15, 23, 42, 0.78)"
+              stroke="rgba(52, 211, 153, 0.45)"
+              strokeWidth="2"
+            />
+            {/* Migrating Birds */}
+            <g
+              stroke="rgba(255,255,255,0.7)"
+              strokeWidth="2.5"
+              fill="none"
+              className={`transition-opacity duration-700 ${nafasImpact ? 'opacity-90' : 'opacity-20'}`}
             >
-              <span className="text-xs sm:text-sm font-bold">مرّر لترافق القطرة في رحلتها</span>
-              <ChevronDown className="w-6 h-6 animate-bounce motion-reduce:animate-none" />
-            </button>
+              <path d="M350 220 Q365 205 380 220 Q395 205 410 220" />
+              <path d="M430 190 Q442 178 454 190 Q466 178 478 190" />
+              <path d="M760 210 Q774 196 788 210 Q802 196 816 210" />
+            </g>
+          </svg>
+
+          {/* Scene 6: Al-Faw Confluence & Palm Forest */}
+          <svg
+            viewBox="0 0 1200 700"
+            preserveAspectRatio="xMidYMax slice"
+            className={`absolute inset-0 w-full h-full transition-all duration-700 ${
+              activeSceneIndex === 5 ? 'opacity-95 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+            aria-hidden="true"
+          >
+            {/* Glowing Confluence Streams */}
+            <path d="M360 0 Q480 240 600 380" fill="none" stroke="rgba(56, 189, 248, 0.35)" strokeWidth="26" />
+            <path d="M840 0 Q720 240 600 380" fill="none" stroke="rgba(45, 212, 191, 0.35)" strokeWidth="26" />
+            {/* Sea Horizon */}
+            <rect x="0" y="590" width="1200" height="110" fill="rgba(2, 132, 199, 0.28)" />
+          </svg>
+
+          {/* Living Green Sidr & Palm Trees on Both Banks (Grow smoothly when NAFAS impact is ON) */}
+          <div
+            className={`absolute bottom-20 inset-x-4 sm:inset-x-10 flex items-end justify-between transition-all duration-700 origin-bottom ${
+              nafasImpact ? 'scale-100 opacity-95' : 'scale-50 opacity-15'
+            }`}
+          >
+            {/* Left Bank Trees */}
+            <div className="flex items-end gap-2">
+              <svg viewBox="0 0 80 120" className="w-14 h-20 sm:w-20 sm:h-28" aria-hidden="true">
+                <rect x="36" y="55" width="8" height="65" fill="#5C4033" />
+                <path d="M40 55 Q12 35 8 52 M40 55 Q18 22 30 18 M40 55 Q62 22 50 18 M40 55 Q68 35 72 52" stroke="#10B981" strokeWidth="6" strokeLinecap="round" fill="none" />
+              </svg>
+              <svg viewBox="0 0 70 100" className="w-10 h-16 hidden sm:block" aria-hidden="true">
+                <rect x="31" y="50" width="7" height="50" fill="#5C4033" />
+                <circle cx="35" cy="40" r="22" fill="#059669" />
+              </svg>
+            </div>
+
+            {/* Right Bank Trees + Extra Bloomed Palms from Visitor Drops */}
+            <div className="flex items-end gap-1.5">
+              {Array.from({ length: bloomedPalmsCount }).map((_, idx) => (
+                <svg
+                  key={idx}
+                  viewBox="0 0 60 100"
+                  className="w-8 h-14 sm:w-10 sm:h-16 transition-transform duration-500 scale-100"
+                  aria-hidden="true"
+                >
+                  <rect x="27" y="45" width="6" height="55" fill="#78350F" />
+                  <path d="M30 45 Q10 28 6 42 M30 45 Q15 18 25 14 M30 45 Q45 18 35 14 M30 45 Q50 28 54 42" stroke="#34D399" strokeWidth="5" strokeLinecap="round" fill="none" />
+                </svg>
+              ))}
+              <svg viewBox="0 0 80 120" className="w-14 h-20 sm:w-20 sm:h-28" aria-hidden="true">
+                <rect x="36" y="55" width="8" height="65" fill="#5C4033" />
+                <path d="M40 55 Q12 35 8 52 M40 55 Q18 22 30 18 M40 55 Q62 22 50 18 M40 55 Q68 35 72 52" stroke="#10B981" strokeWidth="6" strokeLinecap="round" fill="none" />
+              </svg>
+            </div>
           </div>
         </div>
-      </section>
 
-      {/* 2. Scrollytelling River Path + 6 Stations */}
-      <div
-        ref={journeyContainerRef}
-        className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 relative z-10"
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Sticky Vertical River SVG Column (Desktop) */}
-          <aside className="hidden lg:block lg:col-span-3 sticky top-36">
-            <div className="bg-black/25 backdrop-blur-sm border border-white/15 rounded-3xl p-5 flex flex-col items-center space-y-4">
-              <div className="text-center space-y-0.5">
-                <span className="text-[11px] text-sky-200 font-bold block">مسار دجلة والفرات</span>
-                <span className="text-sm font-black text-white">
-                  {Math.round(clampedProgress * 1850).toLocaleString('ar-IQ')} كم من 1,850 كم
-                </span>
+        {/* Top Floating Controls: Back/Close + Distance Pill */}
+        <div className="relative z-20 flex items-center justify-between px-4 sm:px-8 pt-4 sm:pt-6">
+          <button
+            onClick={() => goToView('home')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold border border-white/20 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-sky-300"
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+            <span>إغلاق / عودة</span>
+          </button>
+
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/45 backdrop-blur-md border border-white/20 text-xs font-bold">
+            <Droplets className="w-3.5 h-3.5 text-sky-300" />
+            <span className="text-amber-200">{activeScene.distanceLabel}</span>
+          </div>
+        </div>
+
+        {/* Side 6-Dot Station Quick Jump Rail */}
+        <div
+          className="fixed left-3 sm:left-6 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-2.5 bg-black/35 backdrop-blur-md px-2 py-3 rounded-full border border-white/15"
+          aria-label="الانتقال السريع بين المشاهد"
+        >
+          {RIVER_SCENES.map((sc, idx) => {
+            const isActive = idx === activeSceneIndex;
+            return (
+              <button
+                key={sc.id}
+                onClick={() => scrollToScene(idx)}
+                title={sc.poeticLine}
+                aria-label={sc.poeticLine}
+                className={`rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-sky-300 ${
+                  isActive
+                    ? 'w-3.5 h-3.5 bg-sky-300 shadow-md scale-110'
+                    : 'w-2.5 h-2.5 bg-white/35 hover:bg-white/75'
+                }`}
+              />
+            );
+          })}
+        </div>
+
+        {/* Center Minimal Poetic Title Overlay */}
+        <div className="relative z-20 flex-1 flex flex-col items-center justify-center text-center px-6 pointer-events-none">
+          <div className="max-w-2xl space-y-3 bg-black/25 backdrop-blur-sm px-6 py-5 rounded-3xl border border-white/15">
+            <span className="inline-block text-[11px] font-bold text-sky-200 tracking-wide">
+              المشهد {activeScene.order} / {RIVER_SCENES.length} • {activeScene.distanceLabel}
+            </span>
+            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white leading-tight drop-shadow-md">
+              {activeScene.poeticLine}
+            </h2>
+            {activeSceneIndex === 0 && (
+              <div className="pt-1 flex items-center justify-center gap-1 text-xs text-sky-200/90">
+                <span>مرّر للأسفل</span>
+                <ChevronDown className="w-4 h-4 animate-bounce motion-reduce:animate-none" />
               </div>
+            )}
+          </div>
+        </div>
 
-              <svg
-                viewBox="0 0 120 780"
-                className="w-28 h-[460px]"
-                aria-hidden="true"
+        {/* Bottom Interactive Controls: Visual Impact Switch + Al-Faw Drop Action */}
+        <div className="relative z-20 px-4 sm:px-8 pb-5 sm:pb-7 flex flex-col items-center gap-3">
+          {/* Scene 6 (Al-Faw) Finale Interactive Drop Button */}
+          {activeSceneIndex === RIVER_SCENES.length - 1 && (
+            <div className="flex flex-wrap items-center justify-center gap-2.5 bg-black/55 backdrop-blur-md p-2.5 rounded-2xl border border-sky-400/35 shadow-xl">
+              <button
+                onClick={handleDropVisitorDroplet}
+                className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs sm:text-sm font-black flex items-center gap-1.5 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-sky-300"
               >
-                <defs>
-                  <linearGradient id="riverGlow" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#5EEAD4" />
-                    <stop offset="50%" stopColor="#38BDF8" />
-                    <stop offset="100%" stopColor="#0284C7" />
-                  </linearGradient>
-                </defs>
+                <Droplets className="w-4 h-4" />
+                <span>أسقِط قطرتك في النهر</span>
+                {visitorDrops > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-slate-950/20 text-xs font-black">
+                    {visitorDrops}
+                  </span>
+                )}
+              </button>
 
-                {/* Base River Track */}
-                <path
-                  d="M 60 20 C 95 110, 25 200, 60 290 C 95 380, 25 470, 60 560 C 95 640, 35 710, 60 760"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.16)"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                />
+              <button
+                onClick={() => (onOpenReportModal ? onOpenReportModal() : goToView('map'))}
+                className="px-3 py-2 rounded-xl bg-amber-500/90 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-300"
+              >
+                <Megaphone className="w-3.5 h-3.5" />
+                <span>بلّغ عن مشكلة</span>
+              </button>
 
-                {/* Active Scroll-Filled River Path */}
-                <path
-                  d="M 60 20 C 95 110, 25 200, 60 290 C 95 380, 25 470, 60 560 C 95 640, 35 710, 60 760"
-                  fill="none"
-                  stroke="url(#riverGlow)"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                  strokeDasharray={RIVER_SVG_LENGTH}
-                  strokeDashoffset={strokeDashoffset}
-                />
-
-                {/* Station Nodes */}
-                {RIVER_STATIONS.map((st, idx) => {
-                  const yPos = 35 + idx * 142;
-                  const isReached = idx <= activeStationIndex;
-                  return (
-                    <circle
-                      key={st.id}
-                      cx="60"
-                      cy={yPos}
-                      r={idx === activeStationIndex ? 8 : 5}
-                      fill={isReached ? '#38BDF8' : '#1E293B'}
-                      stroke="#FFFFFF"
-                      strokeWidth="2"
-                    />
-                  );
-                })}
-
-                {/* Glowing Water Droplet Head */}
-                <g transform={`translate(${dropletX}, ${dropletY})`}>
-                  <circle r="13" fill="rgba(56, 189, 248, 0.28)" />
-                  <circle r="6" fill="#E0F2FE" stroke="#38BDF8" strokeWidth="2.5" />
-                </g>
-              </svg>
-
-              <div className="w-full space-y-1.5 text-[11px]">
-                {RIVER_STATIONS.map((st, idx) => (
-                  <button
-                    key={st.id}
-                    onClick={() => scrollToStation(idx)}
-                    className={`w-full text-right px-2.5 py-1 rounded-lg transition-colors flex items-center justify-between ${
-                      idx === activeStationIndex
-                        ? 'bg-sky-400/25 text-white font-bold'
-                        : 'text-white/65 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <span className="truncate">{st.order}. {st.nameAr}</span>
-                    <span className="text-[10px] text-amber-200 shrink-0">{st.distanceLabel}</span>
-                  </button>
-                ))}
-              </div>
+              <button
+                onClick={() => goToView('campaigns')}
+                className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>انضم لحملة</span>
+              </button>
             </div>
-          </aside>
+          )}
 
-          {/* 6 Stations Cards Column */}
-          <div className="lg:col-span-9 space-y-12 sm:space-y-16">
-            {RIVER_STATIONS.map((station: RiverStation, idx: number) => {
-              const currentLens = getLensTab(station.id);
-              const isCurrent = idx === activeStationIndex;
+          {/* Visual Impact Switch: الواقع بلا حماية ⇄ أثر نَفَس */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-xl">
+            <button
+              onClick={() => setNafasImpact(false)}
+              className={`px-3.5 sm:px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-amber-300 ${
+                !nafasImpact
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-white/75 hover:text-white'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>الواقع بلا حماية</span>
+            </button>
 
-              return (
-                <article
-                  key={station.id}
-                  ref={(el) => {
-                    stationRefs.current[idx] = el;
-                  }}
-                  data-station-index={idx}
-                  className={`rounded-3xl p-6 sm:p-9 border transition-all duration-500 backdrop-blur-sm ${
-                    isCurrent
-                      ? 'bg-black/40 border-white/30 shadow-2xl'
-                      : 'bg-black/25 border-white/15 shadow-lg opacity-90'
-                  }`}
-                >
-                  {/* Station Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/15 pb-5 mb-6">
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`text-xs font-bold px-3 py-1 rounded-full border ${station.badgeClasses}`}
-                        >
-                          المحطة {station.order} من {RIVER_STATIONS.length}
-                        </span>
-                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/10 text-amber-200 border border-white/15 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" />
-                          <span>{station.distanceLabel}</span>
-                        </span>
-                      </div>
-
-                      <h2 className="text-2xl sm:text-3xl font-black text-white">
-                        {station.nameAr}
-                      </h2>
-                      <p className="text-sm text-sky-200 font-bold">{station.subtitleAr}</p>
-                    </div>
-
-                    <div className="text-xs text-white/75 bg-white/10 px-3.5 py-2 rounded-xl border border-white/10 self-start sm:self-auto">
-                      النطاق: <strong className="text-white">{station.governorateNameAr}</strong>
-                    </div>
-                  </div>
-
-                  {/* Time Lens Tabs («عدسة الزمن») */}
-                  <div
-                    role="tablist"
-                    aria-label={`عدسة الزمن لمحطة ${station.nameAr}`}
-                    className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-black/35 border border-white/10 mb-6"
-                  >
-                    <button
-                      role="tab"
-                      aria-selected={currentLens === 'history'}
-                      onClick={() => setLensTab(station.id, 'history')}
-                      className={`py-2.5 px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300 ${
-                        currentLens === 'history'
-                          ? 'bg-amber-500/25 text-amber-200 border border-amber-400/50 shadow-sm'
-                          : 'text-white/75 hover:text-white hover:bg-white/10'
-                      }`}
-                    >
-                      <BookOpen className="w-4 h-4 shrink-0" />
-                      <span>الرافدين تاريخياً</span>
-                    </button>
-
-                    <button
-                      role="tab"
-                      aria-selected={currentLens === 'challenge'}
-                      onClick={() => setLensTab(station.id, 'challenge')}
-                      className={`py-2.5 px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-rose-300 ${
-                        currentLens === 'challenge'
-                          ? 'bg-rose-500/25 text-rose-200 border border-rose-400/50 shadow-sm'
-                          : 'text-white/75 hover:text-white hover:bg-white/10'
-                      }`}
-                    >
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>التحدي اليوم</span>
-                    </button>
-
-                    <button
-                      role="tab"
-                      aria-selected={currentLens === 'hope'}
-                      onClick={() => setLensTab(station.id, 'hope')}
-                      className={`py-2.5 px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-300 ${
-                        currentLens === 'hope'
-                          ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/50 shadow-sm'
-                          : 'text-white/75 hover:text-white hover:bg-white/10'
-                      }`}
-                    >
-                      <Sparkles className="w-4 h-4 shrink-0" />
-                      <span>أمل نَفَس</span>
-                    </button>
-                  </div>
-
-                  {/* Lens Content Panel */}
-                  <div className="min-h-[190px]">
-                    {currentLens === 'history' && (
-                      <div className="space-y-4">
-                        <h3 className="text-lg sm:text-xl font-bold text-amber-200">
-                          {station.lens.history.title}
-                        </h3>
-                        <p className="text-sm text-white/90 leading-relaxed">
-                          {station.lens.history.description}
-                        </p>
-                        <blockquote className="p-4 rounded-2xl bg-amber-500/10 border-r-4 border-amber-400 text-xs sm:text-sm text-amber-100 leading-relaxed">
-                          {station.lens.history.quote}
-                        </blockquote>
-                      </div>
-                    )}
-
-                    {currentLens === 'challenge' && (
-                      <div className="space-y-5">
-                        <div className="space-y-2">
-                          <h3 className="text-lg sm:text-xl font-bold text-rose-200">
-                            {station.lens.challenge.title}
-                          </h3>
-                          <p className="text-sm text-white/90 leading-relaxed">
-                            {station.lens.challenge.description}
-                          </p>
-                        </div>
-
-                        {/* Visual River & Vegetation Indicators */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                          <div className="p-4 rounded-2xl bg-black/30 border border-white/10 space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold">
-                              <span className="text-sky-200">
-                                {station.lens.challenge.riverStatusLabel}
-                              </span>
-                              <span className="text-white">{station.riverHealthPct}%</span>
-                            </div>
-                            <div className="h-2.5 w-full rounded-full bg-white/15 overflow-hidden">
-                              <div
-                                style={{ width: `${station.riverHealthPct}%` }}
-                                className="h-full rounded-full bg-gradient-to-l from-sky-400 to-amber-400 transition-all duration-500"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="p-4 rounded-2xl bg-black/30 border border-white/10 space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold">
-                              <span className="text-emerald-200">
-                                {station.lens.challenge.vegetationStatusLabel}
-                              </span>
-                              <span className="text-white">{station.vegetationPct}%</span>
-                            </div>
-                            <div className="h-2.5 w-full rounded-full bg-white/15 overflow-hidden">
-                              <div
-                                style={{ width: `${station.vegetationPct}%` }}
-                                className="h-full rounded-full bg-gradient-to-l from-emerald-400 to-teal-400 transition-all duration-500"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {currentLens === 'hope' && (
-                      <div className="space-y-5">
-                        <div className="space-y-2">
-                          <h3 className="text-lg sm:text-xl font-bold text-emerald-200">
-                            {station.lens.hope.title}
-                          </h3>
-                          <p className="text-sm text-white/90 leading-relaxed">
-                            {station.lens.hope.description}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3 pt-2">
-                          <button
-                            onClick={() => goToView(station.lens.hope.primaryView)}
-                            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-300"
-                          >
-                            <Users className="w-4 h-4" />
-                            <span>{station.lens.hope.primaryActionLabel}</span>
-                          </button>
-
-                          <button
-                            onClick={() => goToView(station.lens.hope.secondaryView)}
-                            className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-bold flex items-center gap-2 border border-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-300"
-                          >
-                            <Leaf className="w-4 h-4 text-emerald-300" />
-                            <span>{station.lens.hope.secondaryActionLabel}</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-
-            {/* 3. Finale Cinematic CTA at Al-Faw */}
-            <section className="rounded-3xl p-8 sm:p-12 bg-gradient-to-br from-[#0A192F]/95 via-[#102A43]/95 to-[#134E4A]/95 border-2 border-sky-400/40 shadow-2xl text-center space-y-6">
-              <div className="w-14 h-14 mx-auto rounded-full bg-sky-400/20 border border-sky-300/50 flex items-center justify-center">
-                <Droplets className="w-7 h-7 text-sky-300" />
-              </div>
-
-              <h2 className="text-2xl sm:text-4xl font-black text-white leading-snug">
-                كل قطرة نحميها اليوم... تُبقي العراق يتنفس غداً
-              </h2>
-
-              <p className="text-sm sm:text-base text-white/85 max-w-2xl mx-auto leading-relaxed">
-                وصلت القطرة إلى شط العرب والفاو، لكن قصتها تتجدد كل يوم بوعيك ومشاركتك الميدانية في
-                حماية أنهار العراق وبساتينه.
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    if (onOpenReportModal) {
-                      onOpenReportModal();
-                    } else {
-                      goToView('map');
-                    }
-                  }}
-                  className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-black flex items-center gap-2 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-300"
-                >
-                  <Megaphone className="w-4 h-4" />
-                  <span>بلّغ عن مشكلة بيئية</span>
-                </button>
-
-                <button
-                  onClick={() => goToView('campaigns')}
-                  className="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black flex items-center gap-2 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-300"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>شارك في حملة تطوع</span>
-                </button>
-
-                <button
-                  onClick={restartJourney}
-                  className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold flex items-center gap-2 border border-white/25 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-300"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>إعادة الرحلة من زاخو</span>
-                </button>
-              </div>
-            </section>
+            <button
+              onClick={() => setNafasImpact(true)}
+              className={`px-3.5 sm:px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-300 ${
+                nafasImpact
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-white/75 hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>أثر نَفَس</span>
+            </button>
           </div>
         </div>
       </div>

@@ -499,7 +499,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           className="shrink-0 px-5 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-sky-300"
         >
           <Droplets className="w-4 h-4" />
-          <span>ابدأ رحلة قطرة ماء — من زاخو إلى الفاو</span>
+          <span>شاهد رحلة قطرة ماء</span>
         </button>
       </section>
 
