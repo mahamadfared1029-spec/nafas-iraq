@@ -24,7 +24,7 @@ import { HelpCenterModal } from '@/components/support/HelpCenterModal';
 import { NafasAssistantWidget } from '@/components/support/NafasAssistantWidget';
 import { ProfileModal } from '@/components/profile/ProfileModal';
 import { EnvironmentalReport, IssuedCertificate } from '@/types';
-import { getBasePath } from '@/lib/basePath';
+import { getBasePath, getAssetUrl } from '@/lib/basePath';
 import { nafasAuth } from '@/lib/auth/authService';
 import { 
   ArrowRight, 
@@ -48,6 +48,7 @@ const VALID_VIEWS = [
   'planting', 
   'atlas', 
   'clinic', 
+  'orchid-3d',
   'admin'
 ];
 
@@ -55,7 +56,7 @@ function parseViewFromHash(): string {
   if (typeof window === 'undefined') return 'home';
   const cleanHash = window.location.hash.replace(/^#\/?/, '').trim();
   if (cleanHash === 'map3d') return 'map-3d';
-  if (cleanHash === 'orchid' || cleanHash === 'clinic-3d' || cleanHash === 'orchid-3d') return 'clinic';
+  if (cleanHash === 'orchid' || cleanHash === 'clinic-3d' || cleanHash === 'orchid-3d') return 'orchid-3d';
   return VALID_VIEWS.includes(cleanHash) && cleanHash !== 'home' ? cleanHash : 'home';
 }
 
@@ -382,6 +383,19 @@ export default function HomePage() {
               {currentView === 'clinic' && (
                 <div className="max-w-5xl mx-auto px-4">
                   <PlantClinic />
+                </div>
+              )}
+
+              {/* 7. 3D Orchid Interactive Studio View */}
+              {currentView === 'orchid-3d' && (
+                <div className="max-w-6xl mx-auto px-4">
+                  <div className="rounded-3xl overflow-hidden border border-nafas-reed/30 shadow-2xl bg-[#140912]">
+                    <iframe
+                      src={getAssetUrl('/nafas-orchid-3d.html')}
+                      title="أوركيد ثلاثية الأبعاد — الخارج، الداخل، والعمليات الداخلية"
+                      className="w-full h-[78vh] min-h-[540px] border-0"
+                    />
+                  </div>
                 </div>
               )}
 

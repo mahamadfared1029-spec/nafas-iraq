@@ -91,6 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'planting', label: t.plantingNav, icon: Sprout },
     { id: 'atlas', label: t.atlasNav, icon: BookOpen },
     { id: 'clinic', label: t.clinicNav, icon: HeartHandshake },
+    { id: 'orchid-3d', label: 'أوركيد 3D', icon: Sparkles },
   ];
 
   return (

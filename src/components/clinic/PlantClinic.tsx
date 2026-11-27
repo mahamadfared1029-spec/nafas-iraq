@@ -248,6 +248,18 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
               </button>
 
               <button
+                onClick={() => setShow3dOrchid(!show3dOrchid)}
+                className={`px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border shadow-sm ${
+                  show3dOrchid
+                    ? 'bg-purple-900 text-white border-purple-950'
+                    : 'bg-purple-100/90 text-purple-900 border-purple-300 hover:bg-purple-200'
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                <span>{show3dOrchid ? 'إخفاء الأوركيد 3D' : 'الأوركيد 3D'}</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('triage')}
                 className="px-4 py-2.5 rounded-2xl bg-red-50 text-red-700 border border-red-300 font-bold text-xs sm:text-sm hover:bg-red-100 transition-all flex items-center gap-2"
               >

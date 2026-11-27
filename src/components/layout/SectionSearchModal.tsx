@@ -81,6 +81,14 @@ const SECTIONS: SearchableSection[] = [
     actionType: 'view'
   },
   {
+    id: 'orchid-3d',
+    title: 'مجسم الأوركيد 3D',
+    subtitle: 'استكشاف الزهرة من الخارج والداخل والعمليات الداخلية',
+    keywords: ['أوركيد', 'اوركيد', '3d', 'زهرة', 'تشريح', 'عمليات', 'orchid'],
+    icon: Sparkles,
+    actionType: 'view'
+  },
+  {
     id: 'planting',
     title: 'التوعية والتشجير',
     subtitle: 'دليل الأشجار الأصيلة وتقويم الزراعة العراقي',

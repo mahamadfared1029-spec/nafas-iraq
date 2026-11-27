@@ -349,6 +349,43 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           </button>
 
+          {/* Card 2: 3D Orchid Interactive Studio */}
+          <button
+            onClick={() => onNavigate('orchid-3d')}
+            className="w-full text-right p-5 rounded-3xl bg-gradient-to-br from-[#221330] via-[#2f1c42] to-[#180e22] text-white border border-[#482c66] hover:border-purple-400/60 shadow-lg hover:shadow-2xl transition-all duration-300 relative overflow-hidden group active:scale-[0.99] flex flex-col justify-between"
+          >
+            <div className="absolute -left-12 -bottom-12 w-36 h-36 rounded-full bg-purple-500/15 blur-2xl group-hover:bg-purple-500/25 transition-all pointer-events-none"></div>
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-300 shadow-inner group-hover:scale-110 group-hover:rotate-6 transition-transform">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-400/20 border border-purple-400/30 text-purple-200 text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping"></span>
+                  <span>الخارج والداخل والعمليات 3D</span>
+                </div>
+              </div>
+
+              <h4 className="text-base sm:text-lg font-black text-white group-hover:text-purple-200 transition-colors">
+                مجسم الأوركيد ثلاثي الأبعاد
+              </h4>
+              <p className="text-xs text-stone-300/90 leading-relaxed mt-1.5">
+                استكشف زهرة الأوركيد من الخارج والداخل والعمليات الحيوية الداخلية مع التحكم بالتفتح والألوان.
+              </p>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs font-bold text-purple-300 flex items-center gap-1 group-hover:translate-x-[-4px] transition-transform">
+                <span>افتح مجسم الأوركيد الآن</span>
+                <ArrowLeft className="w-4 h-4 rtl:-scale-x-100" />
+              </span>
+              <span className="text-[10px] text-stone-400 font-mono bg-white/5 px-2 py-0.5 rounded">
+                Three.js 3D
+              </span>
+            </div>
+          </button>
+
         </div>
       </section>
 
