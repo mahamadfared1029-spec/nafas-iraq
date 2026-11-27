@@ -1140,7 +1140,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           <div className="relative w-full h-[620px] sm:h-[720px] bg-[#1a1926]">
             <iframe
               ref={map3dIframeRef}
-              src={`${getAssetUrl('/nafas-iraq-3d.html')}?v=20261127-trees`}
+              src={`${getAssetUrl('/nafas-iraq-3d.html')}?v=20261127-trees-v2`}
               title="مجسم تضاريس العراق ثلاثي الأبعاد - نَفَس"
               className="w-full h-full border-0 select-none"
               onLoad={() => {
