@@ -181,7 +181,8 @@ function buildTreeMesh(tree,isMine){
   }
   if(isMine){
     const ring=new THREE.Mesh(sharedTreeGeo.ring,sharedTreeMat.ring);
-    ring.rotation.x=-Math.PI/2;ring.position.y=.02;
+    ring.rotation.x=-Math.PI/2;ring.position.y=.04;
+    ring.scale.set(1.6,1.6,1.6);
     g.add(ring);
   }
   return g;
@@ -235,16 +236,31 @@ function renderCommunityTrees(trees,mineId,animateId){
   communityTreesList=Array.isArray(trees)?trees:[];
   currentUserTreeId=mineId||null;
   const perGovCount={};
+  const perCoordCount={};
   let animatePos=null;
+  let animateTreeObj=null;
   for(const t of communityTreesList){
-    const gov=GOV_CENTERS[t.governorateId]||GOV_CENTERS.baghdad;
-    const idx=perGovCount[t.governorateId]||0;
-    perGovCount[t.governorateId]=idx+1;
-    const [dLon,dLat]=deterministicSpiralOffset(idx);
-    const pArr=position(gov.lon+dLon,gov.lat+dLat,.01);
+    const hasGps=typeof t.lat==='number'&&Number.isFinite(t.lat)&&typeof t.lng==='number'&&Number.isFinite(t.lng)&&t.lat>=28.5&&t.lat<=38.5&&t.lng>=38&&t.lng<=49.5;
+    let lon,lat;
+    if(hasGps){
+      const key=`${t.lat.toFixed(3)}_${t.lng.toFixed(3)}`;
+      const cIdx=perCoordCount[key]||0;
+      perCoordCount[key]=cIdx+1;
+      const [dLon,dLat]=cIdx===0?[0,0]:deterministicSpiralOffset(cIdx);
+      lon=t.lng+dLon*0.5;
+      lat=t.lat+dLat*0.5;
+    }else{
+      const gov=GOV_CENTERS[t.governorateId]||GOV_CENTERS.baghdad;
+      const idx=perGovCount[t.governorateId]||0;
+      perGovCount[t.governorateId]=idx+1;
+      const [dLon,dLat]=deterministicSpiralOffset(idx);
+      lon=gov.lon+dLon;
+      lat=gov.lat+dLat;
+    }
+    const pArr=position(lon,lat,.04);
     const posVec=new THREE.Vector3(pArr[0],pArr[1],pArr[2]);
     const isMine=mineId&&t.id===mineId;
-    const targetScale=t.isAdmin?1.85:1;
+    const targetScale=t.isAdmin?2.85:1.75;
     const grp=buildTreeMesh(t,isMine||t.isAdmin);
     grp.position.copy(posVec);
     grp.scale.set(targetScale,targetScale,targetScale);
@@ -252,6 +268,7 @@ function renderCommunityTrees(trees,mineId,animateId){
       grp.scale.set(.01,.01,.01);
       growState={group:grp,targetScale,start:performance.now(),dur:900};
       animatePos=posVec;
+      animateTreeObj=t;
     }
     grp.traverse(obj=>{
       if(obj.isMesh){
@@ -262,14 +279,15 @@ function renderCommunityTrees(trees,mineId,animateId){
     });
     grp.userData.communityTree=t;
     grp.userData.treePos=posVec;
-    grp.userData.phase=idx*.9;
+    grp.userData.phase=Object.keys(perGovCount).length*.9;
     treeGroup.add(grp);
     treeGroups.push(grp);
   }
   pickables=[...pinMeshes,...treePickables,...provinceMeshes];
-  if(animatePos){flyToCoords(animatePos);spawnPlantBurst(animatePos);}
+  if(animatePos){flyToCoords(animatePos);spawnPlantBurst(animatePos);if(animateTreeObj)showTreeCard(animateTreeObj);}
   invalidate();
 }
+if(window.NAFAS_MAP){window.NAFAS_MAP.syncCommunityTrees=renderCommunityTrees;}
 
 update=(t)=>{
   const now=performance.now();
