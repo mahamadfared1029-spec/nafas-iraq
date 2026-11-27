@@ -16,6 +16,9 @@ import { EnvironmentalReport } from '@/types';
 import { OrchidMotif } from '@/components/brand/OrchidMotif';
 import { botanicalData, getDocumentedGovernorateIds } from '@/lib/plantSearch';
 import { PlantRecord } from '@/types/plants';
+import { communityTreesService, CommunityTree, CommunityTreeType } from '@/lib/communityTreesService';
+import { PlantTreeModal } from './PlantTreeModal';
+import { nafasAuth } from '@/lib/auth/authService';
 import { 
   MapPin, 
   Filter, 
@@ -106,6 +109,109 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   const map3dIframeRef = useRef<HTMLIFrameElement>(null);
   const [map3dLoaded, setMap3dLoaded] = useState(false);
   const [sync3DStatus, setSync3DStatus] = useState<{ status: 'idle' | 'synced' | 'error'; count: number; errorMsg?: string }>({ status: 'idle', count: 0 });
+
+  // NAFAS Forest ("غابة نَفَس") community trees state
+  const [communityTrees, setCommunityTrees] = useState<CommunityTree[]>([]);
+  const [plantTreeModalOpen, setPlantTreeModalOpen] = useState(false);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [authUserName, setAuthUserName] = useState<string>('');
+  const [authUserIsAdmin, setAuthUserIsAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsub = nafasAuth.onAuthStateChange((session) => {
+      setAuthUserId(session?.user?.id || null);
+      setAuthUserName(session?.user?.fullName || '');
+      const role = session?.user?.role;
+      setAuthUserIsAdmin(role === 'super_admin' || role === 'admin' || role === 'moderator');
+    });
+    return unsub;
+  }, []);
+
+  const currentActorId = useMemo(
+    () => communityTreesService.getCurrentActorId(authUserId),
+    [authUserId]
+  );
+
+  const myCommunityTree = useMemo(
+    () => communityTrees.find((t) => t.userId === currentActorId) || null,
+    [communityTrees, currentActorId]
+  );
+
+  const sendCommunityTreesTo3D = (trees: CommunityTree[], animateTreeId?: string) => {
+    try {
+      const cw = map3dIframeRef.current?.contentWindow;
+      if (!cw || typeof window === 'undefined') return;
+      const targetOrigin =
+        window.location.origin && window.location.origin !== 'null'
+          ? window.location.origin
+          : '*';
+      const mine = trees.find((t) => t.userId === currentActorId) || null;
+      cw.postMessage(
+        {
+          type: 'SYNC_COMMUNITY_TREES',
+          trees,
+          currentUserTreeId: mine?.id || null,
+          animateTreeId: animateTreeId || null,
+        },
+        targetOrigin
+      );
+    } catch {
+      // ignore cross-frame errors during unload
+    }
+  };
+
+  const focusTreeOn3D = (treeId: string) => {
+    try {
+      const cw = map3dIframeRef.current?.contentWindow;
+      if (!cw || typeof window === 'undefined') return;
+      const targetOrigin =
+        window.location.origin && window.location.origin !== 'null'
+          ? window.location.origin
+          : '*';
+      cw.postMessage({ type: 'FOCUS_TREE', treeId }, targetOrigin);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    communityTreesService.listTrees().then((list) => {
+      if (mounted) setCommunityTrees(list);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [authUserId]);
+
+  useEffect(() => {
+    if (map3dLoaded) {
+      sendCommunityTreesTo3D(communityTrees);
+    }
+  }, [communityTrees, map3dLoaded, currentActorId]);
+
+  const handlePlantOrUpdateTree = async (payload: {
+    authorName: string;
+    governorateId: string;
+    treeType: CommunityTreeType;
+    message: string;
+  }) => {
+    const { tree } = await communityTreesService.upsertTree({
+      userId: authUserId,
+      isAdmin: authUserIsAdmin,
+      ...payload,
+    });
+    const enrichedTree: CommunityTree = { ...tree, isAdmin: Boolean(tree.isAdmin || authUserIsAdmin) };
+    const nextList = (() => {
+      const idx = communityTrees.findIndex((t) => t.userId === enrichedTree.userId || t.id === enrichedTree.id);
+      if (idx >= 0) {
+        return communityTrees.map((t, i) => (i === idx ? enrichedTree : t));
+      }
+      return [...communityTrees, enrichedTree];
+    })();
+    setCommunityTrees(nextList);
+    sendCommunityTreesTo3D(nextList, enrichedTree.id);
+  };
 
   // Pin category filtering (for field_reports mode): 'all' | 'planting' | 'cleanup' | 'pollution' | 'activity'
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -908,7 +1014,38 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                 <strong>بيان جغرافيا الرافدين:</strong> يعتمد هذا المجسم على تضاريس Mapzen/AWS وتغطية حدود geoBoundaries 2022 (18 وحدة). اعتُمدت حلبجة المحافظة الـ 19 رسمياً سنة 2025؛ لا يُعتمد هذا العرض التاريخي للتحقق الإداري الرسمي من البلاغات.
               </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black">
+                🌳 {communityTrees.length} شجرة مغروسة في العراق
+              </span>
+
+              {!myCommunityTree ? (
+                <button
+                  type="button"
+                  onClick={() => setPlantTreeModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black transition-colors shadow-sm"
+                >
+                  🌱 ازرع شجرتك في محافظتك
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => focusTreeOn3D(myCommunityTree.id)}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-colors shadow-sm"
+                  >
+                    شاهد شجرتي
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlantTreeModalOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-nafas-ivory hover:bg-nafas-misty text-nafas-silt border border-nafas-reed/40 text-xs font-bold transition-colors"
+                  >
+                    تعديل رسالتي
+                  </button>
+                </>
+              )}
+
               <span className="px-2.5 py-1 rounded-md bg-nafas-misty text-nafas-blue text-[11px] font-bold">
                 تضخيم رأسي ×14 · أنهار 1:10m
               </span>
@@ -925,7 +1062,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
               <button
                 type="button"
                 onClick={sync3dMapRecords}
-                className="px-2.5 py-1 rounded-md bg-nafas-blue text-white text-[11px] font-bold hover:bg-nafas-blue/90 transition-colors"
+                className="px-2.5 py-1 rounded-md bg-nafas-blue text-white text-[11px] font-bold hover:bg-nafas-blue-dark transition-colors"
                 title="مزامنة بيانات البلاغات الموثقة إلى المجسم"
               >
                 مزامنة البيانات الحية
@@ -943,11 +1080,21 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
               onLoad={() => {
                 setMap3dLoaded(true);
                 sync3dMapRecords();
+                sendCommunityTreesTo3D(communityTrees);
               }}
             />
           </div>
         </div>
       )}
+
+      <PlantTreeModal
+        isOpen={plantTreeModalOpen}
+        onClose={() => setPlantTreeModalOpen(false)}
+        existingTree={myCommunityTree}
+        defaultAuthorName={authUserName}
+        defaultGovernorateId={selectedGovernorateId !== 'all' ? selectedGovernorateId : 'baghdad'}
+        onSubmit={handlePlantOrUpdateTree}
+      />
 
       {/* 3. GIS / Botanical Leaflet Viewport */}
       <div className={`relative w-full h-[650px] sm:h-[720px] ${basemapProvider === 'satellite' ? 'bg-[#0F172A]' : 'bg-[#DFD5C0]'} rounded-3xl overflow-hidden border border-nafas-reed/40 shadow-inner flex flex-col font-arabic ${mapLayerMode === 'gis' || mapLayerMode === 'botanical' ? 'block' : 'hidden'}`}>
