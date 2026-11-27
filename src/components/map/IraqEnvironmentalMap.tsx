@@ -514,7 +514,11 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       if (map3dIframeRef.current && e.source !== map3dIframeRef.current.contentWindow) return;
       if (!e.data || typeof e.data !== 'object') return;
 
-      if (e.data.type === 'nafas:province-select') {
+      if (e.data.type === 'nafas:3d-ready') {
+        setMap3dLoaded(true);
+        sendCommunityTreesTo3D(communityTrees);
+        sync3dMapRecords();
+      } else if (e.data.type === 'nafas:province-select') {
         const { name } = e.data.detail || {};
         if (name && typeof name === 'string') {
           const gov = IRAQ_GOVERNORATES.find(g => g.nameAr === name || name.includes(g.nameAr));
@@ -1136,7 +1140,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           <div className="relative w-full h-[620px] sm:h-[720px] bg-[#1a1926]">
             <iframe
               ref={map3dIframeRef}
-              src={getAssetUrl('/nafas-iraq-3d.html')}
+              src={`${getAssetUrl('/nafas-iraq-3d.html')}?v=20261127-trees`}
               title="مجسم تضاريس العراق ثلاثي الأبعاد - نَفَس"
               className="w-full h-full border-0 select-none"
               onLoad={() => {

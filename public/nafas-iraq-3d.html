@@ -42,7 +42,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 </script><script>const $=id=>document.getElementById(id),stage=$('stage');let renderer,scene,camera,root;let active=true,visible=true,frame=0,dirty=true;const reduced=matchMedia('(prefers-reduced-motion: reduce)');let auto=false;let angle=0,elevation=.85,distance=12,target=new THREE.Vector3(0,0,0);let pickables=[],onPick=()=>{},update=()=>{};let pointers=new Map(),moved=0,down=null,pinch=0;
 function invalidate(){dirty=true;if(renderer&&!frame)frame=requestAnimationFrame(tick)}
 function cameraUpdate(){camera.position.set(target.x+distance*Math.sin(angle)*Math.cos(elevation),target.y+distance*Math.sin(elevation),target.z+distance*Math.cos(angle)*Math.cos(elevation));camera.lookAt(target);}
-function tick(t){frame=0;if(!active||!visible)return;if(auto&&!reduced.matches){angle+=.0025;dirty=true}if(dirty){dirty=false;cameraUpdate();update(t);renderer.render(scene,camera)}if(auto&&!reduced.matches)frame=requestAnimationFrame(tick);}
+function tick(t){frame=0;if(!active)return;if(!visible&&!flyState&&!growState)return;if(auto&&!reduced.matches){angle+=.0025;dirty=true}if(dirty){dirty=false;update(t);cameraUpdate();renderer.render(scene,camera)}if(auto&&!reduced.matches)frame=requestAnimationFrame(tick);}
 function setup(){try{renderer=new THREE.WebGLRenderer({antialias:devicePixelRatio<2,alpha:true,powerPreference:'low-power'});}catch(e){showFallback('تعذّر تشغيل WebGL؛ البديل الثابت متاح.');return false}renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;stage.prepend(renderer.domElement);scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(38,1,.1,100);root=new THREE.Group();scene.add(root);scene.add(new THREE.HemisphereLight(0xe8ddf5,0x554336,1.1));let key=new THREE.DirectionalLight(0xffe9d6,2);key.position.set(-6,4,3);scene.add(key);let rim=new THREE.DirectionalLight(0xb797d0,1.2);rim.position.set(4,3,-5);scene.add(rim);
  const resize=()=>{let w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();invalidate()};new ResizeObserver(resize).observe(stage);resize();
  const c=renderer.domElement;c.addEventListener('webglcontextlost',e=>{e.preventDefault();active=false;showFallback('توقف العرض ثلاثي الأبعاد؛ البديل الثابت متاح.')});c.addEventListener('webglcontextrestored',()=>location.reload());
@@ -348,4 +348,5 @@ window.addEventListener('message',(e)=>{
     }
   }
 });
+notify('nafas:3d-ready',{ok:true});
 </script></body></html>
