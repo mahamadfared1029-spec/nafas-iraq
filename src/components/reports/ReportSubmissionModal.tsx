@@ -50,7 +50,9 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
   const [locationSource, setLocationSource] = useState<'gps' | 'manual_picker' | 'initial_coords' | 'governorate_center_approximate' | null>(null);
   const [accuracyM, setAccuracyM] = useState<number | undefined>(undefined);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsStatusText, setGpsStatusText] = useState('جارٍ الاتصال...');
   const [gpsMessage, setGpsMessage] = useState<string | null>(null);
+  const [gpsIsError, setGpsIsError] = useState(false);
 
   // Manual coordinate input fields
   const [manualMode, setManualMode] = useState(false);
@@ -123,52 +125,113 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
     }
   };
 
-  // Real device GPS acquisition (no silent center fallback on failure)
-  const handleAcquireGPS = () => {
-    if (!navigator.geolocation) {
+  // Find nearest Iraqi governorate from GPS coordinates
+  const findNearestGovernorate = (lat: number, lng: number) => {
+    let nearest = IRAQ_GOVERNORATES[0];
+    let minDistSq = Infinity;
+    const cosLat = Math.cos((lat * Math.PI) / 180);
+    for (const gov of IRAQ_GOVERNORATES) {
+      const dLat = gov.lat - lat;
+      const dLng = (gov.lng - lng) * cosLat;
+      const distSq = dLat * dLat + dLng * dLng;
+      if (distSq < minDistSq) {
+        minDistSq = distSq;
+        nearest = gov;
+      }
+    }
+    return nearest;
+  };
+
+  // Real device GPS acquisition (2-stage High-Accuracy + Automatic Network Fallback, preserves prior confirmed coords on failure)
+  const handleAcquireGPS = async () => {
+    setGpsIsError(false);
+
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setGpsIsError(true);
+      setGpsMessage('تحديد الموقع يتطلب اتصالاً آمناً عبر HTTPS. يرجى فتح الموقع عبر رابط HTTPS أو تحديد الموقع يدوياً.');
+      return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGpsIsError(true);
       setGpsMessage('جهازك لا يدعم خاصية تحديد الموقع الجغرافي GPS.');
       return;
     }
-    setGpsLoading(true);
-    setGpsMessage(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        // Verify coordinates are approximately within Iraqi territorial extent (lat 28.5-38.5, lng 38.0-49.5)
-        if (latitude < 28.5 || latitude > 38.5 || longitude < 38.0 || longitude > 49.5) {
-          setCoords(null);
-          setLocationSource(null);
-          setAccuracyM(undefined);
-          setGpsMessage('الموقع المقروء خارج النطاق الجغرافي للعراق. يرجى إدخال الموقع يدوياً.');
-          setGpsLoading(false);
+    // Optional permission pre-check to guide user if denied
+    try {
+      if (navigator.permissions?.query) {
+        const perm = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        if (perm.state === 'denied') {
+          setGpsIsError(true);
+          setGpsMessage('إذن تحديد الموقع مرفوض في المتصفح. لتفعيله، اضغط على أيقونة القفل في شريط العنوان واسمح بالوصول إلى الموقع ثم أعد المحاولة.');
           return;
         }
-        const roundedLat = Number(latitude.toFixed(6));
-        const roundedLng = Number(longitude.toFixed(6));
-        setCoords({ lat: roundedLat, lng: roundedLng });
-        setManualLat(String(roundedLat));
-        setManualLng(String(roundedLng));
-        setAccuracyM(Math.round(accuracy));
-        setLocationSource('gps');
-        setGpsMessage(`تم التقاط الإحداثيات الفعلية بنجاح بدقة ±${Math.round(accuracy)} متر.`);
+      }
+    } catch {
+      // Ignore unsupported Permissions API implementations
+    }
+
+    setGpsLoading(true);
+    setGpsStatusText('جارٍ الاتصال...');
+    setGpsMessage(null);
+
+    const onSuccess = (position: GeolocationPosition) => {
+      const { latitude, longitude, accuracy } = position.coords;
+      // Verify coordinates are within Iraqi territorial extent (28.5–38.5°N, 38.0–49.5°E)
+      if (latitude < 28.5 || latitude > 38.5 || longitude < 38.0 || longitude > 49.5) {
+        // Preserve any previously confirmed coordinates
+        setGpsIsError(true);
+        setGpsMessage('الموقع المقروء خارج نطاق العراق (قد يكون لديك VPN مفعّل). أوقف الـ VPN وأعد المحاولة أو حدّد الموقع يدوياً.');
         setGpsLoading(false);
-      },
+        return;
+      }
+
+      const roundedLat = Number(latitude.toFixed(6));
+      const roundedLng = Number(longitude.toFixed(6));
+      const nearestGov = findNearestGovernorate(roundedLat, roundedLng);
+
+      setCoords({ lat: roundedLat, lng: roundedLng });
+      setManualLat(String(roundedLat));
+      setManualLng(String(roundedLng));
+      setAccuracyM(Math.round(accuracy));
+      setLocationSource('gps');
+      setGovernorateId(nearestGov.id);
+      setGpsIsError(false);
+      setGpsMessage(`تم التقاط الإحداثيات بنجاح (${nearestGov.nameAr}) بدقة ±${Math.round(accuracy)} متر.`);
+      setGpsLoading(false);
+    };
+
+    const handleFinalError = (error: GeolocationPositionError) => {
+      setGpsLoading(false);
+      // Preserve any previously confirmed coordinates on failure
+      setGpsIsError(true);
+      if (error.code === 1) {
+        setGpsMessage('تم رفض إذن الموقع. لتفعيله، اضغط على أيقونة القفل في شريط العنوان واسمح بالوصول للموقع، أو حدّد الموقع يدوياً.');
+      } else if (error.code === 2) {
+        setGpsMessage('تعذر تحديد الموقع عبر GPS والشبكة حالياً. تأكد من تفعيل خدمة الموقع في جهازك أو حدّد الموقع يدوياً.');
+      } else {
+        setGpsMessage('انتهت مهلة تحديد الموقع. أعد المحاولة أو حدّد الموقع يدوياً من الخريطة.');
+      }
+    };
+
+    // Stage 1: High-accuracy GPS
+    navigator.geolocation.getCurrentPosition(
+      onSuccess,
       (error) => {
-        setGpsLoading(false);
-        // Do NOT silently assign center!
-        setCoords(null);
-        setLocationSource(null);
-        setAccuracyM(undefined);
-        if (error.code === 1) {
-          setGpsMessage('تم رفض الإذن لتحديد الموقع. يمكنك إدخال الإحداثيات يدوياً أو استخدام التأشير على الخريطة.');
-        } else if (error.code === 2) {
-          setGpsMessage('تعذر التقاط إشارة GPS حالياً. يرجى إدخال الإحداثيات يدوياً.');
-        } else {
-          setGpsMessage('انتهت مهلة طلب GPS. يرجى إدخال الإحداثيات يدوياً.');
+        // Stage 2: Automatic fallback for TIMEOUT (3) or POSITION_UNAVAILABLE (2), never on PERMISSION_DENIED (1)
+        if (error.code === 2 || error.code === 3) {
+          setGpsStatusText('جارٍ التحديد عبر الشبكة...');
+          navigator.geolocation.getCurrentPosition(
+            onSuccess,
+            handleFinalError,
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 }
+          );
+          return;
         }
+        handleFinalError(error);
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
     );
   };
 
@@ -593,12 +656,12 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                     type="button"
                     onClick={handleAcquireGPS}
                     disabled={gpsLoading}
-                    className="w-full px-2.5 py-2 rounded-xl bg-nafas-blue hover:bg-nafas-blue text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 text-center"
+                    className="w-full px-2.5 py-2 rounded-xl bg-nafas-blue hover:bg-nafas-blue-dark text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 text-center"
                   >
                     {gpsLoading ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                        <span>جارٍ الاتصال...</span>
+                        <span>{gpsStatusText}</span>
                       </>
                     ) : (
                       <>
@@ -686,7 +749,25 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                 )}
 
                 {gpsMessage && (
-                  <p className="text-[11px] text-nafas-silt/80 pt-1">{gpsMessage}</p>
+                  <div
+                    className={`mt-1 p-2.5 rounded-xl border text-[11px] font-arabic flex flex-wrap items-center justify-between gap-2 ${
+                      gpsIsError
+                        ? 'bg-red-50 border-red-200 text-red-800'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    }`}
+                  >
+                    <span className="leading-relaxed">{gpsMessage}</span>
+                    {gpsIsError && (
+                      <button
+                        type="button"
+                        onClick={handleAcquireGPS}
+                        disabled={gpsLoading}
+                        className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold transition-colors shrink-0 disabled:opacity-50"
+                      >
+                        إعادة المحاولة
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
