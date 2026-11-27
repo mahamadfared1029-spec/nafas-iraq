@@ -4,6 +4,8 @@ create table if not exists public.community_trees (
   user_id uuid not null unique references auth.users(id) on delete cascade,
   author_name text not null check (char_length(trim(author_name)) between 1 and 40),
   governorate_id text not null,
+  lat double precision,
+  lng double precision,
   tree_type text not null check (tree_type in ('palm', 'sidr', 'oak', 'orange')),
   message text not null check (char_length(trim(message)) between 1 and 120),
   created_at timestamptz not null default now(),

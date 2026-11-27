@@ -7,6 +7,8 @@ export interface CommunityTree {
   userId: string;
   authorName: string;
   governorateId: string;
+  lat?: number | null;
+  lng?: number | null;
   treeType: CommunityTreeType;
   message: string;
   isAdmin?: boolean;
@@ -19,6 +21,8 @@ export interface UpsertCommunityTreeInput {
   isAdmin?: boolean;
   authorName: string;
   governorateId: string;
+  lat?: number | null;
+  lng?: number | null;
   treeType: CommunityTreeType;
   message: string;
 }
@@ -101,6 +105,8 @@ function mapSupabaseRow(row: any): CommunityTree {
     userId: String(row.user_id),
     authorName: String(row.author_name || '').slice(0, 40),
     governorateId: String(row.governorate_id || 'baghdad'),
+    lat: typeof row.lat === 'number' && Number.isFinite(row.lat) ? row.lat : null,
+    lng: typeof row.lng === 'number' && Number.isFinite(row.lng) ? row.lng : null,
     treeType: (['palm', 'sidr', 'oak', 'orange'].includes(row.tree_type)
       ? row.tree_type
       : 'palm') as CommunityTreeType,
@@ -126,7 +132,7 @@ export const communityTreesService = {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('community_trees')
-        .select('id, user_id, author_name, governorate_id, tree_type, message, created_at, updated_at')
+        .select('id, user_id, author_name, governorate_id, lat, lng, tree_type, message, created_at, updated_at')
         .order('created_at', { ascending: true })
         .limit(1000);
 
@@ -165,13 +171,15 @@ export const communityTreesService = {
                 user_id: input.userId,
                 author_name: cleanName,
                 governorate_id: input.governorateId,
+                lat: typeof input.lat === 'number' && Number.isFinite(input.lat) ? input.lat : null,
+                lng: typeof input.lng === 'number' && Number.isFinite(input.lng) ? input.lng : null,
                 tree_type: input.treeType,
                 message: cleanMessage,
                 updated_at: now,
               },
               { onConflict: 'user_id' }
             )
-            .select('id, user_id, author_name, governorate_id, tree_type, message, created_at, updated_at')
+            .select('id, user_id, author_name, governorate_id, lat, lng, tree_type, message, created_at, updated_at')
             .single();
 
           if (!error && data) {
@@ -193,6 +201,8 @@ export const communityTreesService = {
             ...existing[idx],
             authorName: cleanName,
             governorateId: input.governorateId,
+            lat: typeof input.lat === 'number' && Number.isFinite(input.lat) ? input.lat : existing[idx].lat ?? null,
+            lng: typeof input.lng === 'number' && Number.isFinite(input.lng) ? input.lng : existing[idx].lng ?? null,
             treeType: input.treeType,
             message: cleanMessage,
             isAdmin: Boolean(input.isAdmin || existing[idx].isAdmin),
@@ -206,6 +216,8 @@ export const communityTreesService = {
             userId: actorId,
             authorName: cleanName,
             governorateId: input.governorateId,
+            lat: typeof input.lat === 'number' && Number.isFinite(input.lat) ? input.lat : null,
+            lng: typeof input.lng === 'number' && Number.isFinite(input.lng) ? input.lng : null,
             treeType: input.treeType,
             message: cleanMessage,
             isAdmin: Boolean(input.isAdmin),

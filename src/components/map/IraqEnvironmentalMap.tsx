@@ -139,13 +139,16 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
   const sendCommunityTreesTo3D = (trees: CommunityTree[], animateTreeId?: string) => {
     try {
-      const cw = map3dIframeRef.current?.contentWindow;
+      const cw = map3dIframeRef.current?.contentWindow as any;
       if (!cw || typeof window === 'undefined') return;
+      const mine = trees.find((t) => t.userId === currentActorId) || null;
+      if (typeof cw.NAFAS_MAP?.syncCommunityTrees === 'function') {
+        cw.NAFAS_MAP.syncCommunityTrees(trees, mine?.id || null, animateTreeId || null);
+      }
       const targetOrigin =
         window.location.origin && window.location.origin !== 'null'
           ? window.location.origin
           : '*';
-      const mine = trees.find((t) => t.userId === currentActorId) || null;
       cw.postMessage(
         {
           type: 'SYNC_COMMUNITY_TREES',
@@ -193,6 +196,8 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
   const handlePlantOrUpdateTree = async (payload: {
     authorName: string;
     governorateId: string;
+    lat?: number | null;
+    lng?: number | null;
     treeType: CommunityTreeType;
     message: string;
   }) => {
