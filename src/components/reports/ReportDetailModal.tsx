@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNafas } from '@/lib/store';
 import { EnvironmentalReport, ReportStatus } from '@/types';
 import { CATEGORY_INFO } from '@/lib/constants';
+import { nafasAuth } from '@/lib/auth/authService';
+import { nafasReports } from '@/lib/reports/reportService';
 import { 
   X, 
   MapPin, 
@@ -15,7 +17,8 @@ import {
   History, 
   Edit3, 
   CheckCircle, 
-  FileText 
+  FileText,
+  Trash2
 } from 'lucide-react';
 
 interface DetailModalProps {
@@ -25,21 +28,57 @@ interface DetailModalProps {
 
 export const ReportDetailModal: React.FC<DetailModalProps> = ({ report, onClose }) => {
   const { role, updateReportStatus, t } = useNafas();
+  const [authRole, setAuthRole] = useState<string | null>(null);
   const [selectedNewStatus, setSelectedNewStatus] = useState<ReportStatus>(report?.status || 'under_review');
   const [moderatorNotes, setModeratorNotes] = useState('');
   const [statusUpdatedFeedback, setStatusUpdatedFeedback] = useState(false);
 
+  useEffect(() => {
+    const unsub = nafasAuth.onAuthStateChange((session) => {
+      setAuthRole(session?.user?.role || null);
+    });
+    return unsub;
+  }, []);
+
   if (!report) return null;
 
-  const isModeratorOrAdmin = role === 'moderator' || role === 'admin';
+  const isModeratorOrAdmin =
+    role === 'moderator' ||
+    role === 'admin' ||
+    authRole === 'super_admin' ||
+    authRole === 'admin' ||
+    authRole === 'moderator';
   const catInfo = CATEGORY_INFO[report.category] || CATEGORY_INFO.garbage;
   const isResolved = report.status === 'resolved';
 
   const handleUpdateStatus = (e: React.FormEvent) => {
     e.preventDefault();
     updateReportStatus(report.id, selectedNewStatus, moderatorNotes);
+    if (nafasReports.isConfigured()) {
+      nafasReports.updateReportStatus(report.id, selectedNewStatus, moderatorNotes || 'تحديث من نافذة البلاغ').catch(() => {});
+    }
     setStatusUpdatedFeedback(true);
     setTimeout(() => setStatusUpdatedFeedback(false), 2500);
+  };
+
+  const handleKeepOnMap = () => {
+    const note = moderatorNotes.trim() || 'تم اعتماد وإبقاء البلاغ على الخريطة بواسطة المشرف';
+    updateReportStatus(report.id, 'verified', note);
+    if (nafasReports.isConfigured()) {
+      nafasReports.updateReportStatus(report.id, 'verified', note).catch(() => {});
+    }
+    setSelectedNewStatus('verified');
+    setStatusUpdatedFeedback(true);
+    setTimeout(() => setStatusUpdatedFeedback(false), 2500);
+  };
+
+  const handleRemoveFromMap = () => {
+    const note = moderatorNotes.trim() || 'تمت إزالة البلاغ من الخريطة بواسطة المشرف';
+    updateReportStatus(report.id, 'archived', note);
+    if (nafasReports.isConfigured()) {
+      nafasReports.updateReportStatus(report.id, 'archived', note).catch(() => {});
+    }
+    onClose();
   };
 
   return (
@@ -216,20 +255,39 @@ export const ReportDetailModal: React.FC<DetailModalProps> = ({ report, onClose 
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  {statusUpdatedFeedback && (
-                    <span className="text-xs text-nafas-blue font-bold flex items-center gap-1">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>تم تحديث الحالة وحفظها في سجل التدقيق بنجاح!</span>
-                    </span>
-                  )}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleKeepOnMap}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>إبقاء على الخريطة (توثيق)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFromMap}
+                      className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>إزالة من الخريطة</span>
+                    </button>
+                  </div>
+
                   <button
                     type="submit"
-                    className="mr-auto px-4 py-2 rounded-xl bg-nafas-silt hover:bg-nafas-silt/90 text-nafas-ivory text-xs font-bold shadow"
+                    className="px-4 py-2 rounded-xl bg-nafas-silt hover:bg-nafas-silt/90 text-nafas-ivory text-xs font-bold shadow"
                   >
                     حفظ التعديل في السجل
                   </button>
                 </div>
+                {statusUpdatedFeedback && (
+                  <div className="text-xs text-nafas-blue font-bold flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>تم تحديث الحالة وحفظها في سجل التدقيق بنجاح!</span>
+                  </div>
+                )}
               </form>
             </div>
           )}

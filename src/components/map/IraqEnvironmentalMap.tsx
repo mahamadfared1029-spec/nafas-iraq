@@ -193,6 +193,12 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
     }
   }, [communityTrees, map3dLoaded, currentActorId]);
 
+  useEffect(() => {
+    if (map3dLoaded) {
+      sync3dMapRecords();
+    }
+  }, [reports, map3dLoaded]);
+
   const handlePlantOrUpdateTree = async (payload: {
     authorName: string;
     governorateId: string;
@@ -463,8 +469,9 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
       if (cw.NAFAS_MAP && typeof cw.NAFAS_MAP.setRecords === 'function') {
         const records: Array<{ id: string; title: string; lat: number; lon: number; type: 'tree' | 'clean' | 'report' }> = [];
         
-        // Push only authentic reports with genuine geographic coordinates within Iraq bounds
+        // Push only active, non-archived authentic reports with genuine geographic coordinates within Iraq bounds
         reports.forEach(r => {
+          if (r.status === 'archived' || r.status === 'rejected' || r.isArchived) return;
           if (typeof r.lat === 'number' && typeof r.lng === 'number' &&
               r.lat >= 28.5 && r.lat <= 38.5 && r.lng >= 38.0 && r.lng <= 49.5) {
             records.push({
@@ -850,11 +857,53 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
 
       if (markersLayerRef.current && leafletMapRef.current) {
         import('leaflet').then(L => {
-          renderPins(L, leafletMapRef.current, markersLayerRef.current, filteredPins);
+          const visiblePins = filteredPins.filter(
+            (pin) => !reports.some((r) => r.id === pin.refId && (r.status === 'archived' || r.status === 'rejected' || r.isArchived))
+          );
+          renderPins(L, leafletMapRef.current, markersLayerRef.current, visiblePins);
+
+          // Render NAFAS Forest community trees on the 2D GIS Leaflet map too
+          const emojiMap: Record<string, string> = { palm: '🌴', sidr: '🌳', oak: '🌲', orange: '🍊' };
+          communityTrees.forEach((tree) => {
+            const gov = IRAQ_GOVERNORATES.find((g) => g.id === tree.governorateId);
+            const tLat = typeof tree.lat === 'number' && Number.isFinite(tree.lat) ? tree.lat : gov?.lat;
+            const tLng = typeof tree.lng === 'number' && Number.isFinite(tree.lng) ? tree.lng : gov?.lng;
+            if (typeof tLat !== 'number' || typeof tLng !== 'number') return;
+
+            const iconHtml = `<div style="display:flex;align-items:center;justify-content:center;width:${tree.isAdmin ? 34 : 26}px;height:${tree.isAdmin ? 34 : 26}px;border-radius:9999px;background:${tree.isAdmin ? '#FEF3C7' : '#ECFDF5'};border:2px solid ${tree.isAdmin ? '#D97706' : '#16A34A'};font-size:${tree.isAdmin ? 19 : 15}px;box-shadow:0 3px 10px rgba(0,0,0,0.3);">${emojiMap[tree.treeType] || '🌳'}</div>`;
+            const divIcon = L.divIcon({
+              html: iconHtml,
+              className: 'nafas-tree-marker',
+              iconSize: [tree.isAdmin ? 34 : 26, tree.isAdmin ? 34 : 26],
+              iconAnchor: [tree.isAdmin ? 17 : 13, tree.isAdmin ? 17 : 13],
+            });
+
+            const popupEl = document.createElement('div');
+            popupEl.style.direction = 'rtl';
+            popupEl.style.textAlign = 'right';
+            popupEl.style.fontFamily = 'inherit';
+            const titleEl = document.createElement('div');
+            titleEl.style.fontWeight = 'bold';
+            titleEl.style.fontSize = '13px';
+            titleEl.textContent = `${emojiMap[tree.treeType] || '🌳'} ${tree.authorName}${tree.isAdmin ? ' (👑 المشرف)' : ''}`;
+            const govEl = document.createElement('div');
+            govEl.style.fontSize = '11px';
+            govEl.style.color = '#62467D';
+            govEl.textContent = gov ? gov.nameAr : tree.governorateId;
+            const msgEl = document.createElement('div');
+            msgEl.style.fontSize = '12px';
+            msgEl.style.marginTop = '4px';
+            msgEl.textContent = tree.message;
+            popupEl.append(titleEl, govEl, msgEl);
+
+            L.marker([tLat, tLng], { icon: divIcon })
+              .bindPopup(popupEl)
+              .addTo(markersLayerRef.current);
+          });
         });
       }
     }
-  }, [mapLayerMode, selectedBotanicalPlantId, botanicalDistributionInfo, filteredPins, basemapProvider]);
+  }, [mapLayerMode, selectedBotanicalPlantId, botanicalDistributionInfo, filteredPins, basemapProvider, communityTrees, reports]);
 
   // Smooth fly-to on governorate change
   useEffect(() => {
