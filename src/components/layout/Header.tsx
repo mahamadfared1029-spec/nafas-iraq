@@ -102,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-[11px] text-nafas-sand/80">
             جمهورية العراق — المنصة الوطنية للعمل البيئي والمجتمعي
           </span>
-          <span className={`text-[10px] px-2 py-0.2 rounded-full hidden sm:inline-block ${currentRoleBadge.badgeColor}`}>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full hidden sm:inline-block ${currentRoleBadge.badgeColor}`}>
             {currentRoleBadge.label}
           </span>
         </div>
@@ -239,7 +239,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="px-2.5 py-1.5 rounded-xl border border-nafas-blue/30 text-nafas-silt hover:bg-nafas-misty/30 text-xs font-bold flex items-center gap-1.5 transition-all"
                   title="جواز نَفَس للمواطن"
                 >
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-nafas-misty text-nafas-silt font-mono">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-nafas-misty text-nafas-silt font-mono">
                     {passport.points}ن
                   </span>
                 </button>

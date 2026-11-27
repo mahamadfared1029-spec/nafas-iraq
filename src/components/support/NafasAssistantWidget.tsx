@@ -404,7 +404,7 @@ export const NafasAssistantWidget: React.FC<NafasAssistantWidgetProps> = ({
                   className={`max-w-[88%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed ${
                     msg.sender === 'user'
                       ? 'bg-nafas-blue text-white rounded-tl-sm'
-                      : 'bg-white text-nafas-silt border border-nafas-reed/20 rounded-tr-sm shadow-xs'
+                      : 'bg-white text-nafas-silt border border-nafas-reed/20 rounded-tr-sm shadow-sm'
                   }`}
                 >
                   <p>{msg.text}</p>

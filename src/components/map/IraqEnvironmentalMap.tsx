@@ -870,7 +870,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
           >
             <Box className="w-3.5 h-3.5 text-amber-500" />
             <span>مجسم التضاريس (3D WebGL)</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-black bg-amber-500 text-white shadow-2xs">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-black bg-amber-500 text-white shadow-sm">
               3D
             </span>
           </button>
@@ -975,7 +975,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                       onClick={() => setBasemapProvider('satellite')}
                       className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                         basemapProvider === 'satellite'
-                          ? 'bg-nafas-blue text-white shadow-xs'
+                          ? 'bg-nafas-blue text-white shadow-sm'
                           : 'text-stone-700 hover:bg-stone-100'
                       }`}
                       title="صور فضائية حقيقية من الأقمار الصناعية (ESRI World Imagery)"
@@ -987,7 +987,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                       onClick={() => setBasemapProvider('streets')}
                       className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                         basemapProvider === 'streets'
-                          ? 'bg-nafas-blue text-white shadow-xs'
+                          ? 'bg-nafas-blue text-white shadow-sm'
                           : 'text-stone-700 hover:bg-stone-100'
                       }`}
                       title="خريطة الشوارع (OpenStreetMap)"
@@ -999,7 +999,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                       onClick={() => setBasemapProvider('topo')}
                       className={`px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                         basemapProvider === 'topo'
-                          ? 'bg-nafas-blue text-white shadow-xs'
+                          ? 'bg-nafas-blue text-white shadow-sm'
                           : 'text-stone-700 hover:bg-stone-100'
                       }`}
                       title="تضاريس وارتفاعات الرافدين (ESRI World Topo Map)"
@@ -1154,7 +1154,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                     onClick={() => setSelectedBotanicalPlantId(found.id)}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
                       isSelected
-                        ? 'bg-purple-900 text-white shadow-xs'
+                        ? 'bg-purple-900 text-white shadow-sm'
                         : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
                     }`}
                   >
@@ -1221,7 +1221,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                     }}
                     className={`p-2 rounded-xl text-right text-xs transition border flex flex-col justify-between ${
                       basemapProvider === p.id
-                        ? 'bg-nafas-blue text-white border-nafas-blue shadow-xs font-bold'
+                        ? 'bg-nafas-blue text-white border-nafas-blue shadow-sm font-bold'
                         : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-200'
                     }`}
                   >
@@ -1248,7 +1248,7 @@ export const IraqEnvironmentalMap: React.FC<MapProps> = ({
                 value={tokenInput}
                 onChange={e => setTokenInput(e.target.value)}
                 placeholder="pk.eyJ1Ijo..."
-                className="w-full text-xs font-mono px-2.5 py-1.5 rounded-lg border border-stone-300 focus:outline-hidden focus:ring-1 focus:ring-nafas-blue text-stone-800"
+                className="w-full text-xs font-mono px-2.5 py-1.5 rounded-lg border border-stone-300 focus:outline-none focus:ring-1 focus:ring-nafas-blue text-stone-800"
                 dir="ltr"
               />
               <div className="flex items-center gap-2">

@@ -935,7 +935,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode = 'login
                         type="button"
                         onClick={() => setConfirmReplaceOpen(true)}
                         disabled={loading}
-                        className="w-full py-2.5 px-3 bg-white hover:bg-gray-50 text-[#62467D] font-bold text-xs rounded-xl border border-[#62467D]/30 transition-all flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
+                        className="w-full py-2.5 px-3 bg-white hover:bg-gray-50 text-[#62467D] font-bold text-xs rounded-xl border border-[#62467D]/30 transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
                       >
                         <RefreshCw className="w-4 h-4" />
                         <span>استبدال مفتاح المصادقة بمفتاح جديد</span>
@@ -943,7 +943,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode = 'login
                       <button
                         type="button"
                         onClick={onClose}
-                        className="w-full py-2 px-3 bg-[#62467D] hover:bg-[#52386A] text-white font-bold text-xs rounded-xl shadow-xs"
+                        className="w-full py-2 px-3 bg-[#62467D] hover:bg-[#52386A] text-white font-bold text-xs rounded-xl shadow-sm"
                       >
                         تم، إغلاق
                       </button>
@@ -986,7 +986,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, initialMode = 'login
                   {totpUri && (
                     <a
                       href={totpUri}
-                      className="w-full py-2.5 px-3 bg-[#62467D]/10 hover:bg-[#62467D]/20 text-[#62467D] font-bold text-xs rounded-xl border border-[#62467D]/30 transition-all flex items-center justify-center gap-2 shadow-xs"
+                      className="w-full py-2.5 px-3 bg-[#62467D]/10 hover:bg-[#62467D]/20 text-[#62467D] font-bold text-xs rounded-xl border border-[#62467D]/30 transition-all flex items-center justify-center gap-2 shadow-sm"
                     >
                       <ExternalLink className="w-4 h-4" />
                       <span>فتح وتثبيت في تطبيق المصادقة مباشرة على هذا الهاتف</span>

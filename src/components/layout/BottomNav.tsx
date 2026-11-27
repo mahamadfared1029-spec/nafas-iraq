@@ -22,7 +22,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       aria-label="شريط التنقل السفلي"
       className="fixed bottom-0 inset-x-0 z-40 bg-nafas-ivory/95 backdrop-blur-lg border-t border-nafas-reed/30 shadow-[0_-4px_20px_rgba(34,34,56,0.08)] sm:hidden transition-all duration-300 pb-[env(safe-area-inset-bottom,0px)]"
     >
-      <div className="flex items-center justify-around h-15 max-w-lg mx-auto px-2 relative">
+      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2 relative">
         
         {/* 1. الرئيسية */}
         <button

@@ -280,7 +280,7 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
             <div>
               <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <span>مركز القيادة والرقابة البيئية</span>
-                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-arabic">
                   {currentUser?.role === 'super_admin' ? 'المشرف العام (Super Admin)' : 'مشرف معتمد (Moderator)'}
                 </span>
               </h2>
@@ -313,7 +313,7 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
               <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
               <span>حالة البنية التحتية السحابية: Supabase غير متصل (BLOCKED BY EXTERNAL CONFIGURATION). يرجى تزويد متغيرات البيئة NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY.</span>
             </div>
-            <span className="text-[10px] bg-amber-200/80 px-2 py-0.5 rounded text-amber-900 font-mono">وضع الاستعداد الأمني</span>
+            <span className="text-[10px] bg-amber-200/80 px-2 py-0.5 rounded text-amber-900 font-arabic">وضع الاستعداد الأمني</span>
           </div>
         )}
 
@@ -330,7 +330,7 @@ export function FounderCommandCenter({ isOpen, onClose }: FounderCommandCenterPr
             <FileText className="w-3.5 h-3.5" />
             <span>إدارة البلاغات ({stats.total})</span>
             {stats.submitted > 0 && (
-              <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px]">
+              <span className="px-1.5 py-0.5 bg-amber-500 text-white rounded-full text-[10px]">
                 {stats.submitted}
               </span>
             )}

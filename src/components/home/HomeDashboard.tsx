@@ -224,7 +224,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 window.dispatchEvent(new CustomEvent('replay-nafas-intro'));
               }
             }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-nafas-sand/80 hover:bg-nafas-sand border border-nafas-reed/40 rounded-xl text-xs font-bold text-nafas-silt transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 bg-nafas-sand/80 hover:bg-nafas-sand border border-nafas-reed/40 rounded-xl text-xs font-bold text-nafas-silt transition-colors shadow-sm"
             title="مشاهدة المشهد السينمائي الافتتاحي لدجلة والفرات"
           >
             <PlayCircle className="w-3.5 h-3.5 text-nafas-clay" />
@@ -299,7 +299,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
             <h3 className="text-sm font-extrabold text-nafas-silt flex items-center gap-2">
               <span>المجسمات التفاعلية ثلاثية الأبعاد</span>
-              <span className="text-[10px] bg-amber-500 text-white font-black px-2 py-0.5 rounded-full shadow-2xs">
+              <span className="text-[10px] bg-amber-500 text-white font-black px-2 py-0.5 rounded-full shadow-sm">
                 3D WebGL
               </span>
             </h3>
@@ -431,7 +431,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-xs ${module.color}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm ${module.color}`}>
                       {isLocked ? <Lock className="w-5 h-5 text-stone-500" /> : <Icon className="w-5 h-5" />}
                     </div>
                     {module.badge && (
@@ -541,7 +541,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
                   <button
                     onClick={() => onNavigate('campaigns')}
-                    className="px-3 py-1.5 rounded-xl bg-nafas-blue text-nafas-ivory text-xs font-bold hover:brightness-110 transition-all shadow-xs"
+                    className="px-3 py-1.5 rounded-xl bg-nafas-blue text-nafas-ivory text-xs font-bold hover:brightness-110 transition-all shadow-sm"
                   >
                     تفاصيل والتسجيل
                   </button>
@@ -638,7 +638,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-          <div className="bg-nafas-ivory p-3.5 rounded-2xl border border-nafas-reed/20 shadow-2xs">
+          <div className="bg-nafas-ivory p-3.5 rounded-2xl border border-nafas-reed/20 shadow-sm">
             <div className="text-xl sm:text-2xl font-black text-nafas-silt font-mono">
               {impactMetrics.totalResolvedCleanups}+
             </div>
@@ -647,7 +647,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-nafas-ivory p-3.5 rounded-2xl border border-nafas-reed/20 shadow-2xs">
+          <div className="bg-nafas-ivory p-3.5 rounded-2xl border border-nafas-reed/20 shadow-sm">
             <div className="text-xl sm:text-2xl font-black text-emerald-700 font-mono">
               {impactMetrics.totalTreesPlanted.toLocaleString()}
             </div>
@@ -656,7 +656,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-nafas-ivory p-3.5 rounded-2xl border border-nafas-reed/20 shadow-2xs">
+          <div className="bg-nafas-ivory p-3.5 rounded-2xl border border-nafas-reed/20 shadow-sm">
             <div className="text-xl sm:text-2xl font-black text-nafas-blue font-mono">
               {impactMetrics.totalActiveVolunteers.toLocaleString()}
             </div>
@@ -665,7 +665,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-nafas-ivory p-3.5 rounded-2xl border border-nafas-reed/20 shadow-2xs">
+          <div className="bg-nafas-ivory p-3.5 rounded-2xl border border-nafas-reed/20 shadow-sm">
             <div className="text-xl sm:text-2xl font-black text-nafas-orchid font-mono">
               {impactMetrics.totalVolunteerHours}
             </div>

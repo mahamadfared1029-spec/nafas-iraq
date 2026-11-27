@@ -731,7 +731,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                     <img
                       src={imagePreview}
                       alt="معاينة الصورة المرفوعة"
-                      className="w-24 h-16 object-cover rounded-xl border border-nafas-reed/30 shadow-xs"
+                      className="w-24 h-16 object-cover rounded-xl border border-nafas-reed/30 shadow-sm"
                     />
                     <div className="flex-1 text-right text-xs">
                       <p className="font-bold text-nafas-silt truncate max-w-[200px]">{imageFileName || 'صورة_ميدانية.jpg'}</p>
@@ -755,7 +755,7 @@ export const ReportSubmissionModal: React.FC<ReportModalProps> = ({
                       onChange={handleImageUpload}
                       className="hidden"
                     />
-                    <div className="w-10 h-10 rounded-full bg-white shadow-xs flex items-center justify-center text-nafas-blue group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-nafas-blue group-hover:scale-105 transition-transform">
                       <Camera className="w-5 h-5" />
                     </div>
                     <div>

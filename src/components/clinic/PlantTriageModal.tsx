@@ -1113,7 +1113,7 @@ export const PlantTriageModal: React.FC<PlantTriageModalProps> = ({
 
       {/* REASON MODAL / POPOVER ("لماذا نسأل هذا السؤال؟") */}
       {activeReasonModal && TRIAGE_QUESTION_REASONS[activeReasonModal] && (
-        <div className="fixed inset-0 z-60 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-60 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-5 border border-stone-200 shadow-xl space-y-3 text-right">
             <div className="flex items-center justify-between border-b border-stone-100 pb-2">
               <span className="font-bold text-nafas-silt text-sm flex items-center gap-1.5">

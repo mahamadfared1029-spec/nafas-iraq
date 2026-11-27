@@ -341,12 +341,12 @@ export const CampaignList: React.FC<CampaignListProps> = ({ onViewCertificate, o
                     
                     {/* Top row: Type Badge + Governorate */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 shadow-xs ${typeBadge.bg}`}>
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 shadow-sm ${typeBadge.bg}`}>
                         <TypeIcon className="w-3.5 h-3.5" />
                         <span>{typeBadge.label}</span>
                       </span>
 
-                      <span className="text-xs font-bold bg-nafas-ivory text-nafas-silt px-3 py-1 rounded-full border border-nafas-reed/10 flex items-center gap-1 shadow-xs">
+                      <span className="text-xs font-bold bg-nafas-ivory text-nafas-silt px-3 py-1 rounded-full border border-nafas-reed/10 flex items-center gap-1 shadow-sm">
                         <MapPin className="w-3.5 h-3.5 text-nafas-blue" />
                         <span>{govName}</span>
                       </span>

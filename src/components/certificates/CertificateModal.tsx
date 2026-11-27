@@ -35,7 +35,7 @@ export const CertificateModal: React.FC<CertModalProps> = ({ certificate, onClos
             <X className="w-5 h-5" />
           </button>
           
-          <span className="text-xs font-bold text-nafas-silt/70y">
+          <span className="text-xs font-bold text-white/85">
             معاينة الشهادة الرقمية المعتمدة
           </span>
 
@@ -109,7 +109,7 @@ export const CertificateModal: React.FC<CertModalProps> = ({ certificate, onClos
               <div className="font-bold text-nafas-silt text-sm">
                 {certificate.organizerSignature}
               </div>
-              <span className="text-[10px] text-nafas-blue font-mono block">منسق بيئي معتمد</span>
+              <span className="text-[10px] text-nafas-blue font-arabic block">منسق بيئي معتمد</span>
             </div>
 
             {/* Central Official Digital Seal */}

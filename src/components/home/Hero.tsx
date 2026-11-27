@@ -55,7 +55,7 @@ export const Hero: React.FC<HeroProps> = ({
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-nafas-misty border border-nafas-blue/30 text-nafas-silt text-xs sm:text-sm font-semibold tracking-wide shadow-sm">
               <span className="w-2 h-2 rounded-full bg-nafas-blue animate-pulse"></span>
               <span>نَفَس — نبض بلاد الرافدين</span>
-              <span className="text-nafas-silt/60 text-xs font-mono">• منصة بيئية مجتمعية</span>
+              <span className="text-nafas-silt/60 text-xs font-arabic">• منصة بيئية مجتمعية</span>
             </div>
 
             {/* Slogan & Title */}
@@ -252,7 +252,7 @@ export const Hero: React.FC<HeroProps> = ({
                     <CheckCircle2 className="w-4 h-4 text-nafas-misty" />
                     <span className="font-arabic font-medium">آخر معالجة موثقة: كورنيش الكرادة، بغداد</span>
                   </div>
-                  <span className="text-[10px] font-mono text-nafas-misty">منذ 3 ساعات</span>
+                  <span className="text-[10px] font-arabic text-nafas-misty">منذ 3 ساعات</span>
                 </div>
 
               </div>

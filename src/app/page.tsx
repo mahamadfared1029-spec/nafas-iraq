@@ -298,7 +298,7 @@ export default function HomePage() {
                 {/* Back to Home Button */}
                 <button
                   onClick={() => navigateTo('home')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-nafas-sand/60 hover:bg-nafas-sand text-nafas-silt font-bold text-xs sm:text-sm border border-nafas-reed/30 transition-colors group shadow-2xs"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-nafas-sand/60 hover:bg-nafas-sand text-nafas-silt font-bold text-xs sm:text-sm border border-nafas-reed/30 transition-colors group shadow-sm"
                   aria-label="العودة للشاشة الرئيسية"
                 >
                   <ArrowRight className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />

@@ -112,7 +112,7 @@ export const VolunteerPassport: React.FC<PassportProps> = ({
             }`}
           >
             <span>الحملات المسجلة القادمة</span>
-            <span className="bg-nafas-blue/10 text-nafas-blue px-2 py-0.2 rounded-full text-[10px]">
+            <span className="bg-nafas-blue/10 text-nafas-blue px-2 py-0.5 rounded-full text-[10px]">
               {upcomingRegisteredCampaigns.length}
             </span>
           </button>
@@ -126,7 +126,7 @@ export const VolunteerPassport: React.FC<PassportProps> = ({
             }`}
           >
             <span>الشهادات ووثائق الأثر</span>
-            <span className="bg-purple-100 text-purple-800 px-2 py-0.2 rounded-full text-[10px]">
+            <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-[10px]">
               {displayCertificates.length}
             </span>
           </button>
@@ -139,7 +139,7 @@ export const VolunteerPassport: React.FC<PassportProps> = ({
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Identity Card */}
-              <div className="p-6 rounded-3xl bg-gradient-to-r from-nafas-sand via-white to-nafas-sand border border-nafas-reed/15 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="p-6 rounded-3xl bg-gradient-to-r from-nafas-sand via-white to-nafas-sand border border-nafas-reed/15 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-nafas-silt text-white flex items-center justify-center font-black text-2xl shadow-md border-2 border-nafas-blue shrink-0">
                     {passport.userName.charAt(0) || 'ن'}
@@ -163,7 +163,7 @@ export const VolunteerPassport: React.FC<PassportProps> = ({
                 </div>
 
                 {/* Impact Points Counter */}
-                <div className="text-center bg-nafas-ivory px-5 py-3 rounded-2xl border border-nafas-reed/15 shadow-xs">
+                <div className="text-center bg-nafas-ivory px-5 py-3 rounded-2xl border border-nafas-reed/15 shadow-sm">
                   <span className="text-xs text-nafas-neutral-slate font-bold block">
                     رصيد نقاط الأثر (الموثقة)
                   </span>
@@ -228,13 +228,13 @@ export const VolunteerPassport: React.FC<PassportProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {passport.badges.map(b => (
-                    <div key={b.id} className="p-3.5 rounded-2xl bg-nafas-sand border border-nafas-reed/15 flex items-center gap-3 shadow-xs">
+                    <div key={b.id} className="p-3.5 rounded-2xl bg-nafas-sand border border-nafas-reed/15 flex items-center gap-3 shadow-sm">
                       <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
                         <Award className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="font-bold text-xs text-nafas-silt">{b.nameAr}</div>
-                        <div className="text-[10px] text-nafas-neutral-slate font-mono">منذ {b.earnedDate}</div>
+                        <div className="text-[10px] text-nafas-neutral-slate font-arabic">منذ {b.earnedDate}</div>
                       </div>
                     </div>
                   ))}
@@ -274,7 +274,7 @@ export const VolunteerPassport: React.FC<PassportProps> = ({
                   {upcomingRegisteredCampaigns.map(camp => (
                     <div 
                       key={camp.id}
-                      className="p-5 rounded-2xl bg-nafas-sand border border-nafas-reed/15 shadow-xs space-y-3"
+                      className="p-5 rounded-2xl bg-nafas-sand border border-nafas-reed/15 shadow-sm space-y-3"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-nafas-reed/10 pb-2">
                         <div className="space-y-1">
@@ -331,7 +331,7 @@ export const VolunteerPassport: React.FC<PassportProps> = ({
                     <div
                       key={cert.id}
                       onClick={() => onSelectCertificate(cert)}
-                      className="p-4 rounded-2xl bg-nafas-sand border border-nafas-reed/15 hover:border-nafas-blue transition-all flex items-center justify-between cursor-pointer group shadow-xs"
+                      className="p-4 rounded-2xl bg-nafas-sand border border-nafas-reed/15 hover:border-nafas-blue transition-all flex items-center justify-between cursor-pointer group shadow-sm"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">

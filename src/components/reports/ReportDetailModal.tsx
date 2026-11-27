@@ -84,7 +84,7 @@ export const ReportDetailModal: React.FC<DetailModalProps> = ({ report, onClose 
                   {report.neighborhood}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-nafas-silt/70y" />
+                  <Calendar className="w-3.5 h-3.5 text-nafas-silt/70" />
                   {new Date(report.createdAt).toLocaleDateString('ar-IQ')}
                 </span>
                 <span className="flex items-center gap-1">

@@ -306,7 +306,7 @@ export const PlantClinic: React.FC<PlantClinicProps> = ({ initialShow3D = false 
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                       selectedOrchidPart === partKey
-                        ? 'bg-purple-800 text-white shadow-xs'
+                        ? 'bg-purple-800 text-white shadow-sm'
                         : 'bg-nafas-sand/60 text-nafas-silt hover:bg-nafas-sand border border-nafas-reed/30'
                     }`}
                   >

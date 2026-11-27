@@ -42,6 +42,7 @@ module.exports = {
           "blue-light": "#B797D0",
           misty: "#F0EBF5",           // Soft lavender-mist background for pills/alerts
           reed: "#BCAAA4",            // Soft warm border accent
+          "neutral-slate": "#5E607A", // Muted slate for secondary/metadata text
         },
         pin: {
           planting: "#16A34A",        // Green pin: Tree-planting campaigns (تشجير)
@@ -67,6 +68,8 @@ module.exports = {
       fontFamily: {
         arabic: ["'IBM Plex Sans Arabic'", "'Tajawal'", "system-ui", "sans-serif"],
         latin: ["'Manrope'", "'Inter'", "system-ui", "sans-serif"],
+        serif: ["Georgia", "'IBM Plex Sans Arabic'", "serif"],
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "'IBM Plex Sans Arabic'", "monospace"],
       },
       animation: {
         breathe: "breathe 6s ease-in-out infinite",

@@ -126,7 +126,7 @@ export const NafasLogo: React.FC<NafasLogoProps> = ({
 
   const LogoAsset = (
     <div 
-      className={`shrink-0 relative flex items-center justify-center bg-[#F7F1E7] rounded-full overflow-hidden shadow-xs transition-transform duration-300 hover:scale-105 ${variant === 'icon' || variant === 'emblem' ? 'w-full h-full max-w-full max-h-full' : ''}`}
+      className={`shrink-0 relative flex items-center justify-center bg-[#F7F1E7] rounded-full overflow-hidden shadow-sm transition-transform duration-300 hover:scale-105 ${variant === 'icon' || variant === 'emblem' ? 'w-full h-full max-w-full max-h-full' : ''}`}
       style={{ width: iconSize, height: iconSize, minWidth: iconSize, minHeight: iconSize }}
     >
       {/* 1. Instant Crisp Vector Artwork Base (0ms latency, always perfectly rendered) */}

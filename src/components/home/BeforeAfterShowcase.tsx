@@ -169,7 +169,7 @@ export const BeforeAfterShowcase: React.FC = () => {
                   <span>{activeReport.neighborhood}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-nafas-silt/70y shrink-0" />
+                  <Calendar className="w-4 h-4 text-nafas-silt/70 shrink-0" />
                   <span>تاريخ اكتمال المعالجة: {new Date(activeReport.updatedAt).toLocaleDateString('ar-IQ')}</span>
                 </div>
                 <div className="flex items-start gap-2">
